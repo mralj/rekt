@@ -1,14 +1,29 @@
-use rekt::types::node_record::NodeRecord;
+use rekt::{constants::BOOTSTRAP_NODES, types::node_record::NodeRecord};
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
 
-fn main() {
-    let bootstrap_nodes = [
-		"enode://1cc4534b14cfe351ab740a1418ab944a234ca2f702915eadb7e558a02010cb7c5a8c295a3b56bcefa7701c07752acd5539cb13df2aab8ae2d98934d712611443@52.71.43.172:30311",
-		"enode://28b1d16562dac280dacaaf45d54516b85bc6c994252a9825c5cc4e080d3e53446d05f63ba495ea7d44d6c316b54cd92b245c5c328c37da24605c4a93a0d099c4@34.246.65.14:30311",
-		"enode://5a7b996048d1b0a07683a949662c87c09b55247ce774aeee10bb886892e586e3c604564393292e38ef43c023ee9981e1f8b335766ec4f0f256e57f8640b079d5@35.73.137.11:30311",
-    ];
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let nodes = BOOTSTRAP_NODES
+        .iter()
+        .map(|n| n.parse().unwrap())
+        .collect::<Vec<NodeRecord>>();
 
-    for node in bootstrap_nodes.iter() {
-        let node: NodeRecord = node.parse().unwrap();
-        println!("{:?}", node);
+    for node in nodes {
+        tokio::spawn(async move {
+            let mut stream = match TcpStream::connect(node.get_socket_addr()).await {
+                Ok(stream) => stream,
+                Err(e) => {
+                    eprintln!("Failed to connect: {}", e);
+                    return;
+                }
+            };
+            // 5kb is random
+            let mut buf = [0; 5 * 1024 * 1024];
+            stream.read(&mut buf).await.unwrap();
+            println!("Received: {}", String::from_utf8_lossy(&buf));
+        });
     }
+
+    Ok(())
 }
