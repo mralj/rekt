@@ -1,4 +1,4 @@
-use rekt::types::node_record::node_record::NodeRecord;
+use rekt::types::node_record::NodeRecord;
 
 fn main() {
     let bootstrap_nodes = [
