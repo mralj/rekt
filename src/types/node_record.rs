@@ -28,6 +28,12 @@ pub struct NodeRecord {
     pub id: H512,
 }
 
+impl NodeRecord {
+    pub fn get_socket_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::new(self.address, self.tcp_port)
+    }
+}
+
 impl FromStr for NodeRecord {
     type Err = NodeRecordParseError;
 
