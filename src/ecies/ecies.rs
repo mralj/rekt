@@ -8,13 +8,13 @@ use crate::types::hash::{H256, H512};
 pub const PROTOCOL_VERSION: usize = 4;
 
 pub struct ECIES {
-    pub(super) secret_key: SecretKey,
-    pub(super) public_key: PublicKey,
+    secret_key: SecretKey,
+    public_key: PublicKey,
 
-    pub(super) ephemeral_secret_key: SecretKey,
-    pub(super) ephemeral_public_key: PublicKey,
-    pub(super) remote_public_key: Option<PublicKey>,
-    pub(super) nonce: H256,
+    ephemeral_secret_key: SecretKey,
+    ephemeral_public_key: PublicKey,
+    remote_public_key: Option<PublicKey>,
+    nonce: H256,
 }
 
 impl ECIES {
