@@ -11,3 +11,7 @@ construct_fixed_hash! {
     #[derive(AsRef, Deref, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen)]
     pub struct H256(32);
 }
+
+construct_fixed_hash! {
+    pub struct H128(16);
+}
