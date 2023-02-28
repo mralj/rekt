@@ -19,7 +19,7 @@ pub fn connect_to_node(node: NodeRecord) -> tokio::task::JoinHandle<()> {
         // and don't forget GO's implementation where they grow buffer so that buffer size is
         // basically max_msg_received_in_bytes
         // for tim being 100kb is randomly picked and should be ok
-        let mut buf = [0; 100 * KB];
+        let mut buf = bytes::BytesMut::with_capacity(100 * KB);
         loop {
             match stream.read(&mut buf).await {
                 Ok(CONN_CLOSED_FLAG) => {

@@ -6,8 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes = { version ="1.4.0", features = ["serde"] }
 color-eyre = "0.6.2"
-primitive-types = "0.12.1"
+derive_more = "0.99.17"
+fixed-hash = "0.8.0"
+open-fastrlp = {version = "0.1.4", features = ["derive"]}
+rand = "0.8.5"
+secp256k1 = { version = "0.26.0", features = ["global-context", "rand-std", "recovery"] }
+serde = "1.0.152"
 thiserror = "1.0.38"
 tokio = { version = "1.25.0",  features = ["full"] }
 url = "2.3.1"

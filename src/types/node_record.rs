@@ -1,10 +1,11 @@
-use primitive_types::H512;
 use std::{
     net::{IpAddr, Ipv4Addr},
     num::ParseIntError,
     str::FromStr,
 };
 use url::{Host, Url};
+
+use super::hash::H512;
 
 #[derive(Debug, thiserror::Error)]
 pub enum NodeRecordParseError {
