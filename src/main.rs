@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
         .iter()
         .map(|n| n.parse().unwrap())
         .into_iter()
-        .map(|n| connect_to_node(n, secret_key.clone()))
+        .map(|n| connect_to_node(n, secret_key))
         .collect::<Vec<JoinHandle<()>>>();
 
     for t in connect_to_nodes_tasks {

@@ -34,14 +34,14 @@ impl ECIES {
         let ephemeral_secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
         let ephemeral_public_key = PublicKey::from_secret_key(SECP256K1, &ephemeral_secret_key);
 
-        return Self {
+        Self {
             secret_key,
             public_key,
             ephemeral_secret_key,
             ephemeral_public_key,
             remote_public_key: Some(remote_public_key),
             nonce,
-        };
+        }
     }
 
     fn create_auth_unencrypted(&self) -> BytesMut {
