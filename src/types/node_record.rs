@@ -1,3 +1,4 @@
+use secp256k1::PublicKey;
 use std::{
     net::{IpAddr, Ipv4Addr},
     num::ParseIntError,
@@ -25,8 +26,10 @@ pub struct NodeRecord {
     pub tcp_port: u16,
     /// UDP discovery port.
     pub udp_port: u16,
-    /// Public key of the discovery service
+    /// Public id of the discovery service
     pub id: H512,
+    /// Public key of a node
+    pub pub_key: PublicKey,
 }
 
 impl NodeRecord {
@@ -78,8 +81,20 @@ impl FromStr for NodeRecord {
             id,
             tcp_port: port,
             udp_port,
+            pub_key: id2pk(id).map_err(|e| NodeRecordParseError::InvalidId(e.to_string()))?,
         })
     }
+}
+
+fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
+    // NOTE: H512 is used as a PeerId not because it represents a hash, but because 512 bits is
+    // enough to represent an uncompressed public key.
+    let mut s = [0u8; 65];
+    // SECP256K1_TAG_PUBKEY_UNCOMPRESSED = 0x04
+    // see: https://github.com/bitcoin-core/secp256k1/blob/master/include/secp256k1.h#L211
+    s[0] = 4;
+    s[1..].copy_from_slice(id.as_bytes());
+    PublicKey::from_slice(&s)
 }
 
 #[cfg(test)]
@@ -92,22 +107,28 @@ mod test {
     fn test_url_parse() {
         let url = "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@10.3.58.6:30303";
         let node: NodeRecord = url.parse().unwrap();
+        let pk = node.pub_key;
+
         assert_eq!(node, NodeRecord {
             address: IpAddr::V4([10,3,58,6].into()),
             tcp_port: 30303,
             udp_port: 30303,
             id: "6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0".parse().unwrap(),
+            pub_key: pk
         })
     }
     #[test]
     fn test_url_parse_with_disc_port() {
         let url = "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@10.3.58.6:30303?discport=30301";
         let node: NodeRecord = url.parse().unwrap();
+        let pk = node.pub_key;
+
         assert_eq!(node, NodeRecord {
             address: IpAddr::V4([10,3,58,6].into()),
             tcp_port: 30303,
             udp_port: 30301,
             id: "6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0".parse().unwrap(),
+            pub_key: pk
         })
     }
 }
