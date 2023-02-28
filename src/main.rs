@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
         .iter()
         .map(|n| n.parse().unwrap())
         .into_iter()
-        .map(move |n| connect_to_node(n))
+        .map(connect_to_node)
         .collect::<Vec<JoinHandle<()>>>();
 
     for t in connect_to_nodes_tasks {
