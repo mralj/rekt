@@ -1,19 +1,13 @@
-use aes::{cipher::StreamCipher, Aes128};
 use bytes::{BufMut, BytesMut};
-use ctr::Ctr64BE;
-use digest::crypto_common::KeyIvInit;
 use open_fastrlp::{Encodable, RlpEncodable};
 use rand::{thread_rng, Rng};
 use secp256k1::{PublicKey, SecretKey, SECP256K1};
 
-use crate::{
-    ecies::utils::{ecdh_x, pk2id},
-    types::hash::{H128, H256, H512},
-};
+use crate::types::hash::{H256, H512};
 
-use super::utils::{hmac_sha256, kdf, sha256};
+use super::utils::{ecdh_x, encrypt_message, pk2id};
 
-pub const PROTOCOL_VERSION: usize = 4;
+pub const AUT_VERSION: u8 = 4;
 
 pub struct ECIES {
     secret_key: SecretKey,
@@ -73,7 +67,7 @@ impl ECIES {
             sig_bytes: &sig_bytes,
             id: &id,
             nonce: &self.nonce,
-            protocol_version: PROTOCOL_VERSION as u8,
+            protocol_version: AUT_VERSION,
         }
         .encode(&mut out);
 
@@ -88,46 +82,16 @@ impl ECIES {
         out.put_u16(0);
 
         let mut encrypted = out.split_off(out.len());
-        self.encrypt_message(&unencrypted, &mut encrypted);
+        encrypt_message(
+            &self.remote_public_key.unwrap(),
+            &unencrypted,
+            &mut encrypted,
+        );
 
         let len_bytes = u16::try_from(encrypted.len()).unwrap().to_be_bytes();
         out[..len_bytes.len()].copy_from_slice(&len_bytes);
 
         out.unsplit(encrypted);
         buf.unsplit(out);
-    }
-
-    fn encrypt_message(&self, data: &[u8], out: &mut BytesMut) {
-        out.reserve(secp256k1::constants::UNCOMPRESSED_PUBLIC_KEY_SIZE + 16 + data.len() + 32);
-
-        let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-        out.extend_from_slice(
-            &PublicKey::from_secret_key(SECP256K1, &secret_key).serialize_uncompressed(),
-        );
-
-        let x = ecdh_x(&self.remote_public_key.unwrap(), &secret_key);
-        let mut key = [0u8; 32];
-        kdf(x, &[], &mut key);
-
-        let enc_key = H128::from_slice(&key[..16]);
-        let mac_key = sha256(&key[16..32]);
-
-        let iv = H128::random();
-        let mut encryptor = Ctr64BE::<Aes128>::new(enc_key.as_ref().into(), iv.as_ref().into());
-
-        let mut encrypted = data.to_vec();
-        encryptor.apply_keystream(&mut encrypted);
-
-        let total_size: u16 = u16::try_from(65 + 16 + data.len() + 32).unwrap();
-
-        let tag = hmac_sha256(
-            mac_key.as_ref(),
-            &[iv.as_bytes(), &encrypted],
-            &total_size.to_be_bytes(),
-        );
-
-        out.extend_from_slice(iv.as_bytes());
-        out.extend_from_slice(&encrypted);
-        out.extend_from_slice(tag.as_ref());
     }
 }

@@ -3,7 +3,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::constants::KB;
-use crate::ecies::ecies::ECIES;
+use crate::rlpx::ecies::ECIES;
 use crate::types::node_record::NodeRecord;
 
 const CONN_CLOSED_FLAG: usize = 0;

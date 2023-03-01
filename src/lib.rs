@@ -1,4 +1,4 @@
 pub mod connection;
 pub mod constants;
-pub mod ecies;
+pub mod rlpx;
 pub mod types;
