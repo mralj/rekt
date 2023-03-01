@@ -1,4 +1,5 @@
 use color_eyre::eyre::Result;
+use futures::future::join_all;
 use rekt::connection::connect_to_node;
 use rekt::constants::*;
 use secp256k1::SecretKey;
@@ -16,9 +17,7 @@ async fn main() -> Result<()> {
         .map(|n| connect_to_node(n, secret_key))
         .collect::<Vec<JoinHandle<()>>>();
 
-    for t in connect_to_nodes_tasks {
-        t.await?;
-    }
+    join_all(connect_to_nodes_tasks).await;
 
     Ok(())
 }
