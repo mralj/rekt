@@ -10,7 +10,7 @@ const CONN_CLOSED_FLAG: usize = 0;
 
 pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let mut rlpx_connection = Connection::new(secret_key, node.pub_key);
         let mut stream = match TcpStream::connect(node.get_socket_addr()).await {
             Ok(stream) => stream,
             Err(e) => {
@@ -40,7 +40,10 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
                     return;
                 }
                 Ok(_) => {
-                    println!("Got msg: {}", String::from_utf8_lossy(&buf));
+                    if let Err(e) = rlpx_connection.read_ack(&mut buf) {
+                        eprintln!("Failed to read ack: {}", e);
+                        return;
+                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to read from socket: {}", e);

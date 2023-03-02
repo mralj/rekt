@@ -74,6 +74,10 @@ pub(super) fn decrypt_message<'a>(
 
     let check_tag = hmac_sha256(mac_key.as_ref(), &[iv, encrypted_data], auth_data);
     if check_tag != tag {
+        println!(
+            "Tag check failed, \n expected: {:?}, \n got:      {:?}",
+            tag, check_tag
+        );
         return Err(RLPXError::TagCheckDecryptFailed);
     }
 
