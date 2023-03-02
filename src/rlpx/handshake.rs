@@ -1,5 +1,5 @@
 use bytes::{BufMut, BytesMut};
-use open_fastrlp::{Encodable, Rlp, RlpDecodable, RlpDecodableWrapper, RlpEncodable};
+use open_fastrlp::{Encodable, Rlp, RlpDecodable, RlpEncodable};
 use rand::{thread_rng, Rng};
 use secp256k1::SECP256K1;
 
