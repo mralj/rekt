@@ -1,8 +1,23 @@
+use derive_more::Display;
 use secp256k1::{PublicKey, SecretKey, SECP256K1};
 
 use crate::types::hash::H256;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
+pub(super) enum RLPXConnectionState {
+    /// The first stage of the RLPX handshake, where each side of the connection sends an auth
+    /// message containing the ephemeral public key, signature of the public key, nonce, and other
+    /// metadata.
+    Auth,
+    /// The second stage of the RLPX handshake, where each side of the connection sends an ack
+    /// message containing the nonce and other metadata.
+    Ack,
+    /// All other messages can be split into Header and Body
+    Header,
+    Body,
+}
 
 pub struct Connection {
+    pub(super) state: RLPXConnectionState,
     /// https://github.com/ethereum/devp2p/blob/master/rlpx.md#node-identity
     /// Our node's secret key used for signing messages it is unique per server
     /// and per specs it should be persisted between node restarts, but in practice we regenerate it
@@ -40,6 +55,7 @@ impl Connection {
             secp256k1::generate_keypair(&mut secp256k1::rand::thread_rng());
 
         Self {
+            state: RLPXConnectionState::Auth,
             secret_key,
             public_key,
             ephemeral_secret_key,

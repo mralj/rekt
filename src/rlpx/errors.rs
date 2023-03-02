@@ -23,4 +23,6 @@ pub enum RLPXError {
         /// The length of the array
         len: usize,
     },
+    #[error(transparent)]
+    DecodeError(#[from] std::io::Error),
 }

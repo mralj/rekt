@@ -1,17 +1,16 @@
+use futures::{SinkExt, TryStreamExt};
 use secp256k1::SecretKey;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_util::codec::Decoder;
+use tracing::trace;
 
-use crate::constants::KB;
 use crate::rlpx::Connection;
 use crate::types::node_record::NodeRecord;
 
-const CONN_CLOSED_FLAG: usize = 0;
-
 pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut rlpx_connection = Connection::new(secret_key, node.pub_key);
-        let mut stream = match TcpStream::connect(node.get_socket_addr()).await {
+        let rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let stream = match TcpStream::connect(node.get_socket_addr()).await {
             Ok(stream) => stream,
             Err(e) => {
                 eprintln!("Failed to connect: {}", e);
@@ -19,36 +18,37 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
             }
         };
 
-        // TODO: look more into proper buffering. I'll do this when framing is implemented
-        // for tim being 100kb is randomly picked and should be ok
-        let mut buf = bytes::BytesMut::with_capacity(100 * KB);
-        rlpx_connection.write_auth(&mut buf);
-
-        match stream.write_all(&buf).await {
+        let mut transport = rlpx_connection.framed(stream);
+        match transport.send(super::codec::RLPXOutMsg::Auth).await {
             Ok(_) => {
-                println!("Sent auth");
+                trace!("Sent auth")
             }
             Err(e) => {
-                eprintln!("Failed to write to socket: {}", e);
+                trace!("Failed to send auth: {}", e);
+                return;
             }
         }
 
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(CONN_CLOSED_FLAG) => {
-                    println!("Connection closed");
-                    return;
-                }
-                Ok(_) => {
-                    if let Err(e) = rlpx_connection.read_ack(&mut buf) {
-                        eprintln!("Failed to read ack: {}", e);
-                        return;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to read from socket: {}", e);
-                }
+        trace!("waiting for ecies ack ...");
+
+        let msg = transport.try_next().await.unwrap();
+
+        // `Framed` returns `None` if the underlying stream is no longer readable, and the codec is
+        // unable to decode another message from the (partially filled) buffer. This usually happens
+        // if the remote drops the TcpStream.
+        let msg = match msg.ok_or(super::errors::RLPXError::InvalidAckData) {
+            Ok(msg) => msg,
+            Err(e) => {
+                trace!("Failed to decode ack: {}", e);
+                return;
             }
+        };
+
+        if msg == super::codec::RLPXInMsg::Ack {
+            trace!("Got ecies ack");
+        } else {
+            trace!("Got unexpected message: {:?}", msg);
+            return;
         }
     })
 }
