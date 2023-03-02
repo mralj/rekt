@@ -1,3 +1,4 @@
+
 use secp256k1::SecretKey;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -10,7 +11,7 @@ const CONN_CLOSED_FLAG: usize = 0;
 
 pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let mut rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let rlpx_connection = Connection::new(secret_key, node.pub_key);
         let mut stream = match TcpStream::connect(node.get_socket_addr()).await {
             Ok(stream) => stream,
             Err(e) => {

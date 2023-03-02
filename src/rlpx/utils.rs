@@ -9,6 +9,45 @@ use sha2::Sha256;
 
 use crate::types::hash::{H128, H256, H512};
 
+// NOTE: completely C/P from paradigmxyz/reth
+// Code here calculates various "crypto stuff"
+
+/// Encrypts RLPX Handshake messages (AUTH and AKC) using ECIES.
+/// https://github.com/ethereum/devp2p/blob/master/rlpx.md#ecies-encryption
+pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut BytesMut) {
+    out.reserve(secp256k1::constants::UNCOMPRESSED_PUBLIC_KEY_SIZE + 16 + data.len() + 32);
+
+    let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+    out.extend_from_slice(
+        &PublicKey::from_secret_key(SECP256K1, &secret_key).serialize_uncompressed(),
+    );
+
+    let x = ecdh_x(remote_pk, &secret_key);
+    let mut key = [0u8; 32];
+    kdf(x, &[], &mut key);
+
+    let enc_key = H128::from_slice(&key[..16]);
+    let mac_key = sha256(&key[16..32]);
+
+    let iv = H128::random();
+    let mut encryptor = Ctr64BE::<Aes128>::new(enc_key.as_ref().into(), iv.as_ref().into());
+
+    let mut encrypted = data.to_vec();
+    encryptor.apply_keystream(&mut encrypted);
+
+    let total_size: u16 = u16::try_from(65 + 16 + data.len() + 32).unwrap();
+
+    let tag = hmac_sha256(
+        mac_key.as_ref(),
+        &[iv.as_bytes(), &encrypted],
+        &total_size.to_be_bytes(),
+    );
+
+    out.extend_from_slice(iv.as_bytes());
+    out.extend_from_slice(&encrypted);
+    out.extend_from_slice(tag.as_ref());
+}
+
 pub(super) fn ecdh_x(public_key: &PublicKey, secret_key: &SecretKey) -> H256 {
     H256::from_slice(&secp256k1::ecdh::shared_secret_point(public_key, secret_key)[..32])
 }
@@ -57,37 +96,4 @@ pub(super) fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256
     }
     hmac.update(auth_data);
     H256::from_slice(&hmac.finalize().into_bytes())
-}
-pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut BytesMut) {
-    out.reserve(secp256k1::constants::UNCOMPRESSED_PUBLIC_KEY_SIZE + 16 + data.len() + 32);
-
-    let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-    out.extend_from_slice(
-        &PublicKey::from_secret_key(SECP256K1, &secret_key).serialize_uncompressed(),
-    );
-
-    let x = ecdh_x(remote_pk, &secret_key);
-    let mut key = [0u8; 32];
-    kdf(x, &[], &mut key);
-
-    let enc_key = H128::from_slice(&key[..16]);
-    let mac_key = sha256(&key[16..32]);
-
-    let iv = H128::random();
-    let mut encryptor = Ctr64BE::<Aes128>::new(enc_key.as_ref().into(), iv.as_ref().into());
-
-    let mut encrypted = data.to_vec();
-    encryptor.apply_keystream(&mut encrypted);
-
-    let total_size: u16 = u16::try_from(65 + 16 + data.len() + 32).unwrap();
-
-    let tag = hmac_sha256(
-        mac_key.as_ref(),
-        &[iv.as_bytes(), &encrypted],
-        &total_size.to_be_bytes(),
-    );
-
-    out.extend_from_slice(iv.as_bytes());
-    out.extend_from_slice(&encrypted);
-    out.extend_from_slice(tag.as_ref());
 }
