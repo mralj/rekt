@@ -2,7 +2,7 @@ use open_fastrlp::DecodeError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ConnectionError {
+pub enum RLPXError {
     /// Error when parsing ACK data
     #[error("invalid ack data")]
     InvalidAckData,

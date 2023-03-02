@@ -8,7 +8,7 @@ use crate::types::{
     node_record::id2pk,
 };
 
-use super::{errors::ConnectionError, utils::*, Connection};
+use super::{errors::RLPXError, utils::*, Connection};
 
 const AUT_VERSION: u8 = 4;
 
@@ -91,13 +91,12 @@ impl Connection {
     ///
     /// This sets the `remote_ephemeral_public_key` and `remote_nonce`, and
     /// `ephemeral_shared_secret` fields in the ECIES state.
-    fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), ConnectionError> {
+    fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), RLPXError> {
         let mut data = Rlp::new(data)?;
 
-        self.remote_ephemeral_public_key = Some(id2pk(
-            data.get_next()?.ok_or(ConnectionError::InvalidAckData)?,
-        )?);
-        self.remote_nonce = Some(data.get_next()?.ok_or(ConnectionError::InvalidAckData)?);
+        self.remote_ephemeral_public_key =
+            Some(id2pk(data.get_next()?.ok_or(RLPXError::InvalidAckData)?)?);
+        self.remote_nonce = Some(data.get_next()?.ok_or(RLPXError::InvalidAckData)?);
 
         self.ephemeral_shared_secret = Some(ecdh_x(
             &self.remote_ephemeral_public_key.unwrap(),
@@ -107,7 +106,7 @@ impl Connection {
     }
 
     /// Read and verify an ack message from the input data.
-    pub fn read_ack(&mut self, data: &mut [u8]) -> Result<(), ConnectionError> {
+    pub fn read_ack(&mut self, data: &mut [u8]) -> Result<(), RLPXError> {
         let unencrypted = decrypt_message(&self.secret_key, data)?;
         self.parse_ack_unencrypted(unencrypted)?;
         //TODO:

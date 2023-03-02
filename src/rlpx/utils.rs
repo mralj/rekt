@@ -9,7 +9,7 @@ use sha2::Sha256;
 
 use crate::types::hash::{H128, H256, H512};
 
-use super::errors::ConnectionError;
+use super::errors::RLPXError;
 
 // NOTE: completely C/P from paradigmxyz/reth
 // Code here calculates various "crypto stuff"
@@ -58,7 +58,7 @@ pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut Byte
 pub(super) fn decrypt_message<'a>(
     secret_key: &SecretKey,
     data: &'a mut [u8],
-) -> Result<&'a mut [u8], ConnectionError> {
+) -> Result<&'a mut [u8], RLPXError> {
     let (auth_data, encrypted) = split_at_mut(data, 2)?;
     let (pubkey_bytes, encrypted) = split_at_mut(encrypted, 65)?;
     let public_key = PublicKey::from_slice(pubkey_bytes)?;
@@ -74,7 +74,7 @@ pub(super) fn decrypt_message<'a>(
 
     let check_tag = hmac_sha256(mac_key.as_ref(), &[iv, encrypted_data], auth_data);
     if check_tag != tag {
-        return Err(ConnectionError::TagCheckDecryptFailed);
+        return Err(RLPXError::TagCheckDecryptFailed);
     }
 
     let decrypted_data = encrypted_data;
@@ -135,9 +135,9 @@ pub(super) fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256
     H256::from_slice(&hmac.finalize().into_bytes())
 }
 
-fn split_at_mut<T>(arr: &mut [T], idx: usize) -> Result<(&mut [T], &mut [T]), ConnectionError> {
+fn split_at_mut<T>(arr: &mut [T], idx: usize) -> Result<(&mut [T], &mut [T]), RLPXError> {
     if idx > arr.len() {
-        return Err(ConnectionError::OutOfBounds {
+        return Err(RLPXError::OutOfBounds {
             idx,
             len: arr.len(),
         });
