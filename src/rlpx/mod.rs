@@ -1,4 +1,5 @@
 mod connection;
+mod errors;
 mod handshake;
 mod session;
 mod utils;

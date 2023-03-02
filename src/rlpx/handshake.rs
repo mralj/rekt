@@ -1,11 +1,14 @@
 use bytes::{BufMut, BytesMut};
-use open_fastrlp::{Encodable, RlpEncodable};
+use open_fastrlp::{Encodable, Rlp, RlpEncodable};
 use rand::{thread_rng, Rng};
 use secp256k1::SECP256K1;
 
-use crate::types::hash::{H256, H512};
+use crate::types::{
+    hash::{H256, H512},
+    node_record::id2pk,
+};
 
-use super::{utils::*, Connection};
+use super::{errors::ConnectionError, utils::*, Connection};
 
 const AUT_VERSION: u8 = 4;
 
@@ -79,5 +82,36 @@ impl Connection {
 
         out.unsplit(encrypted);
         buf.unsplit(out);
+    }
+
+    /// Parse the incoming `ack` message from the given `data` bytes, which are assumed to be
+    /// unencrypted. This parses the remote ephemeral pubkey and nonce from the message, and uses
+    /// ECDH to compute the shared secret. The shared secret is the x coordinate of the point
+    /// returned by ECDH.
+    ///
+    /// This sets the `remote_ephemeral_public_key` and `remote_nonce`, and
+    /// `ephemeral_shared_secret` fields in the ECIES state.
+    fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), ConnectionError> {
+        let mut data = Rlp::new(data)?;
+
+        self.remote_ephemeral_public_key = Some(id2pk(
+            data.get_next()?.ok_or(ConnectionError::InvalidAckData)?,
+        )?);
+        self.remote_nonce = Some(data.get_next()?.ok_or(ConnectionError::InvalidAckData)?);
+
+        self.ephemeral_shared_secret = Some(ecdh_x(
+            &self.remote_ephemeral_public_key.unwrap(),
+            &self.ephemeral_secret_key,
+        ));
+        Ok(())
+    }
+
+    /// Read and verify an ack message from the input data.
+    pub fn read_ack(&mut self, data: &mut [u8]) -> Result<(), ConnectionError> {
+        let unencrypted = decrypt_message(&self.secret_key, data)?;
+        self.parse_ack_unencrypted(unencrypted)?;
+        //TODO:
+        //self.setup_frame(false);
+        Ok(())
     }
 }

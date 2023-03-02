@@ -9,6 +9,8 @@ use sha2::Sha256;
 
 use crate::types::hash::{H128, H256, H512};
 
+use super::errors::ConnectionError;
+
 // NOTE: completely C/P from paradigmxyz/reth
 // Code here calculates various "crypto stuff"
 
@@ -46,6 +48,36 @@ pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut Byte
     out.extend_from_slice(iv.as_bytes());
     out.extend_from_slice(&encrypted);
     out.extend_from_slice(tag.as_ref());
+}
+
+pub(super) fn decrypt_message<'a>(
+    secret_key: &SecretKey,
+    data: &'a mut [u8],
+) -> Result<&'a mut [u8], ConnectionError> {
+    let (auth_data, encrypted) = split_at_mut(data, 2)?;
+    let (pubkey_bytes, encrypted) = split_at_mut(encrypted, 65)?;
+    let public_key = PublicKey::from_slice(pubkey_bytes)?;
+    let (data_iv, tag_bytes) = split_at_mut(encrypted, encrypted.len() - 32)?;
+    let (iv, encrypted_data) = split_at_mut(data_iv, 16)?;
+    let tag = H256::from_slice(tag_bytes);
+
+    let x = ecdh_x(&public_key, secret_key);
+    let mut key = [0u8; 32];
+    kdf(x, &[], &mut key);
+    let enc_key = H128::from_slice(&key[..16]);
+    let mac_key = sha256(&key[16..32]);
+
+    let check_tag = hmac_sha256(mac_key.as_ref(), &[iv, encrypted_data], auth_data);
+    if check_tag != tag {
+        return Err(ConnectionError::TagCheckDecryptFailed.into());
+    }
+
+    let decrypted_data = encrypted_data;
+
+    let mut decryptor = Ctr64BE::<Aes128>::new(enc_key.as_ref().into(), (*iv).into());
+    decryptor.apply_keystream(decrypted_data);
+
+    Ok(decrypted_data)
 }
 
 pub(super) fn ecdh_x(public_key: &PublicKey, secret_key: &SecretKey) -> H256 {
@@ -96,4 +128,15 @@ pub(super) fn hmac_sha256(key: &[u8], input: &[&[u8]], auth_data: &[u8]) -> H256
     }
     hmac.update(auth_data);
     H256::from_slice(&hmac.finalize().into_bytes())
+}
+
+fn split_at_mut<T>(arr: &mut [T], idx: usize) -> Result<(&mut [T], &mut [T]), ConnectionError> {
+    if idx > arr.len() {
+        return Err(ConnectionError::OutOfBounds {
+            idx,
+            len: arr.len(),
+        }
+        .into());
+    }
+    Ok(arr.split_at_mut(idx))
 }

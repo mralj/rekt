@@ -86,7 +86,7 @@ impl FromStr for NodeRecord {
     }
 }
 
-fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
+pub fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
     // NOTE: H512 is used as a PeerId not because it represents a hash, but because 512 bits is
     // enough to represent an uncompressed public key.
     let mut s = [0u8; 65];
