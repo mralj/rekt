@@ -1,4 +1,3 @@
-
 use secp256k1::SecretKey;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;

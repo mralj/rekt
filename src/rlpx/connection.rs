@@ -16,6 +16,7 @@ pub struct Connection {
     pub(super) ephemeral_secret_key: SecretKey,
     /// Ephemeral public key is peer's part of the _shared secret_ it will be received from peer via
     /// ACK msg
+    #[allow(dead_code)]
     pub(super) ephemeral_public_key: PublicKey,
 
     //NOTE: this is option type because we don't have remote_public_key
