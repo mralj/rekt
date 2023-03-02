@@ -69,7 +69,7 @@ pub(super) fn decrypt_message<'a>(
 
     let check_tag = hmac_sha256(mac_key.as_ref(), &[iv, encrypted_data], auth_data);
     if check_tag != tag {
-        return Err(ConnectionError::TagCheckDecryptFailed.into());
+        return Err(ConnectionError::TagCheckDecryptFailed);
     }
 
     let decrypted_data = encrypted_data;
@@ -135,8 +135,7 @@ fn split_at_mut<T>(arr: &mut [T], idx: usize) -> Result<(&mut [T], &mut [T]), Co
         return Err(ConnectionError::OutOfBounds {
             idx,
             len: arr.len(),
-        }
-        .into());
+        });
     }
     Ok(arr.split_at_mut(idx))
 }
