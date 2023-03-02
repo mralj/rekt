@@ -37,6 +37,11 @@ pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut Byte
     let mut encrypted = data.to_vec();
     encryptor.apply_keystream(&mut encrypted);
 
+    //TODO: reudce magic numbers is this file
+    //Theoretically 😁 we could
+    //a) set 16 and 32 to named constants, if we knew what they were
+    //b) extract 65 + 16 + data.len() + 32 to a named const since secp256k1::constants::UNCOMPRESSED_PUBLIC_KEY_SIZE is 6
+
     let total_size: u16 = u16::try_from(65 + 16 + data.len() + 32).unwrap();
 
     let tag = hmac_sha256(
