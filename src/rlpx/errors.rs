@@ -1,6 +1,8 @@
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
+use super::connection::RLPXConnectionState;
+
 #[derive(Debug, Error)]
 pub enum RLPXError {
     /// Error when parsing ACK data
@@ -25,4 +27,9 @@ pub enum RLPXError {
     },
     #[error(transparent)]
     DecodeError(#[from] std::io::Error),
+    #[error("Received unexpected message: {received} when expecting {expected}")]
+    UnexpectedMessage {
+        received: RLPXConnectionState,
+        expected: RLPXConnectionState,
+    },
 }

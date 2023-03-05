@@ -38,7 +38,10 @@ impl Decoder for super::Connection {
         match self.state {
             RLPXConnectionState::Auth => {
                 trace!("Received auth, this is unexpected");
-                Ok(None)
+                Err(RLPXError::UnexpectedMessage {
+                    received: RLPXConnectionState::Auth,
+                    expected: RLPXConnectionState::Ack,
+                })
             }
             RLPXConnectionState::Ack => {
                 trace!("parsing ack with len {}", src.len());

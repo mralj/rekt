@@ -3,7 +3,7 @@ use secp256k1::{PublicKey, SecretKey, SECP256K1};
 
 use crate::types::hash::H256;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
-pub(super) enum RLPXConnectionState {
+pub enum RLPXConnectionState {
     /// The first stage of the RLPX handshake, where each side of the connection sends an AUTH
     /// message containing the ephemeral public key, signature of the public key, nonce, and other
     /// metadata.
