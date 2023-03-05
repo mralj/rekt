@@ -1,13 +1,9 @@
-use aes::{cipher::StreamCipher, Aes128};
-use bytes::BytesMut;
-use ctr::Ctr64BE;
-use digest::crypto_common::KeyIvInit;
 use digest::Digest;
 use hmac::{Hmac, Mac};
-use secp256k1::{PublicKey, SecretKey, SECP256K1};
+use secp256k1::{PublicKey, SecretKey};
 use sha2::Sha256;
 
-use crate::types::hash::{H128, H256, H512};
+use crate::types::hash::{H256, H512};
 
 use super::errors::RLPXError;
 

@@ -64,6 +64,8 @@ impl Connection {
         .encode(&mut out);
 
         // auth-padding = arbitrary data
+        // as per EIP-8, we add 100-300 bytes of random data (to distinguish between the "new" -
+        // now already used for a while - and the "old" handshake)
         out.resize(out.len() + thread_rng().gen_range(100..=300), 0);
         out
     }
@@ -99,6 +101,7 @@ impl Connection {
     fn parse_ack_unencrypted(&mut self, data: &[u8]) -> Result<(), RLPXError> {
         let mut data = Rlp::new(data)?;
 
+        //ack-body = [recipient-ephemeral-pubk, recipient-nonce, ack-vsn, ...]
         self.remote_ephemeral_public_key =
             Some(id2pk(data.get_next()?.ok_or(RLPXError::InvalidAckData)?)?);
         self.remote_nonce = Some(data.get_next()?.ok_or(RLPXError::InvalidAckData)?);
