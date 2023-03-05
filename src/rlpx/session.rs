@@ -24,18 +24,13 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
                 trace!("Sent auth")
             }
             Err(e) => {
-                trace!("Failed to send auth: {}", e);
+                eprintln!("Failed to send auth: {}", e);
                 return;
             }
         }
 
-        trace!("waiting for ecies ack ...");
-
+        trace!("waiting for RLPX ack ...");
         let msg = transport.try_next().await.unwrap();
-
-        // `Framed` returns `None` if the underlying stream is no longer readable, and the codec is
-        // unable to decode another message from the (partially filled) buffer. This usually happens
-        // if the remote drops the TcpStream.
         let msg = match msg.ok_or(super::errors::RLPXError::InvalidAckData) {
             Ok(msg) => msg,
             Err(e) => {
@@ -45,10 +40,9 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
         };
 
         if msg == super::codec::RLPXInMsg::Ack {
-            trace!("Got ecies ack");
+            trace!("Got RLPX ack");
         } else {
             trace!("Got unexpected message: {:?}", msg);
-            return;
         }
     })
 }
