@@ -8,7 +8,12 @@ use crate::types::{
     node_record::id2pk,
 };
 
-use super::{errors::RLPXError, utils::*, Connection};
+use super::{
+    ecies::{decrypt_message, encrypt_message},
+    errors::RLPXError,
+    utils::*,
+    Connection,
+};
 
 const AUT_VERSION: u8 = 4;
 
