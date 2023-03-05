@@ -97,12 +97,7 @@ impl Connection {
         self.remote_ephemeral_public_key =
             Some(id2pk(data.get_next()?.ok_or(RLPXError::InvalidAckData)?)?);
         self.remote_nonce = Some(data.get_next()?.ok_or(RLPXError::InvalidAckData)?);
-        let ack_version: AckV = data.get_next()?.ok_or(RLPXError::InvalidAckData)?;
-
-        if ack_version.0 != AUT_VERSION {
-            println!("ack version: {}", ack_version.0);
-            return Err(RLPXError::InvalidAckData);
-        }
+      
 
         self.ephemeral_shared_secret = Some(ecdh_x(
             &self.remote_ephemeral_public_key.unwrap(),
@@ -121,5 +116,3 @@ impl Connection {
     }
 }
 
-#[derive(RlpDecodable)]
-struct AckV(u8);
