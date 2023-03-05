@@ -1,4 +1,4 @@
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
 
@@ -15,23 +15,16 @@ use super::{connection::RLPXConnectionState, errors::RLPXError};
 
 /// Represents message received over RLPX connection from peer
 #[derive(Debug, PartialEq, Eq)]
-pub enum RLPXInMsg {
+pub enum RLPXMsg {
     Auth,
     Ack,
-    Message(BytesMut),
+    Message,
 }
 
-/// Represents message to be sent over RLPX connection to peer
-pub enum RLPXOutMsg {
-    Auth,
-    Ack,
-    Message(Bytes),
-}
-
-const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXInMsg>, RLPXError> = Ok(None);
+const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXMsg>, RLPXError> = Ok(None);
 
 impl Decoder for super::Connection {
-    type Item = RLPXInMsg;
+    type Item = RLPXMsg;
     type Error = RLPXError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -71,7 +64,7 @@ impl Decoder for super::Connection {
                 // The decoder should also return Ok(Some(the_decoded_frame)) in this case.
                 self.read_ack(&mut src.split_to(total_size))?;
                 self.state = RLPXConnectionState::Header;
-                Ok(Some(RLPXInMsg::Ack))
+                Ok(Some(RLPXMsg::Ack))
             }
             _ => {
                 trace!("Received message");
@@ -81,21 +74,21 @@ impl Decoder for super::Connection {
     }
 }
 
-impl Encoder<RLPXOutMsg> for super::Connection {
+impl Encoder<RLPXMsg> for super::Connection {
     type Error = super::errors::RLPXError;
 
-    fn encode(&mut self, item: RLPXOutMsg, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: RLPXMsg, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RLPXOutMsg::Auth => {
+            RLPXMsg::Auth => {
                 self.write_auth(dst);
                 self.state = RLPXConnectionState::Ack;
                 Ok(())
             }
-            RLPXOutMsg::Ack => {
+            RLPXMsg::Ack => {
                 trace!("Got request to write ack, this is unexpected at this time ");
                 Ok(())
             }
-            RLPXOutMsg::Message(_) => {
+            RLPXMsg::Message => {
                 trace!("Got request to encode msg, this is unexpected at this time");
                 Ok(())
             }

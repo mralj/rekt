@@ -8,12 +8,10 @@ use tracing::Level;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let collector = tracing_subscriber::fmt()
-        // filter spans/events with level TRACE or higher.
         .with_max_level(Level::TRACE)
-        // build but do not install the subscriber.
         .finish();
 
-    tracing::subscriber::set_global_default(collector).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(collector).expect("Could not init tracing");
 
     let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
     let connect_to_nodes_tasks = BOOTSTRAP_NODES

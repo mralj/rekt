@@ -19,7 +19,7 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
         };
 
         let mut transport = rlpx_connection.framed(stream);
-        match transport.send(super::codec::RLPXOutMsg::Auth).await {
+        match transport.send(super::codec::RLPXMsg::Auth).await {
             Ok(_) => {
                 trace!("Sent auth")
             }
@@ -39,7 +39,7 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
             }
         };
 
-        if msg == super::codec::RLPXInMsg::Ack {
+        if msg == super::codec::RLPXMsg::Ack {
             trace!("Got RLPX ack");
         } else {
             trace!("Got unexpected message: {:?}", msg);
