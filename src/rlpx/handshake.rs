@@ -1,5 +1,5 @@
 use bytes::{BufMut, BytesMut};
-use open_fastrlp::{Encodable, Rlp, RlpDecodable, RlpEncodable};
+use open_fastrlp::{Encodable, Rlp, RlpEncodable};
 use rand::{thread_rng, Rng};
 use secp256k1::SECP256K1;
 
@@ -97,7 +97,6 @@ impl Connection {
         self.remote_ephemeral_public_key =
             Some(id2pk(data.get_next()?.ok_or(RLPXError::InvalidAckData)?)?);
         self.remote_nonce = Some(data.get_next()?.ok_or(RLPXError::InvalidAckData)?);
-      
 
         self.ephemeral_shared_secret = Some(ecdh_x(
             &self.remote_ephemeral_public_key.unwrap(),
@@ -115,4 +114,3 @@ impl Connection {
         Ok(())
     }
 }
-
