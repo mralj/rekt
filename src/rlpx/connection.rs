@@ -1,7 +1,12 @@
+use aes::Aes256;
+use bytes::Bytes;
+use ctr::Ctr64BE;
 use derive_more::Display;
 use secp256k1::{PublicKey, SecretKey, SECP256K1};
 
 use crate::types::hash::H256;
+
+use super::mac::MAC;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub enum RLPXConnectionState {
     /// The first stage of the RLPX handshake, where each side of the connection sends an AUTH
@@ -46,6 +51,14 @@ pub struct Connection {
     /// Nonce is a random value used for authentication, it is generated once per connection
     pub(super) nonce: H256,
     pub(super) remote_nonce: Option<H256>,
+
+    pub(super) ingress_aes: Option<Ctr64BE<Aes256>>,
+    pub(super) egress_aes: Option<Ctr64BE<Aes256>>,
+    pub(super) ingress_mac: Option<MAC>,
+    pub(super) egress_mac: Option<MAC>,
+
+    pub(super) init_msg: Option<Bytes>,
+    pub(super) remote_init_msg: Option<Bytes>,
 }
 
 impl Connection {
@@ -66,6 +79,12 @@ impl Connection {
             ephemeral_shared_secret: None,
             remote_ephemeral_public_key: None,
             remote_nonce: None,
+            ingress_aes: None,
+            egress_aes: None,
+            ingress_mac: None,
+            egress_mac: None,
+            init_msg: None,
+            remote_init_msg: None,
         }
     }
 }

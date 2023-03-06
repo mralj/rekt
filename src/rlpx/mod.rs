@@ -3,6 +3,7 @@ mod connection;
 mod ecies;
 mod errors;
 mod handshake;
+mod mac;
 mod session;
 mod utils;
 
