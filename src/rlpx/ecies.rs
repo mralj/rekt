@@ -26,7 +26,7 @@ const ECIES_METADATA_OVERHEAD: usize =
 //Per RLPX specs:
 //auth = auth-size || enc-auth-body
 //auth-size = size of enc-auth-body, encoded as a big-endian 16-bit integer, 16-bit is ofc. 2 bytes
-const RLPX_AUTH_MSG_SIZE_INFO: usize = 2;
+pub(crate) const RLPX_AUTH_MSG_LEN_MARKER: usize = 2;
 
 /// Encrypts RLPX Handshake messages (AUTH and AKC) using ECIES.
 /// https://github.com/ethereum/devp2p/blob/master/rlpx.md#ecies-encryption
@@ -70,7 +70,7 @@ pub(super) fn decrypt_message<'a>(
     secret_key: &SecretKey,
     data: &'a mut [u8],
 ) -> Result<&'a mut [u8], RLPXError> {
-    let (auth_data, encrypted) = split_at_mut(data, RLPX_AUTH_MSG_SIZE_INFO)?;
+    let (auth_data, encrypted) = split_at_mut(data, RLPX_AUTH_MSG_LEN_MARKER)?;
     let (pubkey_bytes, encrypted) = split_at_mut(encrypted, UNCOMPRESSED_PUBLIC_KEY_SIZE)?;
     let public_key = PublicKey::from_slice(pubkey_bytes)?;
     let (data_iv, tag_bytes) =
