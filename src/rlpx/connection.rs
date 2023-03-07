@@ -24,8 +24,12 @@ pub struct Connection {
     // ofc. if we are dialing peer, we must know public key (it is part of enode:// spec)
     pub(super) remote_public_key: Option<PublicKey>,
 
+    pub(super) ephemeral_shared_secret: Option<H256>,
+    pub(super) remote_ephemeral_public_key: Option<PublicKey>,
+
     /// Nonce is a random value used for authentication, it is generated once per connection
     pub(super) nonce: H256,
+    pub(super) remote_nonce: Option<H256>,
 }
 
 impl Connection {
@@ -42,6 +46,9 @@ impl Connection {
             ephemeral_public_key,
             remote_public_key: Some(remote_public_key),
             nonce,
+            ephemeral_shared_secret: None,
+            remote_ephemeral_public_key: None,
+            remote_nonce: None,
         }
     }
 }
