@@ -6,7 +6,8 @@ use sha3::{Digest, Keccak256};
 
 use crate::types::hash::{H128, H256};
 
-pub type HeaderBytes = [u8; 16];
+pub(super) const HEADER_SIZE: usize = 16;
+pub type HeaderBytes = [u8; HEADER_SIZE];
 
 /// [`Ethereum MAC`](https://github.com/ethereum/devp2p/blob/master/rlpx.md#mac) state.
 ///
@@ -67,7 +68,7 @@ impl MAC {
 
     /// Produce a digest by finalizing the internal keccak256 hasher and returning the first 128
     /// bits.
-    fn digest(&self) -> H128 {
+    pub(super) fn digest(&self) -> H128 {
         H128::from_slice(&self.hasher.clone().finalize()[..16])
     }
 }

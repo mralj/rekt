@@ -32,4 +32,12 @@ pub enum RLPXError {
         received: RLPXConnectionState,
         expected: RLPXConnectionState,
     },
+    #[error("Invalid header")]
+    InvalidHeader,
+    /// Error when checking the HMAC tag against the tag on the header
+    #[error("tag check failure in read_header")]
+    TagCheckHeaderFailed,
+    /// Error when checking the HMAC tag against the tag on the body
+    #[error("tag check failure in read_body")]
+    TagCheckBodyFailed,
 }

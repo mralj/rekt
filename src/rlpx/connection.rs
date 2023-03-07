@@ -18,7 +18,6 @@ pub enum RLPXConnectionState {
     Ack,
     /// All other messages can be split into Header and Body
     Header,
-    #[allow(dead_code)]
     Body,
 }
 
@@ -59,6 +58,8 @@ pub struct Connection {
 
     pub(super) init_msg: Option<Bytes>,
     pub(super) remote_init_msg: Option<Bytes>,
+
+    pub(super) body_size: Option<usize>,
 }
 
 impl Connection {
@@ -85,6 +86,7 @@ impl Connection {
             egress_mac: None,
             init_msg: None,
             remote_init_msg: None,
+            body_size: None,
         }
     }
 }

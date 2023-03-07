@@ -44,5 +44,20 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
         } else {
             trace!("Got unexpected message: {:?}", msg);
         }
+
+        let msg = transport.try_next().await.unwrap();
+        let msg = match msg.ok_or(super::errors::RLPXError::InvalidHeader) {
+            Ok(msg) => msg,
+            Err(e) => {
+                trace!("Failed to decode header: {}", e);
+                return;
+            }
+        };
+
+        if msg == super::codec::RLPXMsg::Message {
+            trace!("Got RLPX Message header");
+        } else {
+            trace!("Got unexpected message: {:?}", msg);
+        }
     })
 }

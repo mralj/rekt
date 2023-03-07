@@ -22,6 +22,7 @@ pub enum RLPXMsg {
 }
 
 const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXMsg>, RLPXError> = Ok(None);
+const RLPX_MSG_HEADER_LEN: usize = 32;
 
 impl Decoder for super::Connection {
     type Item = RLPXMsg;
@@ -65,6 +66,19 @@ impl Decoder for super::Connection {
                 self.read_ack(&mut src.split_to(total_size))?;
                 self.state = RLPXConnectionState::Header;
                 Ok(Some(RLPXMsg::Ack))
+            }
+            RLPXConnectionState::Header => {
+                if src.len() < RLPX_MSG_HEADER_LEN {
+                    return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                }
+
+                let expected_msg_body_size =
+                    self.read_header(&mut src.split_to(RLPX_MSG_HEADER_LEN))?;
+                trace!("Got header, expected body size {}", expected_msg_body_size);
+                src.reserve(expected_msg_body_size - src.len());
+
+                self.state = RLPXConnectionState::Body;
+                return Ok(Some(RLPXMsg::Message));
             }
             _ => {
                 trace!("Received message");
