@@ -1,3 +1,5 @@
+use std::num::TryFromIntError;
+
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
@@ -25,8 +27,8 @@ pub enum RLPXError {
         /// The length of the array
         len: usize,
     },
-    #[error(transparent)]
-    DecodeError(#[from] std::io::Error),
+    #[error("Decoding error during RLPX: {0}")]
+    DecodeError(String),
     #[error("Received unexpected message: {received} when expecting {expected}")]
     UnexpectedMessage {
         received: RLPXConnectionState,
@@ -40,4 +42,22 @@ pub enum RLPXError {
     /// Error when checking the HMAC tag against the tag on the body
     #[error("tag check failure in read_body")]
     TagCheckBodyFailed,
+}
+
+impl From<std::io::Error> for RLPXError {
+    fn from(error: std::io::Error) -> Self {
+        RLPXError::DecodeError(format!("IO error: {}", error))
+    }
+}
+
+impl From<std::array::TryFromSliceError> for RLPXError {
+    fn from(error: std::array::TryFromSliceError) -> Self {
+        RLPXError::DecodeError(format!("Slice conversion error: {}", error))
+    }
+}
+
+impl From<TryFromIntError> for RLPXError {
+    fn from(error: TryFromIntError) -> Self {
+        RLPXError::DecodeError(format!("Int conversion error: {}", error))
+    }
 }

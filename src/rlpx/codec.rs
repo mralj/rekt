@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
@@ -72,8 +74,11 @@ impl Decoder for super::Connection {
                     return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
                 }
 
+                let start = Instant::now();
                 let expected_msg_body_size =
                     self.read_header(&mut src.split_to(RLPX_MSG_HEADER_LEN))?;
+                let elapsed = start.elapsed();
+                println!("Time elapsed: {:?}", elapsed);
                 trace!("Got header, expected body size {}", expected_msg_body_size);
                 src.reserve(expected_msg_body_size - src.len());
 

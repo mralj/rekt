@@ -13,9 +13,10 @@ use super::{
 
 impl Connection {
     pub(super) fn read_header(&mut self, data: &mut BytesMut) -> Result<usize, RLPXError> {
+        //TODO: After you are sure everything is working, remove MAC and AES validation
+        // in practice we don't need to validate MAC and AES and we'll be saving couple of microseconds
         let (header_bytes, mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
-        //TODO: remove unwrap
-        let header: HeaderBytes = header_bytes.try_into().unwrap();
+        let header: HeaderBytes = header_bytes.try_into()?;
         let mac = H128::from_slice(&mac_bytes[..HEADER_SIZE]);
 
         self.ingress_mac.as_mut().unwrap().update_header(&header);
@@ -34,8 +35,7 @@ impl Connection {
             return Err(RLPXError::InvalidHeader);
         }
 
-        //TODO: remove unwrap
-        let body_size = usize::try_from(header.as_slice().read_uint::<BigEndian>(3)?).unwrap();
+        let body_size = usize::try_from(header.as_slice().read_uint::<BigEndian>(3)?)?;
 
         self.body_size = Some(body_size);
 
