@@ -19,6 +19,7 @@ impl Connection {
     pub(super) fn read_header(&mut self, data: &mut BytesMut) -> Result<usize, RLPXError> {
         //TODO: After you are sure everything is working, remove MAC and AES validation
         // in practice we don't need to validate MAC and AES and we'll be saving couple of microseconds
+        //_______
         let (header_bytes, mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
         let mut header: HeaderBytes = header_bytes.try_into()?;
         let mac = H128::from_slice(&mac_bytes[..MAC_SIZE]);
@@ -29,8 +30,8 @@ impl Connection {
         if check_mac != mac {
             return Err(RLPXError::TagCheckHeaderFailed);
         }
+        //_______
 
-        //NOTE: this is not mac validation this is msg decryption
         self.ingress_aes
             .as_mut()
             .unwrap()
@@ -54,12 +55,14 @@ impl Connection {
     pub fn read_body<'a>(&mut self, data: &'a mut [u8]) -> Result<&'a mut [u8], RLPXError> {
         let (body, mac_bytes) = split_at_mut(data, data.len() - MAC_SIZE)?;
         //TODO: after you are sure everything is working, remove MAC validation
+        //__________
         let mac = H128::from_slice(mac_bytes);
         self.ingress_mac.as_mut().unwrap().update_body(body);
         let check_mac = self.ingress_mac.as_mut().unwrap().digest();
         if check_mac != mac {
             return Err(RLPXError::TagCheckBodyFailed);
         }
+        //__________
 
         let size = self.body_size.unwrap();
         self.body_size = None;

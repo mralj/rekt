@@ -4,7 +4,7 @@ mod ecies;
 mod errors;
 mod handshake;
 mod mac;
-mod msg_parser;
+mod msg_codec;
 mod session;
 mod utils;
 

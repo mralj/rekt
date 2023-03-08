@@ -51,12 +51,10 @@ pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::
                     eprintln!("Failed to receive message: {}", e);
                     return;
                 }
-                Ok(None) => {
-                    // trace!("Waiting for more");
-                }
                 Ok(Some(msg)) => {
                     trace!("Got message: {:?}", msg);
                 }
+                _ => {}
             }
         }
     })
