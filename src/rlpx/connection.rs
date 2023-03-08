@@ -89,4 +89,13 @@ impl Connection {
             body_size: None,
         }
     }
+
+    pub fn body_len(&self) -> usize {
+        let len = self.body_size.unwrap();
+        (if len % 16 == 0 {
+            len
+        } else {
+            (len / 16 + 1) * 16
+        }) + 16
+    }
 }

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
@@ -24,7 +22,7 @@ use super::{
 pub enum RLPXMsg {
     Auth,
     Ack,
-    Message,
+    Message(BytesMut),
 }
 
 const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXMsg>, RLPXError> = Ok(None);
@@ -35,63 +33,68 @@ impl Decoder for super::Connection {
     type Error = RLPXError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        match self.state {
-            RLPXConnectionState::Auth => {
-                trace!("Received auth, this is unexpected");
-                Err(RLPXError::UnexpectedMessage {
-                    received: RLPXConnectionState::Auth,
-                    expected: RLPXConnectionState::Ack,
-                })
-            }
-            RLPXConnectionState::Ack => {
-                trace!("parsing ack with len {}", src.len());
-                // At minimum we  need 2 bytes, because per RLPX spec
-                // The first 2 bytes of the packet carry the size of msg
-                if src.len() < RLPX_AUTH_MSG_LEN_MARKER {
-                    return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+        loop {
+            match self.state {
+                RLPXConnectionState::Auth => {
+                    trace!("Received auth, this is unexpected");
+                    return Err(RLPXError::UnexpectedMessage {
+                        received: RLPXConnectionState::Auth,
+                        expected: RLPXConnectionState::Ack,
+                    });
                 }
+                RLPXConnectionState::Ack => {
+                    trace!("parsing ack with len {}", src.len());
+                    // At minimum we  need 2 bytes, because per RLPX spec
+                    // The first 2 bytes of the packet carry the size of msg
+                    if src.len() < RLPX_AUTH_MSG_LEN_MARKER {
+                        return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    }
 
-                let payload_size = u16::from_be_bytes([src[0], src[1]]) as usize;
-                let total_size = payload_size + RLPX_AUTH_MSG_LEN_MARKER;
+                    let payload_size = u16::from_be_bytes([src[0], src[1]]) as usize;
+                    let total_size = payload_size + RLPX_AUTH_MSG_LEN_MARKER;
 
-                if src.len() < total_size {
-                    trace!("current len {}, need {}", src.len(), total_size);
-                    // small perf optimization, suggested in the docs
-                    src.reserve(total_size - src.len());
-                    return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    if src.len() < total_size {
+                        trace!("current len {}, need {}", src.len(), total_size);
+                        // small perf optimization, suggested in the docs
+                        src.reserve(total_size - src.len());
+                        return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    }
+
+                    // NOTE: the split_to here will pass "new" buffer to handler
+                    // leaving the Decoder with buffer which contains remaining data [total_size, len>
+                    // this is neat way of getting the exact frame we need
+                    // whilst respecting the requirement of the Decoder trait
+                    // From the docs:
+                    // The decoder should use a method such as split_to or advance to modify the buffer such that the frame is removed from the buffer,
+                    // but any data in the buffer after that frame should still remain in the buffer.
+                    // The decoder should also return Ok(Some(the_decoded_frame)) in this case.
+                    self.read_ack(&mut src.split_to(total_size))?;
+                    self.state = RLPXConnectionState::Header;
+                    return Ok(Some(RLPXMsg::Ack));
                 }
+                RLPXConnectionState::Header => {
+                    if src.len() < RLPX_MSG_HEADER_LEN {
+                        return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    }
 
-                // NOTE: the split_to here will pass "new" buffer to handler
-                // leaving the Decoder with buffer which contains remaining data [total_size, len>
-                // this is neat way of getting the exact frame we need
-                // whilst respecting the requirement of the Decoder trait
-                // From the docs:
-                // The decoder should use a method such as split_to or advance to modify the buffer such that the frame is removed from the buffer,
-                // but any data in the buffer after that frame should still remain in the buffer.
-                // The decoder should also return Ok(Some(the_decoded_frame)) in this case.
-                self.read_ack(&mut src.split_to(total_size))?;
-                self.state = RLPXConnectionState::Header;
-                Ok(Some(RLPXMsg::Ack))
-            }
-            RLPXConnectionState::Header => {
-                if src.len() < RLPX_MSG_HEADER_LEN {
-                    return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    let expected_msg_body_size =
+                        self.read_header(&mut src.split_to(RLPX_MSG_HEADER_LEN))?;
+                    trace!("Got header, expected body size {}", expected_msg_body_size);
+                    self.state = RLPXConnectionState::Body;
                 }
+                RLPXConnectionState::Body => {
+                    if src.len() < self.body_len() {
+                        trace!("current len {}, need {}", src.len(), self.body_len());
+                        return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
+                    }
 
-                let start = Instant::now();
-                let expected_msg_body_size =
-                    self.read_header(&mut src.split_to(RLPX_MSG_HEADER_LEN))?;
-                let elapsed = start.elapsed();
-                println!("Time elapsed: {:?}", elapsed);
-                trace!("Got header, expected body size {}", expected_msg_body_size);
-                src.reserve(expected_msg_body_size - src.len());
+                    let mut data = src.split_to(self.body_len());
+                    let mut ret = BytesMut::new();
+                    ret.extend_from_slice(self.read_body(&mut data)?);
 
-                self.state = RLPXConnectionState::Body;
-                Ok(Some(RLPXMsg::Message))
-            }
-            _ => {
-                trace!("Received message");
-                Ok(None)
+                    self.state = RLPXConnectionState::Header;
+                    return Ok(Some(RLPXMsg::Message(ret)));
+                }
             }
         }
     }
@@ -111,7 +114,7 @@ impl Encoder<RLPXMsg> for super::Connection {
                 trace!("Got request to write ack, this is unexpected at this time ");
                 Ok(())
             }
-            RLPXMsg::Message => {
+            RLPXMsg::Message(_) => {
                 trace!("Got request to encode msg, this is unexpected at this time");
                 Ok(())
             }
