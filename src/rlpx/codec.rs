@@ -6,7 +6,11 @@ use tracing::trace;
 
 use crate::rlpx::ecies::RLPX_AUTH_MSG_LEN_MARKER;
 
-use super::{connection::RLPXConnectionState, errors::RLPXError};
+use super::{
+    connection::RLPXConnectionState,
+    errors::RLPXError,
+    mac::{HEADER_SIZE, MAC_SIZE},
+};
 
 /// NOTE: this module handles RLPX framing, using Tokio codec
 /// The official docs are pretty good explaining how to use this: https://docs.rs/tokio-util/0.7.7/tokio_util/codec/index.html
@@ -24,7 +28,7 @@ pub enum RLPXMsg {
 }
 
 const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXMsg>, RLPXError> = Ok(None);
-const RLPX_MSG_HEADER_LEN: usize = 32;
+const RLPX_MSG_HEADER_LEN: usize = HEADER_SIZE + MAC_SIZE;
 
 impl Decoder for super::Connection {
     type Item = RLPXMsg;
@@ -83,7 +87,7 @@ impl Decoder for super::Connection {
                 src.reserve(expected_msg_body_size - src.len());
 
                 self.state = RLPXConnectionState::Body;
-                return Ok(Some(RLPXMsg::Message));
+                Ok(Some(RLPXMsg::Message))
             }
             _ => {
                 trace!("Received message");
