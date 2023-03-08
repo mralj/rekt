@@ -18,7 +18,8 @@ const FRAME_SIZE_DESCRIPTOR_SIZE: usize = 3; // 24 bits
 impl Connection {
     pub(super) fn read_header(&mut self, data: &mut BytesMut) -> Result<usize, RLPXError> {
         //TODO: After you are sure everything is working, remove MAC and AES validation
-        // in practice we don't need to validate MAC and AES and we'll be saving couple of microseconds
+        // in practice we don't need to validate MACand we'll be saving couple of microseconds
+        // NOTE, code below calling ingres_aes is not any kind of validation, it's just decryption
         //_______
         let (header_bytes, mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
         let mut header: HeaderBytes = header_bytes.try_into()?;
