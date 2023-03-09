@@ -83,12 +83,17 @@ impl Decoder for super::Connection {
                     self.state = RLPXConnectionState::Body;
                 }
                 RLPXConnectionState::Body => {
-                    if src.len() < self.body_len() {
-                        trace!("current len {}, need {}", src.len(), self.body_len());
+                    if src.len() < self.body_size_rounded_up_to_multiple_of_frame_padding() {
+                        trace!(
+                            "current len {}, need {}",
+                            src.len(),
+                            self.body_size_rounded_up_to_multiple_of_frame_padding()
+                        );
                         return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
                     }
 
-                    let mut data = src.split_to(self.body_len());
+                    let mut data =
+                        src.split_to(self.body_size_rounded_up_to_multiple_of_frame_padding());
                     let mut ret = BytesMut::new();
                     ret.extend_from_slice(self.read_body(&mut data)?);
 

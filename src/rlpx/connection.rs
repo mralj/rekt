@@ -7,6 +7,11 @@ use secp256k1::{PublicKey, SecretKey, SECP256K1};
 use crate::types::hash::H256;
 
 use super::mac::MAC;
+
+/// Per docs: all meessages are padded to 16 bytes
+///frame-padding = zero-fill frame-data to 16-byte boundary
+const FRAME_PADDING: usize = 16;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub enum RLPXConnectionState {
     /// The first stage of the RLPX handshake, where each side of the connection sends an AUTH
@@ -90,12 +95,8 @@ impl Connection {
         }
     }
 
-    pub fn body_len(&self) -> usize {
-        let len = self.body_size.unwrap();
-        (if len % 16 == 0 {
-            len
-        } else {
-            (len / 16 + 1) * 16
-        }) + 16
+    pub fn body_size_rounded_up_to_multiple_of_frame_padding(&self) -> usize {
+        let msg_size_wo_padding = self.body_size.unwrap();
+        FRAME_PADDING * num_integer::div_ceil(msg_size_wo_padding, FRAME_PADDING) + FRAME_PADDING
     }
 }
