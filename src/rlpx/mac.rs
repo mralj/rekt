@@ -6,14 +6,19 @@ use sha3::{Digest, Keccak256};
 
 use crate::types::hash::{H128, H256};
 
-pub type HeaderBytes = [u8; 16];
+// from the docs
+// header-padding = zero-fill header to 16-byte boundary
+// this means that MAX header size is 16 bytes, and we pad till 16 bytes
+pub(super) const HEADER_SIZE: usize = 16;
+pub(super) const MAC_SIZE: usize = 16; // 128 bits
+pub type HeaderBytes = [u8; HEADER_SIZE];
 
 /// [`Ethereum MAC`](https://github.com/ethereum/devp2p/blob/master/rlpx.md#mac) state.
 ///
 /// The ethereum MAC is a cursed MAC construction.
 ///
 /// The ethereum MAC is a nonstandard MAC construction that uses AES-256 (without a mode, as a
-/// block cipher) and Keccak-256. However, it only ever encrypts messages that are 128 bits long,
+/// block cipher) and Keccak-256. However, it only ever encrypts messages that are 128(16 bytes) bits long,
 /// and is not defined as a general MAC.
 #[derive(Debug)]
 pub struct MAC {
@@ -59,7 +64,7 @@ impl MAC {
 
         aes.encrypt_padded::<NoPadding>(&mut encrypted, H128::len_bytes())
             .unwrap();
-        for i in 0..16 {
+        for i in 0..MAC_SIZE {
             encrypted[i] ^= prev[i];
         }
         self.hasher.update(encrypted);
@@ -67,7 +72,7 @@ impl MAC {
 
     /// Produce a digest by finalizing the internal keccak256 hasher and returning the first 128
     /// bits.
-    fn digest(&self) -> H128 {
-        H128::from_slice(&self.hasher.clone().finalize()[..16])
+    pub(super) fn digest(&self) -> H128 {
+        H128::from_slice(&self.hasher.clone().finalize()[..MAC_SIZE])
     }
 }

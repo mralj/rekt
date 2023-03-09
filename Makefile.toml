@@ -9,7 +9,7 @@ args = ["fmt", "--", "--emit=files"]
 
 [tasks.lint]
 command = "cargo"
-args = ["clippy", "--fix", "--allow-dirty"]
+args = ["clippy", "--fix", "--allow-dirty",  "--allow-staged"]
 
 [tasks.clean]
 command = "cargo"

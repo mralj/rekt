@@ -16,6 +16,7 @@ digest = "0.10.6"
 fixed-hash = "0.8.0"
 futures = "0.3.26"
 hmac = "0.12.1"
+num-integer = "0.1.45"
 open-fastrlp = {version = "0.1.4", features = ["derive", "std"]}
 rand = "0.8.5"
 secp256k1 = { version = "0.26.0", features = ["global-context", "rand-std", "recovery"] }
