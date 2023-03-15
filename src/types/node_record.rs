@@ -8,6 +8,12 @@ use url::{Host, Url};
 
 use super::hash::H512;
 
+const SIZE_OF_PUBLIC_KEY: usize = 64;
+const SIZE_OF_PUBLIC_KEY_WITH_REC_ID: usize = SIZE_OF_PUBLIC_KEY + 1;
+// SECP256K1_TAG_PUBKEY_UNCOMPRESSED = 0x04
+// see: https://github.com/bitcoin-core/secp256k1/blob/master/include/secp256k1.h#L211
+const SECP256K1_TAG_PUBKEY_UNCOMPRESSED: u8 = 0x04;
+
 #[derive(Debug, thiserror::Error)]
 pub enum NodeRecordParseError {
     #[error("Failed to parse url: {0}")]
@@ -89,10 +95,8 @@ impl FromStr for NodeRecord {
 pub fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
     // NOTE: H512 is used as a PeerId not because it represents a hash, but because 512 bits is
     // enough to represent an uncompressed public key.
-    let mut s = [0u8; 65];
-    // SECP256K1_TAG_PUBKEY_UNCOMPRESSED = 0x04
-    // see: https://github.com/bitcoin-core/secp256k1/blob/master/include/secp256k1.h#L211
-    s[0] = 4;
+    let mut s = [0u8; SIZE_OF_PUBLIC_KEY_WITH_REC_ID];
+    s[0] = SECP256K1_TAG_PUBKEY_UNCOMPRESSED;
     s[1..].copy_from_slice(id.as_bytes());
     PublicKey::from_slice(&s)
 }

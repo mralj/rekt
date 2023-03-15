@@ -16,11 +16,12 @@ use super::{
 // form the docs:
 // frame-size = length of frame-data, encoded as a 24bit big-endian integer
 const FRAME_SIZE_DESCRIPTOR_SIZE: usize = 3; // 24 bits
+const DESCRIPTOR_SIZE_IN_BYTES: usize = 8; //64 bits
 
 impl Connection {
     pub(super) fn read_header(&mut self, data: &mut BytesMut) -> Result<usize, RLPXError> {
         //TODO: After you are sure everything is working, remove MAC and AES validation
-        // in practice we don't need to validate MACand we'll be saving couple of microseconds
+        // in practice we don't need to validate MAC and we'll be saving couple of microseconds
         // NOTE, code below calling ingres_aes is not any kind of validation, it's just decryption
         //_______
         let (header_bytes, mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
@@ -74,7 +75,8 @@ impl Connection {
     }
 
     pub fn write_header(&mut self, out: &mut BytesMut, size: usize) {
-        let mut buf = [0u8; 8];
+        let mut buf = [0u8; DESCRIPTOR_SIZE_IN_BYTES]; // because big endian will return u64 we
+                                                       // need 8 bytes
         BigEndian::write_uint(&mut buf, size as u64, FRAME_SIZE_DESCRIPTOR_SIZE);
         let mut header = [0u8; HEADER_SIZE];
         header[..FRAME_SIZE_DESCRIPTOR_SIZE].copy_from_slice(&buf[..FRAME_SIZE_DESCRIPTOR_SIZE]);
@@ -94,6 +96,7 @@ impl Connection {
     }
 
     pub fn write_body(&mut self, out: &mut BytesMut, data: &[u8]) {
+        #[allow(unstable_name_collisions)]
         let len_with_padding = (data.len().div_ceil(&FRAME_PADDING)) * FRAME_PADDING;
         let old_len = out.len();
         out.resize(old_len + len_with_padding, 0);

@@ -21,6 +21,19 @@ use super::{
 };
 
 const AUT_VERSION: u8 = 4;
+const SIZE_OF_PUBLIC_KEY: usize = 64;
+//RecoveryId (AKA recid or v) is an extra piece of information that helps to identify which of the two possible public keys has been used to sign a given message.
+//It is often used in conjunction with the ECDSA signature scheme.
+//There are two possible public keys that could be derived from an ECDSA signature.
+//The RecoveryId is a small integer value, typically either 0 or 1, which indicates which of these two public keys was used for signing.
+//Combining this information with the signature and message allows the receiver to recover the correct public key and verify the signature.
+const SIZE_OF_PUBLIC_KEY_WITH_REC_ID: usize = SIZE_OF_PUBLIC_KEY + 1;
+
+// auth-padding = arbitrary data
+// as per EIP-8, we add 100-300 bytes of random data (to distinguish between the "new" -
+// now already used for a while - and the "old" handshake)
+const AUTH_PADDING_MIN_BYTES: usize = 100;
+const AUTH_PADDING_MAX_BYTES: usize = 300;
 
 impl Connection {
     // C/P from paradigmxyz/reth
@@ -44,15 +57,15 @@ impl Connection {
             )
             .serialize_compact();
 
-        let mut sig_bytes = [0u8; 65];
-        sig_bytes[..64].copy_from_slice(&sig);
-        sig_bytes[64] = rec_id.to_i32() as u8;
+        let mut sig_bytes = [0u8; SIZE_OF_PUBLIC_KEY_WITH_REC_ID];
+        sig_bytes[..SIZE_OF_PUBLIC_KEY].copy_from_slice(&sig);
+        sig_bytes[SIZE_OF_PUBLIC_KEY] = rec_id.to_i32() as u8;
 
         let id = pk2id(&self.public_key);
 
         #[derive(RlpEncodable)]
         struct S<'a> {
-            sig_bytes: &'a [u8; 65],
+            sig_bytes: &'a [u8; SIZE_OF_PUBLIC_KEY_WITH_REC_ID],
             id: &'a H512,
             nonce: &'a H256,
             protocol_version: u8,
@@ -68,10 +81,10 @@ impl Connection {
         }
         .encode(&mut out);
 
-        // auth-padding = arbitrary data
-        // as per EIP-8, we add 100-300 bytes of random data (to distinguish between the "new" -
-        // now already used for a while - and the "old" handshake)
-        out.resize(out.len() + thread_rng().gen_range(100..=300), 0);
+        out.resize(
+            out.len() + thread_rng().gen_range(AUTH_PADDING_MIN_BYTES..=AUTH_PADDING_MAX_BYTES),
+            0,
+        );
         out
     }
 
