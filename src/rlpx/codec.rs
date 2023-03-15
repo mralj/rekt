@@ -117,8 +117,9 @@ impl Encoder<RLPXMsg> for super::Connection {
                 trace!("Got request to write ack, this is unexpected at this time ");
                 Ok(())
             }
-            RLPXMsg::Message(_) => {
-                trace!("Got request to encode msg, this is unexpected at this time");
+            RLPXMsg::Message(msg) => {
+                self.write_header(dst, msg.len());
+                self.write_body(dst, &msg);
                 Ok(())
             }
         }

@@ -1,10 +1,12 @@
 use bytes::BytesMut;
 use cipher::StreamCipher;
-use fixed_hash::byteorder::{BigEndian, ReadBytesExt};
+use fixed_hash::byteorder::{BigEndian, ByteOrder, ReadBytesExt};
+use num_integer::Integer;
 
 use crate::types::hash::H128;
 
 use super::{
+    connection::FRAME_PADDING,
     errors::RLPXError,
     mac::{HeaderBytes, HEADER_SIZE, MAC_SIZE},
     utils::split_at_mut,
@@ -69,5 +71,40 @@ impl Connection {
         self.body_size = None;
         self.ingress_aes.as_mut().unwrap().apply_keystream(body);
         Ok(split_at_mut(body, size)?.0)
+    }
+
+    pub fn write_header(&mut self, out: &mut BytesMut, size: usize) {
+        let mut buf = [0u8; 8];
+        BigEndian::write_uint(&mut buf, size as u64, FRAME_SIZE_DESCRIPTOR_SIZE);
+        let mut header = [0u8; HEADER_SIZE];
+        header[..FRAME_SIZE_DESCRIPTOR_SIZE].copy_from_slice(&buf[..FRAME_SIZE_DESCRIPTOR_SIZE]);
+        header[3..6].copy_from_slice(&[194, 128, 128]); // I have 0 idea what this is
+
+        let mut header = header;
+        self.egress_aes
+            .as_mut()
+            .unwrap()
+            .apply_keystream(&mut header);
+        self.egress_mac.as_mut().unwrap().update_header(&header);
+        let tag = self.egress_mac.as_mut().unwrap().digest();
+
+        out.reserve(HEADER_SIZE + MAC_SIZE);
+        out.extend_from_slice(&header);
+        out.extend_from_slice(tag.as_bytes());
+    }
+
+    pub fn write_body(&mut self, out: &mut BytesMut, data: &[u8]) {
+        let len_with_padding = (data.len().div_ceil(&FRAME_PADDING)) * FRAME_PADDING;
+        let old_len = out.len();
+        out.resize(old_len + len_with_padding, 0);
+
+        let encrypted = &mut out[old_len..old_len + len_with_padding];
+        encrypted[..data.len()].copy_from_slice(data);
+
+        self.egress_aes.as_mut().unwrap().apply_keystream(encrypted);
+        self.egress_mac.as_mut().unwrap().update_body(encrypted);
+        let tag = self.egress_mac.as_mut().unwrap().digest();
+
+        out.extend_from_slice(tag.as_bytes());
     }
 }
