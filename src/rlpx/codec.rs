@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bytes::BytesMut;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
@@ -23,6 +25,16 @@ pub enum RLPXMsg {
     Auth,
     Ack,
     Message(BytesMut),
+}
+
+impl Display for RLPXMsg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RLPXMsg::Auth => write!(f, "Auth"),
+            RLPXMsg::Ack => write!(f, "Ack"),
+            RLPXMsg::Message(m) => write!(f, "Message: {:?}", m),
+        }
+    }
 }
 
 const SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED: Result<Option<RLPXMsg>, RLPXError> = Ok(None);
