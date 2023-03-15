@@ -1,4 +1,4 @@
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::SecretKey;
 use tokio::net::TcpStream;
 use tokio_util::codec::Decoder;
@@ -23,8 +23,10 @@ pub fn connect_to_node(
         transport.send(RLPXMsg::Auth).await?;
 
         trace!("waiting for RLPX ack ...");
-        let msg = transport.try_next().await?;
-        let msg = msg.ok_or(RLPXError::InvalidAckData)?;
+        let msg = transport
+            .try_next()
+            .await?
+            .ok_or(RLPXError::InvalidAckData)?;
 
         if matches!(msg, RLPXMsg::Ack) {
             trace!("Got RLPX ack");
@@ -36,17 +38,13 @@ pub fn connect_to_node(
             });
         }
 
-        loop {
-            match transport.try_next().await {
-                Err(e) => {
-                    eprintln!("Failed to receive message: {}", e);
-                    return Ok(());
-                }
-                Ok(Some(msg)) => {
-                    trace!("Got message: {:?}", msg);
-                }
-                _ => {}
-            }
-        }
+        transport
+            .for_each(|msg| {
+                trace!("Got message: {:?}", msg);
+                futures::future::ready(())
+            })
+            .await;
+
+        Ok(())
     })
 }
