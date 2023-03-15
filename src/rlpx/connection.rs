@@ -10,7 +10,7 @@ use super::mac::MAC;
 
 /// Per docs: all meessages are padded to 16 bytes
 ///frame-padding = zero-fill frame-data to 16-byte boundary
-const FRAME_PADDING: usize = 16;
+pub(super) const FRAME_PADDING: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub enum RLPXConnectionState {
