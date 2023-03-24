@@ -1,61 +1,50 @@
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::SecretKey;
 use tokio::net::TcpStream;
 use tokio_util::codec::Decoder;
 use tracing::trace;
 
+use crate::rlpx::codec::RLPXMsg;
+use crate::rlpx::errors::RLPXError;
 use crate::rlpx::Connection;
 use crate::types::node_record::NodeRecord;
 
-pub fn connect_to_node(node: NodeRecord, secret_key: SecretKey) -> tokio::task::JoinHandle<()> {
+use super::errors::RLPXSessionError;
+
+pub fn connect_to_node(
+    node: NodeRecord,
+    secret_key: SecretKey,
+) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
-        let stream = match TcpStream::connect(node.get_socket_addr()).await {
-            Ok(stream) => stream,
-            Err(e) => {
-                eprintln!("Failed to connect: {}", e);
-                return;
-            }
-        };
+        let stream = TcpStream::connect(node.get_socket_addr()).await?;
 
         let mut transport = rlpx_connection.framed(stream);
-        match transport.send(super::codec::RLPXMsg::Auth).await {
-            Ok(_) => {
-                trace!("Sent auth")
-            }
-            Err(e) => {
-                eprintln!("Failed to send auth: {}", e);
-                return;
-            }
-        }
+        transport.send(RLPXMsg::Auth).await?;
 
         trace!("waiting for RLPX ack ...");
-        let msg = transport.try_next().await.unwrap();
-        let msg = match msg.ok_or(super::errors::RLPXError::InvalidAckData) {
-            Ok(msg) => msg,
-            Err(e) => {
-                trace!("Failed to decode ack: {}", e);
-                return;
-            }
-        };
+        let msg = transport
+            .try_next()
+            .await?
+            .ok_or(RLPXError::InvalidAckData)?;
 
-        if msg == super::codec::RLPXMsg::Ack {
+        if matches!(msg, RLPXMsg::Ack) {
             trace!("Got RLPX ack");
         } else {
             trace!("Got unexpected message: {:?}", msg);
+            return Err(RLPXSessionError::UnexpectedMessage {
+                received: msg,
+                expected: RLPXMsg::Ack,
+            });
         }
 
-        loop {
-            match transport.try_next().await {
-                Err(e) => {
-                    eprintln!("Failed to receive message: {}", e);
-                    return;
-                }
-                Ok(Some(msg)) => {
-                    trace!("Got message: {:?}", msg);
-                }
-                _ => {}
-            }
-        }
+        transport
+            .for_each(|msg| {
+                trace!("Got message: {:?}", msg);
+                futures::future::ready(())
+            })
+            .await;
+
+        Ok(())
     })
 }

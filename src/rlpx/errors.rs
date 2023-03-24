@@ -3,7 +3,7 @@ use std::num::TryFromIntError;
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
-use super::connection::RLPXConnectionState;
+use super::{codec::RLPXMsg, connection::RLPXConnectionState};
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -60,4 +60,17 @@ impl From<TryFromIntError> for RLPXError {
     fn from(error: TryFromIntError) -> Self {
         RLPXError::DecodeError(format!("Int conversion error: {}", error))
     }
+}
+
+#[derive(Debug, Error)]
+pub enum RLPXSessionError {
+    #[error("RLPX error: {0}")]
+    RlpxError(#[from] RLPXError),
+    #[error("TCP IO error: {0}")]
+    TcpError(#[from] std::io::Error),
+    #[error("Unexpected message: {received} when expecting {expected}")]
+    UnexpectedMessage {
+        received: RLPXMsg,
+        expected: RLPXMsg,
+    },
 }
