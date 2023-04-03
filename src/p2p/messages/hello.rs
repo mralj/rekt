@@ -2,9 +2,7 @@ use bytes::BytesMut;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
-use crate::types::hash::H512;
-
-use super::types::Capability;
+use crate::{p2p::types::Capability, types::hash::H512};
 
 const DEFAULT_P2P_PROTOCOL_VERSION: usize = 5;
 const DEFAULT_PORT: usize = 30311;

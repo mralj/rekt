@@ -1,5 +1,7 @@
+use bytes::BytesMut;
 use futures::{SinkExt, StreamExt, TryStreamExt};
-use secp256k1::{PublicKey, Secp256k1, SecretKey};
+use open_fastrlp::Decodable;
+use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio_util::codec::Decoder;
 use tracing::trace;
@@ -9,7 +11,7 @@ use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
-use crate::types::hash::H512;
+
 use crate::types::node_record::NodeRecord;
 
 use super::errors::RLPXSessionError;
@@ -45,6 +47,27 @@ pub fn connect_to_node(
                 p2p::HelloMessage::make_our_hello_message(pk2id(&pub_key)).rlp_encode(),
             ))
             .await?;
+
+        let msg = transport
+            .try_next()
+            .await?
+            .ok_or(RLPXError::InvalidMsgData)?;
+
+        if let RLPXMsg::Message(msg) = msg {
+            let msg_id = p2p::P2PMessageID::decode(&mut &msg[..]).map_err(|_| {
+                RLPXSessionError::UnexpectedMessage {
+                    received: RLPXMsg::Message(msg),
+                    expected: RLPXMsg::Message(BytesMut::new()),
+                }
+            });
+            trace!("Got message id: {:?}", msg_id);
+        } else {
+            trace!("Got unexpected message: {:?}", msg);
+            return Err(RLPXSessionError::UnexpectedMessage {
+                received: msg,
+                expected: RLPXMsg::Message(BytesMut::new()),
+            });
+        }
 
         transport
             .for_each(|msg| {

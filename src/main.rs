@@ -18,7 +18,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let connect_to_nodes_tasks = RND_NODES
         .iter()
         .map(|n| n.parse().unwrap())
-        .into_iter()
         .map(|n| connect_to_node(n, secret_key, public_key))
         .collect::<Vec<JoinHandle<Result<(), RLPXSessionError>>>>();
 

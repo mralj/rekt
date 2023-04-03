@@ -3,13 +3,15 @@ use std::num::TryFromIntError;
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
-use super::{codec::RLPXMsg, connection::RLPXConnectionState};
+use super::codec::RLPXMsg;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
     /// Error when parsing ACK data
     #[error("invalid ack data")]
     InvalidAckData,
+    #[error("invalid msg data")]
+    InvalidMsgData,
     /// Error when checking the HMAC tag against the tag on the message being decrypted
     #[error("tag check failure in read_header")]
     TagCheckDecryptFailed,
@@ -31,8 +33,8 @@ pub enum RLPXError {
     DecodeError(String),
     #[error("Received unexpected message: {received} when expecting {expected}")]
     UnexpectedMessage {
-        received: RLPXConnectionState,
-        expected: RLPXConnectionState,
+        received: RLPXMsg,
+        expected: RLPXMsg,
     },
     #[error("Invalid header")]
     InvalidHeader,
