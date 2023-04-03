@@ -3,6 +3,8 @@ use std::num::TryFromIntError;
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
+use crate::p2p;
+
 use super::codec::RLPXMsg;
 
 #[derive(Debug, Error)]
@@ -74,5 +76,10 @@ pub enum RLPXSessionError {
     UnexpectedMessage {
         received: RLPXMsg,
         expected: RLPXMsg,
+    },
+    #[error("Unexpected message ID")]
+    UnexpectedMessageID {
+        received: p2p::P2PMessageID,
+        expected: p2p::P2PMessageID,
     },
 }
