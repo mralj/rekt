@@ -1,4 +1,5 @@
-use open_fastrlp::{RlpDecodable, RlpEncodable};
+use bytes::BytesMut;
+use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
 use crate::types::hash::H512;
@@ -50,5 +51,11 @@ impl HelloMessage {
             id,
             ..Self::default()
         }
+    }
+
+    pub fn rlp_encode(&self) -> BytesMut {
+        let mut hello_rlp = BytesMut::new();
+        self.encode(&mut hello_rlp);
+        hello_rlp
     }
 }
