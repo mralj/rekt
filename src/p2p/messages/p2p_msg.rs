@@ -1,7 +1,7 @@
-use bytes::Buf;
+use bytes::{Buf, BufMut};
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::FromPrimitive;
-use open_fastrlp::{Decodable, DecodeError};
+use num_traits::{FromPrimitive, ToPrimitive};
+use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use super::HelloMessage;
 
@@ -36,5 +36,11 @@ impl Decodable for P2PMessageID {
 
         buf.advance(1);
         Ok(id)
+    }
+}
+
+impl Encodable for P2PMessageID {
+    fn encode(&self, out: &mut dyn BufMut) {
+        self.to_u8().unwrap().encode(out);
     }
 }

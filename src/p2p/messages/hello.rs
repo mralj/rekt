@@ -53,6 +53,7 @@ impl HelloMessage {
 
     pub fn rlp_encode(&self) -> BytesMut {
         let mut hello_rlp = BytesMut::new();
+        super::P2PMessageID::Hello.encode(&mut hello_rlp);
         self.encode(&mut hello_rlp);
         hello_rlp
     }

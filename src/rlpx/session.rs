@@ -65,7 +65,7 @@ async fn handle_ack_msg(
             expected: RLPXMsg::Ack,
         });
     }
-    return Ok(());
+    Ok(())
 }
 
 async fn handle_hello_msg(
