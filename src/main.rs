@@ -1,5 +1,5 @@
 use futures::future::join_all;
-use secp256k1::SecretKey;
+use secp256k1::{Secp256k1, SecretKey};
 use tokio::task::JoinHandle;
 
 use rekt::{constants::*, rlpx::connect_to_node, rlpx::RLPXSessionError};
@@ -14,11 +14,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(collector).expect("Could not init tracing");
 
     let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
+    let public_key = secp256k1::PublicKey::from_secret_key(&Secp256k1::new(), &secret_key);
     let connect_to_nodes_tasks = RND_NODES
         .iter()
         .map(|n| n.parse().unwrap())
-        .into_iter()
-        .map(|n| connect_to_node(n, secret_key))
+        .map(|n| connect_to_node(n, secret_key, public_key))
         .collect::<Vec<JoinHandle<Result<(), RLPXSessionError>>>>();
 
     join_all(connect_to_nodes_tasks)

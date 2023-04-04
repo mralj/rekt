@@ -1,12 +1,17 @@
+use bytes::BytesMut;
 use futures::{SinkExt, StreamExt, TryStreamExt};
-use secp256k1::SecretKey;
+use open_fastrlp::Decodable;
+use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
-use tokio_util::codec::Decoder;
-use tracing::trace;
+use tokio_util::codec::{Decoder, Framed};
+use tracing::{error, info, trace};
 
+use crate::p2p;
 use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
+use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
+
 use crate::types::node_record::NodeRecord;
 
 use super::errors::RLPXSessionError;
@@ -14,6 +19,7 @@ use super::errors::RLPXSessionError;
 pub fn connect_to_node(
     node: NodeRecord,
     secret_key: SecretKey,
+    pub_key: PublicKey,
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
@@ -22,21 +28,15 @@ pub fn connect_to_node(
         let mut transport = rlpx_connection.framed(stream);
         transport.send(RLPXMsg::Auth).await?;
 
-        trace!("waiting for RLPX ack ...");
-        let msg = transport
-            .try_next()
-            .await?
-            .ok_or(RLPXError::InvalidAckData)?;
+        handle_ack_msg(&mut transport).await?;
 
-        if matches!(msg, RLPXMsg::Ack) {
-            trace!("Got RLPX ack");
-        } else {
-            trace!("Got unexpected message: {:?}", msg);
-            return Err(RLPXSessionError::UnexpectedMessage {
-                received: msg,
-                expected: RLPXMsg::Ack,
-            });
-        }
+        transport
+            .send(RLPXMsg::Message(
+                p2p::HelloMessage::make_our_hello_message(pk2id(&pub_key)).rlp_encode(),
+            ))
+            .await?;
+
+        handle_hello_msg(&mut transport).await?;
 
         transport
             .for_each(|msg| {
@@ -47,4 +47,61 @@ pub fn connect_to_node(
 
         Ok(())
     })
+}
+
+async fn handle_ack_msg(
+    transport: &mut Framed<TcpStream, Connection>,
+) -> Result<(), RLPXSessionError> {
+    trace!("waiting for RLPX ack ...");
+    let msg = transport
+        .try_next()
+        .await?
+        .ok_or(RLPXError::InvalidAckData)?;
+
+    if !matches!(msg, RLPXMsg::Ack) {
+        error!("Got unexpected message: {:?}", msg);
+        return Err(RLPXSessionError::UnexpectedMessage {
+            received: msg,
+            expected: RLPXMsg::Ack,
+        });
+    }
+    Ok(())
+}
+
+async fn handle_hello_msg(
+    transport: &mut Framed<TcpStream, Connection>,
+) -> Result<(), RLPXSessionError> {
+    let msg = transport
+        .try_next()
+        .await?
+        .ok_or(RLPXError::InvalidMsgData)?;
+
+    match msg {
+        RLPXMsg::Message(msg) => {
+            let msg_id = p2p::P2PMessageID::decode(&mut &msg[..])
+                .map_err(|e| RLPXError::DecodeError(e.to_string()))?;
+
+            if msg_id != p2p::P2PMessageID::Hello {
+                error!("Got unexpected message: {:?}", msg);
+                return Err(RLPXSessionError::UnexpectedMessageID {
+                    received: msg_id,
+                    expected: p2p::P2PMessageID::Hello,
+                });
+            }
+
+            //NOTE: we have msg[1..] because we already decoded the msg_id
+            let hello = p2p::HelloMessage::decode(&mut &msg[1..])
+                .map_err(|e| RLPXError::DecodeError(e.to_string()))?;
+
+            info!("Got hello message: {:?}", hello);
+            Ok(())
+        }
+        _ => {
+            error!("Got unexpected message: {:?}", msg);
+            Err(RLPXSessionError::UnexpectedMessage {
+                received: msg,
+                expected: RLPXMsg::Message(BytesMut::new()),
+            })
+        }
+    }
 }

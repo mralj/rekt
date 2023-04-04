@@ -50,8 +50,8 @@ impl Decoder for super::Connection {
                 RLPXConnectionState::Auth => {
                     trace!("Received auth, this is unexpected");
                     return Err(RLPXError::UnexpectedMessage {
-                        received: RLPXConnectionState::Auth,
-                        expected: RLPXConnectionState::Ack,
+                        received: RLPXMsg::Auth,
+                        expected: RLPXMsg::Ack,
                     });
                 }
                 RLPXConnectionState::Ack => {
