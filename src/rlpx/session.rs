@@ -78,19 +78,7 @@ async fn handle_hello_msg(
 
     match msg {
         RLPXMsg::Message(msg) => {
-            let msg_id = p2p::P2PMessageID::decode(&mut &msg[..])
-                .map_err(|e| RLPXError::DecodeError(e.to_string()))?;
-
-            if msg_id != p2p::P2PMessageID::Hello {
-                error!("Got unexpected message: {:?}", msg);
-                return Err(RLPXSessionError::UnexpectedMessageID {
-                    received: msg_id,
-                    expected: p2p::P2PMessageID::Hello,
-                });
-            }
-
-            //NOTE: we have msg[1..] because we already decoded the msg_id
-            let hello = p2p::HelloMessage::decode(&mut &msg[1..])
+            let hello = p2p::P2PMessage::decode(&mut &msg[..])
                 .map_err(|e| RLPXError::DecodeError(e.to_string()))?;
 
             info!("Got hello message: {:?}", hello);
