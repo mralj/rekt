@@ -14,7 +14,7 @@ use super::{
 
 /// NOTE: this module handles RLPX framing, using Tokio codec
 /// The official docs are pretty good explaining how to use this: https://docs.rs/tokio-util/0.7.7/tokio_util/codec/index.html
-/// Especially helpful were their implementations of lenghtdelimited codec:
+/// Especially helpful were their implementations of length delimited codec:
 /// https://docs.rs/tokio-util/0.7.7/src/tokio_util/codec/length_delimited.rs.html#1-1043
 /// And lines codec
 /// https://docs.rs/tokio-util/0.7.7/src/tokio_util/codec/lines_codec.rs.html#12-28

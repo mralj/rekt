@@ -8,7 +8,7 @@ use crate::types::hash::H256;
 
 use super::mac::MAC;
 
-/// Per docs: all meessages are padded to 16 bytes
+/// Per docs: all messages are padded to 16 bytes
 ///frame-padding = zero-fill frame-data to 16-byte boundary
 pub(super) const FRAME_PADDING: usize = 16;
 

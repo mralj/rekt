@@ -49,7 +49,7 @@ pub(super) fn encrypt_message(remote_pk: &PublicKey, data: &[u8], out: &mut Byte
     let mut encryptor = Ctr64BE::<Aes128>::new(enc_key.as_ref().into(), iv.as_ref().into());
 
     let mut encrypted = data.to_vec();
-    encryptor.apply_keystream(&mut encrypted);
+    StreamCipher::apply_keystream(&mut encryptor, &mut encrypted);
 
     let total_size: u16 = u16::try_from(ECIES_METADATA_OVERHEAD + data.len()).unwrap();
 
