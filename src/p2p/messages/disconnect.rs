@@ -99,9 +99,11 @@ mod tests {
 
         for reason in all_reasons {
             let reason = hex::decode(reason).unwrap();
-            let message =
-                P2PMessage::decode(crate::p2p::P2PMessageID::Disconnect, &mut &reason[1..])
-                    .unwrap();
+            let message = P2PMessage::decode(
+                crate::p2p::P2PMessageID::Disconnect as u8,
+                &mut &reason[1..],
+            )
+            .unwrap();
             let P2PMessage::Disconnect(_) = message else {
                 panic!("expected a disconnect message");
             };
@@ -112,7 +114,12 @@ mod tests {
     fn test_decode_disconnect_requested() {
         let reason = "0100";
         let reason = hex::decode(reason).unwrap();
-        match P2PMessage::decode(crate::p2p::P2PMessageID::Disconnect, &mut &reason[1..]).unwrap() {
+        match P2PMessage::decode(
+            crate::p2p::P2PMessageID::Disconnect as u8,
+            &mut &reason[1..],
+        )
+        .unwrap()
+        {
             P2PMessage::Disconnect(DisconnectReason::DisconnectRequested) => {}
             _ => {
                 unreachable!()

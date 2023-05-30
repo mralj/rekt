@@ -1,17 +1,17 @@
 use bytes::BytesMut;
 use futures::{SinkExt, TryStreamExt};
-use open_fastrlp::Decodable;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info, trace};
 
 use crate::p2p;
-use crate::p2p::{MessageID, P2PMessageID};
+use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
+use crate::types::message::{Message, MessageKind};
 
 use crate::types::node_record::NodeRecord;
 
@@ -82,59 +82,31 @@ async fn handle_hello_msg(
         .await?
         .ok_or(RLPXError::InvalidMsgData)?;
 
-    match maybe_rlpx_msg {
-        RLPXMsg::Message(rlpx_msg) => {
-            let msg_id = p2p::P2PMessageID::decode(&mut &rlpx_msg[..])?;
-            if msg_id != p2p::P2PMessageID::Hello {
-                error!("ID: Got unexpected message: {:?}", msg_id);
-                return Err(RLPXSessionError::UnknownError);
-            }
-
-            let msg = p2p::P2PMessage::decode(msg_id, &mut &rlpx_msg[1..])
-                .map_err(|e| RLPXError::DecodeError(e.to_string()))?;
-
-            match msg {
-                p2p::P2PMessage::Hello(node_info) => {
-                    info!("Received Hello: {:?}", node_info);
-                    Ok(())
-                }
-                _ => {
-                    error!("MSG: Got unexpected message: {:?}", msg);
-                    Err(RLPXSessionError::UnknownError)
-                }
-            }
+    if let RLPXMsg::Message(rlpx_msg) = maybe_rlpx_msg {
+        let mut msg = Message::new(rlpx_msg);
+        let msg_id = msg.decode_id()?;
+        if msg_id != P2PMessageID::Hello as u8 {
+            error!("ID: Got unexpected message: {:?}", msg_id);
+            return Err(RLPXSessionError::UnknownError);
         }
-        _ => {
-            error!("Not RLPX: Got unexpected message: {:?}", maybe_rlpx_msg);
-            Err(RLPXSessionError::UnexpectedMessage {
-                received: maybe_rlpx_msg,
-                expected: RLPXMsg::Message(BytesMut::new()),
-            })
+
+        msg.decode_kind()?;
+        if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg.kind {
+            info!("Received Hello: {:?}", node_info);
+            return Ok(());
         }
+
+        error!("MSG: Got unexpected message: {:?}", msg);
+        return Err(RLPXSessionError::UnknownError);
     }
+
+    error!("Not RLPX: Got unexpected message: {:?}", maybe_rlpx_msg);
+    Err(RLPXSessionError::UnexpectedMessage {
+        received: maybe_rlpx_msg,
+        expected: RLPXMsg::Message(BytesMut::new()),
+    })
 }
 
 fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
-    let msg_id = MessageID::decode(&mut &bytes[..])?;
-
-    match msg_id {
-        MessageID::P2PMessageID(P2PMessageID::Ping) => {
-            trace!("Got ping request")
-        }
-        MessageID::P2PMessageID(P2PMessageID::Pong) => {
-            trace!("Got pong request")
-        }
-        MessageID::P2PMessageID(P2PMessageID::Hello) => {
-            trace!("Got hello")
-        }
-        MessageID::P2PMessageID(P2PMessageID::Disconnect) => {
-            let p2p_msg = p2p::P2PMessage::decode(P2PMessageID::Disconnect, &mut &bytes[1..])?;
-            error!("Got Disconnect: {:?}", p2p_msg)
-        }
-        MessageID::CapabilityMessageId(id) => {
-            info!("Got CAP message: {:?}", id)
-        }
-    }
-
-    Ok(())
+    return Ok(());
 }
