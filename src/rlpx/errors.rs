@@ -68,6 +68,8 @@ impl From<TryFromIntError> for RLPXError {
 
 #[derive(Debug, Error)]
 pub enum RLPXSessionError {
+    #[error("Unknown Error")]
+    UnknownError,
     #[error("RLPX error: {0}")]
     RlpxError(#[from] RLPXError),
     #[error("TCP IO error: {0}")]
@@ -82,4 +84,6 @@ pub enum RLPXSessionError {
         received: p2p::P2PMessageID,
         expected: p2p::P2PMessageID,
     },
+    #[error("Decode error: {0}")]
+    MessageDecodeError(#[from] open_fastrlp::DecodeError),
 }

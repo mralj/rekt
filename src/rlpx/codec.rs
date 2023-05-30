@@ -20,7 +20,7 @@ use super::{
 /// https://docs.rs/tokio-util/0.7.7/src/tokio_util/codec/lines_codec.rs.html#12-28
 
 /// Represents message received over RLPX connection from peer
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RLPXMsg {
     Auth,
     Ack,
