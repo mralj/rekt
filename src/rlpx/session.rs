@@ -108,5 +108,19 @@ async fn handle_hello_msg(
 }
 
 fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
-    return Ok(());
+    let mut msg = Message::new(bytes);
+    let msg_id = msg.decode_id()?;
+    msg.decode_kind()?;
+
+    match msg.kind {
+        MessageKind::Unknown => Err(RLPXSessionError::UnknownError),
+        MessageKind::ETH => {
+            info!("Got ETH message with ID: {:?}", msg_id);
+            Ok(())
+        }
+        MessageKind::P2P(p2p_msg) => {
+            trace!("Got P2P msg: {:?}", p2p_msg);
+            Ok(())
+        }
+    }
 }
