@@ -40,7 +40,7 @@ pub enum MessageID {
 impl Decodable for MessageID {
     fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
         let maybe_p2p_msg = P2PMessageID::decode(buf);
-        if !maybe_p2p_msg.is_err() {
+        if maybe_p2p_msg.is_ok() {
             return Ok(MessageID::P2PMessageID(maybe_p2p_msg.unwrap()));
         }
 
