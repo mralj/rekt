@@ -42,13 +42,14 @@ pub fn connect_to_node(
         loop {
             let msg = transport.try_next().await?;
             if msg.is_none() {
-                return Err(RLPXSessionError::UnknownError);
+                return Err(RLPXSessionError::NoMessage);
             }
 
-            match msg.unwrap() {
+            let msg = msg.unwrap();
+            match msg {
                 RLPXMsg::Message(m) => handle_messages(m)?,
                 _ => {
-                    return Err(RLPXSessionError::UnknownError);
+                    return Err(RLPXSessionError::ExpectedRLPXMessage { received: msg });
                 }
             }
         }
@@ -87,7 +88,10 @@ async fn handle_hello_msg(
         let msg_id = msg.decode_id()?;
         if msg_id != P2PMessageID::Hello as u8 {
             error!("ID: Got unexpected message: {:?}", msg_id);
-            return Err(RLPXSessionError::UnknownError);
+            return Err(RLPXSessionError::UnexpectedMessageID {
+                received: msg_id,
+                expected: P2PMessageID::Hello,
+            });
         }
 
         msg.decode_kind()?;
@@ -97,13 +101,15 @@ async fn handle_hello_msg(
         }
 
         error!("MSG: Got unexpected message: {:?}", msg);
-        return Err(RLPXSessionError::UnknownError);
+        return Err(RLPXSessionError::UnexpectedP2PMessage {
+            received: msg.kind,
+            expected: MessageKind::P2P(P2PMessage::Hello(p2p::HelloMessage::empty())),
+        });
     }
 
     error!("Not RLPX: Got unexpected message: {:?}", maybe_rlpx_msg);
-    Err(RLPXSessionError::UnexpectedMessage {
+    Err(RLPXSessionError::ExpectedRLPXMessage {
         received: maybe_rlpx_msg,
-        expected: RLPXMsg::Message(BytesMut::new()),
     })
 }
 

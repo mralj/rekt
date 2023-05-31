@@ -1,4 +1,5 @@
 use bytes::BufMut;
+use derive_more::Display;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 use open_fastrlp::{Decodable, DecodeError, Encodable};
@@ -19,7 +20,7 @@ impl Encodable for P2PMessageID {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Display)]
 pub enum P2PMessage {
     /// The first packet sent over the connection, and sent once by both sides.
     Hello(HelloMessage),
