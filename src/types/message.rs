@@ -13,7 +13,7 @@ const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
 // ETH message have IDs 16 onward, and ATM there is 16 message types
 const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone)]
 pub enum MessageKind {
     Unknown,
     P2P(P2PMessage),
@@ -52,7 +52,7 @@ impl Message {
         }
     }
 
-    pub fn decode_kind(&mut self) -> Result<(), DecodeError> {
+    pub fn decode_kind(&mut self) -> Result<&MessageKind, DecodeError> {
         if self.id.is_none() {
             return Err(DecodeError::Custom(
                 "Cannot decode message if ID is invalid",
@@ -61,6 +61,12 @@ impl Message {
 
         let id = self.id.unwrap();
         match id {
+            // 0x00 Hello
+            // 0x01 Disconnect
+            // 0x02 Ping
+            // 0x03 Pong
+            // I tried to derive from P2PMessageId enum this  but I could not find sane way
+            // So leaving this as is
             0x0..=0x03 => {
                 let p2p_msg = P2PMessage::decode(id, &mut &self.data[..])?;
                 self.kind = MessageKind::P2P(p2p_msg);
@@ -68,6 +74,6 @@ impl Message {
             _ => self.kind = MessageKind::ETH,
         }
 
-        Ok(())
+        Ok(&self.kind)
     }
 }

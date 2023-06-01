@@ -94,8 +94,8 @@ async fn handle_hello_msg(
             });
         }
 
-        msg.decode_kind()?;
-        if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg.kind {
+        let msg_kind = msg.decode_kind()?;
+        if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg_kind {
             info!("Received Hello: {:?}", node_info);
             return Ok(());
         }
@@ -116,9 +116,9 @@ async fn handle_hello_msg(
 fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
     let mut msg = Message::new(bytes);
     let msg_id = msg.decode_id()?;
-    msg.decode_kind()?;
+    let msg_kind = msg.decode_kind()?;
 
-    match msg.kind {
+    match msg_kind {
         MessageKind::Unknown => Err(RLPXSessionError::UnknownError),
         MessageKind::ETH => {
             info!("Got ETH message with ID: {:?}", msg_id);
