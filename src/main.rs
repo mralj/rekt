@@ -24,9 +24,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     join_all(connect_to_nodes_tasks)
         .await
         .iter()
-        .filter(|e| e.is_err())
-        .for_each(|e| {
-            if let Ok(Err(e)) = e {
+        .for_each(|task_result| {
+            if let Ok(Err(e)) = task_result {
                 error!("{}", e)
             }
         });
