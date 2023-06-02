@@ -15,14 +15,13 @@ const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
 
 #[derive(Debug, Display, Clone)]
 pub enum MessageKind {
-    Unknown,
     P2P(P2PMessage),
     ETH,
 }
 
 #[derive(Debug)]
 pub struct Message {
-    pub(crate) kind: MessageKind,
+    pub(crate) kind: Option<MessageKind>,
     pub(crate) data: BytesMut,
     pub(crate) id: Option<u8>,
 }
@@ -31,7 +30,7 @@ impl Message {
     pub fn new(data: BytesMut) -> Self {
         Message {
             id: None,
-            kind: MessageKind::Unknown,
+            kind: None,
             data,
         }
     }
@@ -52,7 +51,7 @@ impl Message {
         }
     }
 
-    pub fn decode_kind(&mut self) -> Result<&MessageKind, DecodeError> {
+    pub fn decode_kind(&mut self) -> Result<&Option<MessageKind>, DecodeError> {
         if self.id.is_none() {
             return Err(DecodeError::Custom(
                 "Cannot decode message if ID is invalid",
@@ -69,9 +68,9 @@ impl Message {
             // So leaving this as is
             0x0..=0x03 => {
                 let p2p_msg = P2PMessage::decode(id, &mut &self.data[..])?;
-                self.kind = MessageKind::P2P(p2p_msg);
+                self.kind = Some(MessageKind::P2P(p2p_msg));
             }
-            _ => self.kind = MessageKind::ETH,
+            _ => self.kind = Some(MessageKind::ETH),
         }
 
         Ok(&self.kind)

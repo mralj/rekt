@@ -102,14 +102,14 @@ async fn handle_hello_msg(
 
         if msg_id == P2PMessageID::Hello as u8 {
             msg.decode_kind()?;
-            if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg.kind {
+            if let Some(MessageKind::P2P(P2PMessage::Hello(node_info))) = msg.kind {
                 return Ok(node_info);
             }
         }
 
         if msg_id == P2PMessageID::Disconnect as u8 {
             let msg_kind = msg.decode_kind()?;
-            if let MessageKind::P2P(P2PMessage::Disconnect(reason)) = msg_kind {
+            if let Some(MessageKind::P2P(P2PMessage::Disconnect(reason))) = msg_kind {
                 return Err(RLPXSessionError::DisconnectRequested(reason.to_owned()));
             }
         }
@@ -132,12 +132,12 @@ fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
     let msg_kind = msg.decode_kind()?;
 
     match msg_kind {
-        MessageKind::Unknown => Err(RLPXSessionError::UnknownError),
-        MessageKind::ETH => {
+        None => Err(RLPXSessionError::UnknownError),
+        Some(MessageKind::ETH) => {
             info!("Got ETH message with ID: {:?}", msg_id);
             Ok(())
         }
-        MessageKind::P2P(p2p_msg) => {
+        Some(MessageKind::P2P(p2p_msg)) => {
             trace!("Got P2P msg: {:?}", p2p_msg);
             Ok(())
         }
