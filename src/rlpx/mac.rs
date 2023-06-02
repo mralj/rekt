@@ -21,6 +21,7 @@ pub type HeaderBytes = [u8; HEADER_SIZE];
 /// block cipher) and Keccak-256. However, it only ever encrypts messages that are 128(16 bytes) bits long,
 /// and is not defined as a general MAC.
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct MAC {
     secret: H256,
     hasher: Keccak256,

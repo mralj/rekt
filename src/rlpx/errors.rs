@@ -3,10 +3,8 @@ use std::num::TryFromIntError;
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
-use crate::p2p;
-use crate::types::message::MessageKind;
-
 use super::codec::RLPXMsg;
+use crate::p2p;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -90,10 +88,9 @@ pub enum RLPXSessionError {
         expected: p2p::P2PMessageID,
     },
     #[error("Unexpected message: {received} when expecting {expected}")]
-    UnexpectedP2PMessage {
-        received: MessageKind,
-        expected: MessageKind,
-    },
+    UnexpectedP2PMessage { received: u8, expected: u8 },
     #[error("Decode error: {0}")]
     MessageDecodeError(#[from] open_fastrlp::DecodeError),
+    #[error("Disconnect requested: {0}")]
+    DisconnectRequested(p2p::DisconnectReason),
 }

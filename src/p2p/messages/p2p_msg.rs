@@ -6,7 +6,7 @@ use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use super::{DisconnectReason, HelloMessage};
 
-#[derive(Debug, Clone, PartialEq, Eq, FromPrimitive, ToPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub enum P2PMessageID {
     Hello = 0x00,
     Disconnect = 0x01,

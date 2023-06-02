@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info, trace};
 
-use crate::p2p;
+use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
@@ -37,7 +37,20 @@ pub fn connect_to_node(
             ))
             .await?;
 
-        handle_hello_msg(&mut transport).await?;
+        match handle_hello_msg(&mut transport).await {
+            Ok(hello_msg) => {
+                info!("Received Hello: {:?}", hello_msg);
+            }
+            Err(e) => {
+                if let RLPXSessionError::DisconnectRequested(reason) = e {
+                    //NOTE: we can further handle disconnects here
+                    // like logging this to file or deciding to retry based on disconnect
+                    // reason/count
+                    error!("Disconnect requested: {}", reason);
+                }
+                return Err(e);
+            }
+        }
 
         loop {
             let msg = transport.try_next().await?;
@@ -77,7 +90,7 @@ async fn handle_ack_msg(
 
 async fn handle_hello_msg(
     transport: &mut Framed<TcpStream, Connection>,
-) -> Result<(), RLPXSessionError> {
+) -> Result<HelloMessage, RLPXSessionError> {
     let maybe_rlpx_msg = transport
         .try_next()
         .await?
@@ -86,24 +99,24 @@ async fn handle_hello_msg(
     if let RLPXMsg::Message(rlpx_msg) = maybe_rlpx_msg {
         let mut msg = Message::new(rlpx_msg);
         let msg_id = msg.decode_id()?;
-        if msg_id != P2PMessageID::Hello as u8 {
-            error!("ID: Got unexpected message: {:?}", msg_id);
-            return Err(RLPXSessionError::UnexpectedMessageID {
-                received: msg_id,
-                expected: P2PMessageID::Hello,
-            });
+
+        if msg_id == P2PMessageID::Hello as u8 {
+            msg.decode_kind()?;
+            if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg.kind {
+                return Ok(node_info);
+            }
         }
 
-        let msg_kind = msg.decode_kind()?;
-        if let MessageKind::P2P(P2PMessage::Hello(node_info)) = msg_kind {
-            info!("Received Hello: {:?}", node_info);
-            return Ok(());
+        if msg_id == P2PMessageID::Disconnect as u8 {
+            let msg_kind = msg.decode_kind()?;
+            if let MessageKind::P2P(P2PMessage::Disconnect(reason)) = msg_kind {
+                return Err(RLPXSessionError::DisconnectRequested(reason.to_owned()));
+            }
         }
 
-        error!("MSG: Got unexpected message: {:?}", msg);
         return Err(RLPXSessionError::UnexpectedP2PMessage {
-            received: msg.kind,
-            expected: MessageKind::P2P(P2PMessage::Hello(p2p::HelloMessage::empty())),
+            received: msg_id,
+            expected: P2PMessageID::Hello as u8,
         });
     }
 
