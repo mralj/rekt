@@ -3,9 +3,8 @@ use std::num::TryFromIntError;
 use open_fastrlp::DecodeError;
 use thiserror::Error;
 
-use crate::p2p;
-
 use super::codec::RLPXMsg;
+use crate::p2p;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -68,18 +67,30 @@ impl From<TryFromIntError> for RLPXError {
 
 #[derive(Debug, Error)]
 pub enum RLPXSessionError {
+    #[error("Unknown Error")]
+    UnknownError,
+    #[error("No message received from TCP stream")]
+    NoMessage,
     #[error("RLPX error: {0}")]
     RlpxError(#[from] RLPXError),
     #[error("TCP IO error: {0}")]
     TcpError(#[from] std::io::Error),
-    #[error("Unexpected message: {received} when expecting {expected}")]
+    #[error("Expected RLPX Message, but received Auth/Ack/smth. random: {received}")]
+    ExpectedRLPXMessage { received: RLPXMsg },
+    #[error("Unexpected RLPX message: {received} when expecting {expected}")]
     UnexpectedMessage {
         received: RLPXMsg,
         expected: RLPXMsg,
     },
     #[error("Unexpected message ID")]
     UnexpectedMessageID {
-        received: p2p::P2PMessageID,
+        received: u8,
         expected: p2p::P2PMessageID,
     },
+    #[error("Unexpected message: {received} when expecting {expected}")]
+    UnexpectedP2PMessage { received: u8, expected: u8 },
+    #[error("Decode error: {0}")]
+    MessageDecodeError(#[from] open_fastrlp::DecodeError),
+    #[error("Disconnect requested: {0}")]
+    DisconnectRequested(p2p::DisconnectReason),
 }

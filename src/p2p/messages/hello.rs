@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bytes::BytesMut;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
@@ -43,7 +45,26 @@ impl Default for HelloMessage {
     }
 }
 
+impl Display for HelloMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Protocol Version: {}\nClient Version: {}\nCapabilities: {:?}\nPort: {}\nID: {}",
+            self.protocol_version, self.client_version, self.capabilities, self.port, self.id
+        )
+    }
+}
+
 impl HelloMessage {
+    pub fn empty() -> Self {
+        Self {
+            protocol_version: DEFAULT_P2P_PROTOCOL_VERSION,
+            client_version: String::new(),
+            capabilities: Vec::new(),
+            port: 0,
+            id: H512::zero(),
+        }
+    }
     pub fn make_our_hello_message(id: H512) -> Self {
         Self {
             id,
