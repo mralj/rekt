@@ -75,8 +75,8 @@ pub enum RLPXSessionError {
     RlpxError(#[from] RLPXError),
     #[error("TCP IO error: {0}")]
     TcpError(#[from] std::io::Error),
-    #[error("Expected RLPX Message, but received Auth/Ack/smth. random: {received}")]
-    ExpectedRLPXMessage { received: RLPXMsg },
+    #[error("Expected RLPX Message, but received Auth/Ack/smth. random.")]
+    ExpectedRLPXMessage,
     #[error("Unexpected RLPX message: {received} when expecting {expected}")]
     UnexpectedMessage {
         received: RLPXMsg,

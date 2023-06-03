@@ -1,5 +1,4 @@
-use bytes::BytesMut;
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
@@ -38,14 +37,15 @@ pub fn connect_to_node(
             ))
             .await?;
 
-        match handle_hello_msg(&mut transport).await {
+        let (hello, protocol) = match handle_hello_msg(&mut transport).await {
             Ok(hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                match Protocol::match_protocols(&hello_msg.protocols, Protocol::get_our_protocols())
-                {
-                    Some(c) => {
-                        let peer = P2PPeer::new(node.str, hello_msg.id, c.version)?;
-                        info!("Connected to peer: {:?}", peer);
+                //TODO: untangle this clone mess
+                let protocols = hello_msg.clone().protocols;
+                match Protocol::match_protocols(&protocols, Protocol::get_our_protocols()) {
+                    Some(protocol) => {
+                        info!("Connected to peer: {:?}", hello_msg);
+                        (hello_msg, protocol.clone())
                     }
                     None => {
                         return Err(RLPXSessionError::NoMatchingProtocols);
@@ -61,22 +61,11 @@ pub fn connect_to_node(
                 }
                 return Err(e);
             }
-        }
+        };
 
-        loop {
-            let msg = transport.try_next().await?;
-            if msg.is_none() {
-                return Err(RLPXSessionError::NoMessage);
-            }
-
-            let msg = msg.unwrap();
-            match msg {
-                RLPXMsg::Message(m) => handle_messages(m)?,
-                _ => {
-                    return Err(RLPXSessionError::ExpectedRLPXMessage { received: msg });
-                }
-            }
-        }
+        let (writer, reader) = transport.split();
+        let peer = P2PPeer::new(node.str, hello.id, protocol.version, writer)?;
+        peer.read_messages(reader).await
     })
 }
 
@@ -132,25 +121,5 @@ async fn handle_hello_msg(
     }
 
     error!("Not RLPX: Got unexpected message: {:?}", maybe_rlpx_msg);
-    Err(RLPXSessionError::ExpectedRLPXMessage {
-        received: maybe_rlpx_msg,
-    })
-}
-
-fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
-    let mut msg = Message::new(bytes);
-    let msg_id = msg.decode_id()?;
-    let msg_kind = msg.decode_kind()?;
-
-    match msg_kind {
-        None => Err(RLPXSessionError::UnknownError),
-        Some(MessageKind::ETH) => {
-            info!("Got ETH message with ID: {:?}", msg_id);
-            Ok(())
-        }
-        Some(MessageKind::P2P(p2p_msg)) => {
-            trace!("Got P2P msg: {:?}", p2p_msg);
-            Ok(())
-        }
-    }
+    Err(RLPXSessionError::ExpectedRLPXMessage)
 }
