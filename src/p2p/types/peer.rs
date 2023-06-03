@@ -53,12 +53,12 @@ impl<S: RLPXSink> P2PPeer<S> {
         T: Stream<Item = Result<RLPXMsg, RLPXError>> + Unpin,
     {
         loop {
-            let msg = tcp_stream.try_next().await?;
-            if msg.is_none() {
-                return Err(RLPXSessionError::NoMessage);
-            }
+            let msg = tcp_stream
+                .try_next()
+                .await?
+                .ok_or(RLPXSessionError::NoMessage)?;
 
-            if let RLPXMsg::Message(m) = msg.unwrap() {
+            if let RLPXMsg::Message(m) = msg {
                 handle_messages(m)?;
             } else {
                 return Err(RLPXSessionError::ExpectedRLPXMessage);
@@ -72,17 +72,15 @@ impl<S: RLPXSink> P2PPeer<S> {
 fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
     let mut msg = Message::new(bytes);
     let msg_id = msg.decode_id()?;
-    let msg_kind = msg.decode_kind()?;
+    let msg_kind = msg
+        .decode_kind()?
+        .as_ref()
+        .ok_or(RLPXSessionError::UnknownError)?;
 
     match msg_kind {
-        None => Err(RLPXSessionError::UnknownError),
-        Some(MessageKind::ETH) => {
-            info!("Got ETH message with ID: {:?}", msg_id);
-            Ok(())
-        }
-        Some(MessageKind::P2P(p2p_msg)) => {
-            trace!("Got P2P msg: {:?}", p2p_msg);
-            Ok(())
-        }
-    }
+        MessageKind::ETH => info!("Got ETH message with ID: {:?}", msg_id),
+        MessageKind::P2P(p2p_msg) => trace!("Got P2P msg: {:?}", p2p_msg),
+    };
+
+    Ok(())
 }
