@@ -93,4 +93,6 @@ pub enum RLPXSessionError {
     MessageDecodeError(#[from] open_fastrlp::DecodeError),
     #[error("Disconnect requested: {0}")]
     DisconnectRequested(p2p::DisconnectReason),
+    #[error("No matching capability found")]
+    NoMatchingCapabilities,
 }
