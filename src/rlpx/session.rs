@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info, trace};
 
-use crate::p2p::types::Capability;
+use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
@@ -41,15 +41,14 @@ pub fn connect_to_node(
         match handle_hello_msg(&mut transport).await {
             Ok(hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                match Capability::match_capabilities(
-                    &hello_msg.capabilities,
-                    Capability::get_our_capabilities(),
-                ) {
+                match Protocol::match_protocols(&hello_msg.protocols, Protocol::get_our_protocols())
+                {
                     Some(c) => {
-                        info!("Matched capabilities: {:?}", c);
+                        let peer = P2PPeer::new(node.str, hello_msg.id, c.version)?;
+                        info!("Connected to peer: {:?}", peer);
                     }
                     None => {
-                        return Err(RLPXSessionError::NoMatchingCapabilities);
+                        return Err(RLPXSessionError::NoMatchingProtocols);
                     }
                 }
             }
