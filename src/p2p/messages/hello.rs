@@ -36,7 +36,7 @@ impl Default for HelloMessage {
         Self {
             protocol_version: DEFAULT_P2P_PROTOCOL_VERSION,
             port: DEFAULT_PORT,
-            capabilities: Capability::get_our_capabilities(),
+            capabilities: Capability::get_our_capabilities().clone(),
             // we could write "anything" here, like "madnode", but we don't want to bring attention
             // to us, thus empty string. Alternatively we could lie that we are GETH node
             client_version: String::new(),
