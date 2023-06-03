@@ -36,6 +36,8 @@ pub struct NodeRecord {
     pub id: H512,
     /// Public key of a node
     pub pub_key: PublicKey,
+    ///string representation of the node record
+    pub str: String,
 }
 
 impl NodeRecord {
@@ -88,6 +90,7 @@ impl FromStr for NodeRecord {
             tcp_port: port,
             udp_port,
             pub_key: id2pk(id).map_err(|e| NodeRecordParseError::InvalidId(e.to_string()))?,
+            str: s.to_string(),
         })
     }
 }
@@ -118,7 +121,9 @@ mod test {
             tcp_port: 30303,
             udp_port: 30303,
             id: "6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0".parse().unwrap(),
-            pub_key: pk
+            pub_key: pk,
+            str: url.to_string(),
+        
         })
     }
     #[test]
@@ -132,7 +137,9 @@ mod test {
             tcp_port: 30303,
             udp_port: 30301,
             id: "6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0".parse().unwrap(),
-            pub_key: pk
+            pub_key: pk,
+            str: url.to_string(),
+        
         })
     }
 }

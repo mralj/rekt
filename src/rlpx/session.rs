@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info, trace};
 
-use crate::p2p::types::Capability;
+use crate::p2p::types::{Capability, P2PPeer};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
@@ -46,10 +46,11 @@ pub fn connect_to_node(
                     Capability::get_our_capabilities(),
                 ) {
                     Some(c) => {
-                        info!("Matched capabilities: {:?}", c);
+                        let peer = P2PPeer::new(node.str, hello_msg.id, c.version)?;
+                        info!("Connected to peer: {:?}", peer);
                     }
                     None => {
-                        return Err(RLPXSessionError::NoMatchingCapabilities);
+                        return Err(RLPXSessionError::NoMatchingProtocols);
                     }
                 }
             }
