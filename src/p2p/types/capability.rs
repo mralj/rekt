@@ -33,8 +33,8 @@ impl Capability {
     }
 
     pub fn match_capabilities<'c>(
-        peer_caps: &'c Vec<Capability>,
-        our_caps: &Vec<Capability>,
+        peer_caps: &'c [Capability],
+        our_caps: &[Capability],
     ) -> Option<&'c Capability> {
         let mut eth_caps: Vec<&Capability> = peer_caps
             .iter()
@@ -46,9 +46,6 @@ impl Capability {
         }
 
         eth_caps.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
-        eth_caps
-            .iter()
-            .find(|cap| our_caps.contains(*cap))
-            .map(|c| (*c))
+        eth_caps.iter().find(|cap| our_caps.contains(*cap)).copied()
     }
 }
