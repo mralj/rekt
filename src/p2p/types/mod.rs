@@ -1,4 +1,4 @@
-pub mod capability;
 pub mod peer;
-pub use capability::Capability;
+pub mod protocol;
 pub use peer::P2PPeer;
+pub use protocol::Protocol;

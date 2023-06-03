@@ -96,5 +96,5 @@ pub enum RLPXSessionError {
     #[error("No matching protocols found")]
     NoMatchingProtocols,
     #[error("Unsupported protocol version: {0}")]
-    UnsupportedProtocol(#[from] p2p::types::capability::CapVersionError),
+    UnsupportedProtocol(#[from] p2p::types::protocol::ProtocolVersionError),
 }
