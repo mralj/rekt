@@ -9,21 +9,18 @@ use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
+pub trait RLPXSink: Sink<RLPXMsg, Error = RLPXError> {}
+impl<T> RLPXSink for T where T: Sink<RLPXMsg, Error = RLPXError> {}
+
 #[derive(Debug)]
-pub struct P2PPeer<S>
-where
-    S: Sink<RLPXMsg, Error = RLPXError>,
-{
+pub struct P2PPeer<S: RLPXSink> {
     enode: String,
     id: H512,
     protocol_version: ProtocolVersion,
     writer: S,
 }
 
-impl<S> P2PPeer<S>
-where
-    S: Sink<RLPXMsg, Error = RLPXError>,
-{
+impl<S: RLPXSink> P2PPeer<S> {
     pub fn new(
         enode: String,
         id: H512,
@@ -40,10 +37,7 @@ where
     }
 }
 
-impl<S> Display for P2PPeer<S>
-where
-    S: Sink<RLPXMsg, Error = RLPXError>,
-{
+impl<S: RLPXSink> Display for P2PPeer<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -53,16 +47,7 @@ where
     }
 }
 
-impl<S> P2PPeer<S>
-where
-    S: Sink<RLPXMsg, Error = RLPXError>,
-{
-    // pub fn set_writer<T>(&self, writer: T)
-    // where
-    //     T: Sink<RLPXMsg, Error = RLPXError> + Unpin,
-    // {
-    // }
-
+impl<S: RLPXSink> P2PPeer<S> {
     pub async fn read_messages<T>(&self, mut tcp_stream: T) -> Result<(), RLPXSessionError>
     where
         T: Stream<Item = Result<RLPXMsg, RLPXError>> + Unpin,

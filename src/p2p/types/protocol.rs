@@ -55,12 +55,13 @@ impl Protocol {
         })
     }
 
-    pub fn match_protocols<'c>(
-        peer_protocols: &'c [Protocol],
+    pub fn match_protocols(
+        peer_protocols: &[Protocol],
         our_protocols: &[Protocol],
-    ) -> Option<&'c Protocol> {
-        let mut eth_protocols: Vec<&Protocol> = peer_protocols
+    ) -> Option<Protocol> {
+        let mut eth_protocols: Vec<Protocol> = peer_protocols
             .iter()
+            .cloned()
             .filter(|p| p.name == ETH_PROTOCOL)
             .collect();
 
@@ -70,8 +71,7 @@ impl Protocol {
 
         eth_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
         eth_protocols
-            .iter()
-            .find(|p| our_protocols.contains(*p))
-            .copied()
+            .into_iter()
+            .find(|p| our_protocols.contains(p))
     }
 }

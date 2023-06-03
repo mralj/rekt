@@ -37,20 +37,14 @@ pub fn connect_to_node(
             ))
             .await?;
 
-        let (hello, protocol) = match handle_hello_msg(&mut transport).await {
+        let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {
             Ok(hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                //TODO: untangle this clone mess
-                let protocols = hello_msg.clone().protocols;
-                match Protocol::match_protocols(&protocols, Protocol::get_our_protocols()) {
-                    Some(protocol) => {
-                        info!("Connected to peer: {:?}", hello_msg);
-                        (hello_msg, protocol.clone())
-                    }
-                    None => {
-                        return Err(RLPXSessionError::NoMatchingProtocols);
-                    }
-                }
+                let matched_protocol =
+                    Protocol::match_protocols(&hello_msg.protocols, Protocol::get_our_protocols())
+                        .ok_or(RLPXSessionError::NoMatchingProtocols)?;
+
+                (hello_msg, matched_protocol.version)
             }
             Err(e) => {
                 if let RLPXSessionError::DisconnectRequested(reason) = e {
@@ -64,7 +58,7 @@ pub fn connect_to_node(
         };
 
         let (writer, reader) = transport.split();
-        let peer = P2PPeer::new(node.str, hello.id, protocol.version, writer)?;
+        let peer = P2PPeer::new(node.str, hello_msg.id, protocol_v, writer)?;
         peer.read_messages(reader).await
     })
 }
