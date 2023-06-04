@@ -5,15 +5,23 @@ use std::collections::BTreeMap;
 use crate::types::hash::H256;
 
 use super::chain_spec::ChainSpec;
+use super::fork::{ForkFilter, ForkId};
 use super::fork_condition::ForkCondition;
 use super::hard_fork::Hardfork;
 
 pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain: ethers::types::Chain::BinanceSmartChain,
+    td: 1,
     genesis_hash: H256(hex!(
         "0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b"
     )),
-    td: 0,
+    head: super::head::Head {
+        number: 0,
+        hash: BSC_MAINNET.genesis_hash,
+        difficulty: ethers::types::U256::from(1),
+        total_difficulty: ethers::types::U256::from(1),
+        timestamp: 1598664248,
+    },
     hardforks: BTreeMap::from([
         (Hardfork::Homestead, ForkCondition::Block(0)),
         (Hardfork::Dao, ForkCondition::Block(0)),
@@ -38,3 +46,8 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
         (Hardfork::Plato, ForkCondition::Never),
     ]),
 });
+
+pub static BSC_MAINNET_FORK_ID: Lazy<ForkId> = Lazy::new(|| BSC_MAINNET.fork_id(&BSC_MAINNET.head));
+
+pub static BSC_MAINNET_FORK_FILTER: Lazy<ForkFilter> =
+    Lazy::new(|| BSC_MAINNET.fork_filter(BSC_MAINNET.head));

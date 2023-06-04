@@ -24,6 +24,9 @@ pub struct ChainSpec {
 
     /// The active hard forks and their activation conditions
     pub hardforks: BTreeMap<Hardfork, ForkCondition>,
+
+    // Blockchain head
+    pub head: Head,
 }
 
 impl ChainSpec {
