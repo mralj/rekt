@@ -1,7 +1,7 @@
 use ethers::types::U256;
 use serde::{Deserialize, Serialize};
 
-use super::types::Head;
+use super::head::Head;
 
 ///Condition for a fork to be activated.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]

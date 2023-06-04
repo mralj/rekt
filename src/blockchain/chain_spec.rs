@@ -7,7 +7,7 @@ use crate::types::hash::H256;
 use super::fork::{ForkFilter, ForkFilterKey, ForkHash, ForkId};
 use super::fork_condition::ForkCondition;
 use super::hard_fork::Hardfork;
-use super::types::Head;
+use super::head::Head;
 
 pub struct ChainSpec {
     /// The chain ID
@@ -18,6 +18,9 @@ pub struct ChainSpec {
     /// This acts as a small cache for known chains. If the chain is known, then the genesis hash
     /// is also known ahead of time, and this will be `Some`.
     pub genesis_hash: H256,
+
+    /// The total difficulty of the genesis block.
+    pub td: u64,
 
     /// The active hard forks and their activation conditions
     pub hardforks: BTreeMap<Hardfork, ForkCondition>,

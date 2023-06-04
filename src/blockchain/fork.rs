@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::hash::H256;
 
-use super::types::Head;
+use super::head::Head;
 
 const CRC_32_IEEE: Crc<u32> = Crc::<u32>::new(&CRC_32_ISO_HDLC);
 
