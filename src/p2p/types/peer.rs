@@ -2,9 +2,11 @@ use std::fmt::{Display, Formatter};
 
 use bytes::BytesMut;
 use futures::{Sink, Stream, TryStreamExt};
+use open_fastrlp::Decodable;
 use tracing::{info, trace};
 
 use super::protocol::{ProtocolVersion, ProtocolVersionError};
+use crate::eth::types::status_message::Status;
 use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
@@ -78,9 +80,44 @@ fn handle_messages(bytes: BytesMut) -> Result<(), RLPXSessionError> {
         .ok_or(RLPXSessionError::UnknownError)?;
 
     match msg_kind {
-        MessageKind::ETH => info!("Got ETH message with ID: {:?}", msg_id),
+        MessageKind::ETH => {
+            return handle_eth_message(msg_id, msg.data);
+        }
         MessageKind::P2P(p2p_msg) => trace!("Got P2P msg: {:?}", p2p_msg),
     };
+
+    Ok(())
+}
+
+fn handle_eth_message(msg_id: u8, bytes: BytesMut) -> Result<(), RLPXSessionError> {
+    if msg_id != 16 {
+        info!("Got ETH message with ID: {:?}", msg_id);
+        return Ok(());
+    }
+
+    // 1. snappy decompress
+
+    let decompressed_len =
+        snap::raw::decompress_len(&bytes[1..]).map_err(|_| RLPXSessionError::UnknownError)?;
+    let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
+    let mut decoder = snap::raw::Decoder::new();
+
+    decoder
+        .decompress(&bytes[..], &mut rlp_msg_bytes[..])
+        .map_err(|err| {
+            tracing::debug!(
+                ?err,
+                msg=%hex::encode(&bytes[1..]),
+                "error decompressing p2p message"
+            );
+            RLPXSessionError::UnknownError
+        })?;
+    // 2. parse
+
+    let msg = Status::decode(&mut &rlp_msg_bytes[..])?;
+
+    // 3. log
+    info!(?msg, "Got status message");
 
     Ok(())
 }

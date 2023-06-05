@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ethers::types::Chain;
+use ethers::types::{Chain, U256};
 
 use crate::types::hash::H256;
 
@@ -20,7 +20,7 @@ pub struct ChainSpec {
     pub genesis_hash: H256,
 
     /// The total difficulty of the genesis block.
-    pub td: u64,
+    pub td: U256,
 
     /// The active hard forks and their activation conditions
     pub hardforks: BTreeMap<Hardfork, ForkCondition>,

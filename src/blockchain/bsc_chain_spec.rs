@@ -1,3 +1,4 @@
+use ethers::types::U256;
 use hex_literal::hex;
 use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
@@ -11,14 +12,14 @@ use super::hard_fork::Hardfork;
 
 pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain: ethers::types::Chain::BinanceSmartChain,
-    td: 1,
+    td: U256::from(1),
     genesis_hash: H256(hex!(
         "0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b"
     )),
     head: super::head::Head {
         number: 0,
         hash: BSC_MAINNET.genesis_hash,
-        difficulty: ethers::types::U256::from(1),
+        difficulty: U256::from(1),
         total_difficulty: ethers::types::U256::from(1),
         timestamp: 1598664248,
     },
