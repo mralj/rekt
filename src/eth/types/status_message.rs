@@ -4,7 +4,6 @@ use bytes::BytesMut;
 use once_cell::sync::Lazy;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
-use tracing::{info, trace};
 
 use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID;
 use crate::blockchain::fork::ForkId;
@@ -42,17 +41,15 @@ pub struct Status {
 
 impl Default for Status {
     fn default() -> Self {
-        let default = Self {
+        Self {
             version: 67,
             chain: BSC_MAINNET.chain as u64,
             total_difficulty: BSC_MAINNET.td,
             blockhash: BSC_MAINNET.genesis_hash,
             genesis: BSC_MAINNET.genesis_hash,
-            forkid: BSC_MAINNET_FORK_ID.clone(),
-        };
-
-        info!("Default status: {:?}",default);
-        default
+            forkid: *BSC_MAINNET_FORK_ID,
+  
+        }
     }
 }
 
@@ -106,7 +103,7 @@ impl Debug for Status {
 impl Status {
     pub fn rlp_encode(&self) -> BytesMut {
         let mut status_rlp = BytesMut::new();
-        (16 as u8).encode(&mut status_rlp);
+        16_u8.encode(&mut status_rlp);
         self.encode(&mut status_rlp);
         status_rlp
     }

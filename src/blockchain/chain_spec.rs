@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ethers::types::{Chain, U256};
+use ethers::types::{Chain};
 
 use crate::types::hash::H256;
 
