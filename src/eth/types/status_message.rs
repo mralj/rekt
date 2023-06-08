@@ -51,7 +51,7 @@ impl Default for Status {
             forkid: BSC_MAINNET_FORK_ID.clone(),
         };
 
-        info!("Default status: {:?}", OUR_ETH_STATUS_MSG);
+        info!("Default status: {:?}",default);
         default
     }
 }
