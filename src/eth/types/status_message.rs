@@ -1,9 +1,10 @@
 use std::fmt::{Debug, Display};
 
-use ethers::types::U256;
+use bytes::BytesMut;
 use once_cell::sync::Lazy;
-use open_fastrlp::{RlpDecodable, RlpEncodable};
+use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
+use tracing::{info, trace};
 
 use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID;
 use crate::blockchain::fork::ForkId;
@@ -23,7 +24,7 @@ pub struct Status {
     pub chain: u64,
 
     /// Total difficulty of the best chain.
-    pub total_difficulty: U256,
+    pub total_difficulty: u64,
 
     /// The highest difficulty block hash the peer has seen
     pub blockhash: H256,
@@ -41,14 +42,17 @@ pub struct Status {
 
 impl Default for Status {
     fn default() -> Self {
-        Self {
+        let default = Self {
             version: 67,
             chain: BSC_MAINNET.chain as u64,
             total_difficulty: BSC_MAINNET.td,
             blockhash: BSC_MAINNET.genesis_hash,
             genesis: BSC_MAINNET.genesis_hash,
-            forkid: BSC_MAINNET_FORK_ID.to_owned(),
-        }
+            forkid: BSC_MAINNET_FORK_ID.clone(),
+        };
+
+        info!("Default status: {:?}", OUR_ETH_STATUS_MSG);
+        default
     }
 }
 
@@ -96,5 +100,14 @@ impl Debug for Status {
                 self.forkid
             )
         }
+    }
+}
+
+impl Status {
+    pub fn rlp_encode(&self) -> BytesMut {
+        let mut status_rlp = BytesMut::new();
+        (16 as u8).encode(&mut status_rlp);
+        self.encode(&mut status_rlp);
+        status_rlp
     }
 }

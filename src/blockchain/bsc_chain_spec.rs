@@ -12,7 +12,7 @@ use super::hard_fork::Hardfork;
 
 pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| ChainSpec {
     chain: ethers::types::Chain::BinanceSmartChain,
-    td: U256::from(1),
+    td: 1,
     genesis_hash: H256(hex!(
         "0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b"
     )),

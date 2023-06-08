@@ -20,7 +20,7 @@ pub struct ChainSpec {
     pub genesis_hash: H256,
 
     /// The total difficulty of the genesis block.
-    pub td: U256,
+    pub td: u64,
 
     /// The active hard forks and their activation conditions
     pub hardforks: BTreeMap<Hardfork, ForkCondition>,
