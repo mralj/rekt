@@ -4,8 +4,9 @@ use bytes::BytesMut;
 use once_cell::sync::Lazy;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
-use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID;
+use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
 use crate::types::hash::H256;
@@ -42,7 +43,8 @@ pub struct Status {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            version: 67,
+            version: 67, // TODO: FIX THIS, this cannot be hardcoded, but must be proto v
+            // negotiated
             chain: BSC_MAINNET.chain as u64,
             total_difficulty: BSC_MAINNET.td,
             blockhash: BSC_MAINNET.genesis_hash,
@@ -104,5 +106,38 @@ impl Status {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
         status_rlp
+    }
+
+    pub fn validate(&self, peer_status_msg: &Status) -> Result<(), &str> {
+        if self.chain != peer_status_msg.chain {
+            error!("Chain ID mismatch, received {:?}", peer_status_msg.chain);
+            return Err("Chain ID mismatch");
+        }
+
+        if (self.version != peer_status_msg.version) && (self.version != 0) {
+            error!(
+                "Protocol version mismatch, received {:?}",
+                peer_status_msg.version
+            );
+            return Err("Protocol version mismatch");
+        }
+
+        if (self.genesis != peer_status_msg.genesis) && (self.genesis != H256::zero()) {
+            error!(
+                "Genesis hash mismatch, received {:?}",
+                peer_status_msg.genesis
+            );
+            return Err("Genesis hash mismatch");
+        }
+
+        if BSC_MAINNET_FORK_FILTER
+            .validate(peer_status_msg.forkid)
+            .is_err()
+        {
+            error!("Fork ID mismatch, received {:X?}", peer_status_msg.forkid);
+            return Err("Fork ID Mismatch");
+        }
+
+        Ok(())
     }
 }
