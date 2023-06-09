@@ -6,7 +6,7 @@ use open_fastrlp::Decodable;
 use tracing::{info, trace};
 
 use super::protocol::{ProtocolVersion, ProtocolVersionError};
-use crate::eth::types::status_message::Status;
+use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
@@ -94,6 +94,30 @@ impl<S: RLPXSink> P2PPeer<S> {
         compressed[0] = 0x10;
         compressed.truncate(compressed_size + 1);
 
+        self.write_message(RLPXMsg::Message(compressed)).await?;
+        let rlp_msg = UpgradeStatus::default().rl_encode();
+
+        trace!(
+            "Sending upgrade status extension: {:?}",
+            hex::encode(&rlp_msg)
+        );
+
+        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len()));
+        let compressed_size = encoder
+            .compress(&rlp_msg, &mut compressed[1..])
+            .map_err(|err| {
+                tracing::debug!(
+                    ?err,
+                    msg=%hex::encode(&rlp_msg[1..]),
+                    "error compressing disconnect"
+                );
+                RLPXSessionError::UnknownError
+            })?;
+
+        // truncate the compressed buffer to the actual compressed size (plus one for the message
+        // id)
+        compressed[0] = 0x10 + 0x0b;
+        compressed.truncate(compressed_size + 1);
         self.write_message(RLPXMsg::Message(compressed)).await
     }
 
@@ -120,6 +144,28 @@ impl<S: RLPXSink> P2PPeer<S> {
         msg_id: u8,
         bytes: BytesMut,
     ) -> Result<(), RLPXSessionError> {
+        if msg_id == 27 {
+            let decompressed_len =
+                snap::raw::decompress_len(&bytes).map_err(|_| RLPXSessionError::UnknownError)?;
+            let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
+            let mut decoder = snap::raw::Decoder::new();
+
+            decoder
+                .decompress(&bytes, &mut rlp_msg_bytes)
+                .map_err(|err| {
+                    tracing::debug!(
+                        ?err,
+                        msg=%hex::encode(&bytes),
+                        "error decompressing p2p message"
+                    );
+                    RLPXSessionError::UnknownError
+                })?;
+            trace!(
+                "Upgrade status extension message received {:?}",
+                hex::encode(&rlp_msg_bytes)
+            );
+        }
+
         if msg_id != 16 {
             info!("Got ETH message with ID: {:?}", msg_id);
             return Ok(());
@@ -156,7 +202,5 @@ impl<S: RLPXSink> P2PPeer<S> {
         }
 
         self.send_our_status_msg().await
-
-        // receive eth-bsc-67 upgrade status message
     }
 }

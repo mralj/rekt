@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use bytes::BytesMut;
+use derive_more::Display;
 use num_traits::ToPrimitive;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
@@ -42,7 +43,7 @@ pub struct Status {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            version: 67,
+            version: ProtocolVersion::default() as u8,
             // negotiated
             chain: BSC_MAINNET.chain,
             total_difficulty: BSC_MAINNET.td,
@@ -74,8 +75,7 @@ impl Debug for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hexed_blockhash = hex::encode(self.blockhash);
         let hexed_genesis = hex::encode(self.genesis);
-        if f.alternate() {
-            write!(
+        write!(
                 f,
                 "Status {{\n\tversion: {:?},\n\tchain: {:?},\n\ttotal_difficulty: {:?},\n\tblockhash: {},\n\tgenesis: {},\n\tforkid: {:X?}\n}}",
                 self.version,
@@ -85,18 +85,6 @@ impl Debug for Status {
                 hexed_genesis,
                 self.forkid
             )
-        } else {
-            write!(
-                f,
-                "Status {{ version: {:?}, chain: {:?}, total_difficulty: {:?}, blockhash: {}, genesis: {}, forkid: {:X?} }}",
-                self.version,
-                self.chain,
-                self.total_difficulty,
-                hexed_blockhash,
-                hexed_genesis,
-                self.forkid
-            )
-        }
     }
 }
 
@@ -148,5 +136,47 @@ impl Status {
         }
 
         Ok(())
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    RlpEncodable,
+    RlpDecodable,
+    Serialize,
+    Deserialize,
+    Default,
+)]
+struct UpgradeStatusExtension {
+    disable_peer_tx_broadcast: bool,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    RlpEncodable,
+    RlpDecodable,
+    Serialize,
+    Deserialize,
+    Default,
+)]
+pub struct UpgradeStatus {
+    extension: UpgradeStatusExtension,
+}
+
+impl UpgradeStatus {
+    pub fn rl_encode(&self) -> BytesMut {
+        let mut status_rlp = BytesMut::new();
+        self.encode(&mut status_rlp);
+        status_rlp
     }
 }
