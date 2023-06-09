@@ -9,7 +9,7 @@ use thiserror::Error;
 const ETH_PROTOCOL: &str = "eth";
 pub static OUR_PROTOCOLS: OnceLock<Vec<Protocol>> = OnceLock::new();
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Display, ToPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
 pub enum ProtocolVersion {
     Eth66 = 66,
     #[default]

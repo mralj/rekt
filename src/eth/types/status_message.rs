@@ -118,7 +118,7 @@ impl Status {
         peer_status_msg: &Status,
         proto_v_negotiated: &ProtocolVersion,
     ) -> Result<(), &'static str> {
-        if proto_v_negotiated.to_u8().unwrap() != peer_status_msg.version {
+        if *proto_v_negotiated as u8 != peer_status_msg.version {
             error!(
                 "Protocol version mismatch, received {:?}",
                 peer_status_msg.version
