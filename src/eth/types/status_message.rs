@@ -48,7 +48,6 @@ impl Default for Status {
             blockhash: BSC_MAINNET.genesis_hash,
             genesis: BSC_MAINNET.genesis_hash,
             forkid: *BSC_MAINNET_FORK_ID,
-  
         }
     }
 }
@@ -103,7 +102,6 @@ impl Debug for Status {
 impl Status {
     pub fn rlp_encode(&self) -> BytesMut {
         let mut status_rlp = BytesMut::new();
-        16_u8.encode(&mut status_rlp);
         self.encode(&mut status_rlp);
         status_rlp
     }

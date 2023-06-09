@@ -1,4 +1,3 @@
-use ethers::types::U256;
 use serde::{Deserialize, Serialize};
 
 use super::head::Head;
@@ -18,7 +17,7 @@ pub enum ForkCondition {
         /// [eip2124]: https://eips.ethereum.org/EIPS/eip-2124
         fork_block: Option<u64>,
         /// The total difficulty after which the fork is activated.
-        total_difficulty: U256,
+        total_difficulty: u64,
     },
     /// The fork is activated after a specific timestamp.
     Timestamp(u64),
@@ -63,7 +62,7 @@ impl ForkCondition {
     /// 58_750_000_000_000_000_000_000)
     ///
     /// This will return false for any condition that is not TTD-based.
-    pub fn active_at_ttd(&self, ttd: U256, difficulty: U256) -> bool {
+    pub fn active_at_ttd(&self, ttd: u64, difficulty: u64) -> bool {
         if let ForkCondition::TTD {
             total_difficulty, ..
         } = self
@@ -101,7 +100,7 @@ impl ForkCondition {
     /// Get the total terminal difficulty for this fork condition.
     ///
     /// Returns `None` for fork conditions that are not TTD based.
-    pub fn ttd(&self) -> Option<U256> {
+    pub fn ttd(&self) -> Option<u64> {
         match self {
             ForkCondition::TTD {
                 total_difficulty, ..

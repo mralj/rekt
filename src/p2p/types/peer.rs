@@ -78,10 +78,10 @@ impl<S: RLPXSink> P2PPeer<S> {
         let rlp_msg = Status::default().rlp_encode();
         trace!("Rlp encoded status message: {:?}", rlp_msg);
 
-        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len() - 1));
         let mut encoder = snap::raw::Encoder::new();
+        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len()));
         let compressed_size = encoder
-            .compress(&rlp_msg[1..], &mut compressed[1..])
+            .compress(&rlp_msg, &mut compressed[1..])
             .map_err(|err| {
                 tracing::debug!(
                     ?err,
@@ -93,6 +93,7 @@ impl<S: RLPXSink> P2PPeer<S> {
 
         // truncate the compressed buffer to the actual compressed size (plus one for the message
         // id)
+        compressed[0] = 0x10;
         compressed.truncate(compressed_size + 1);
 
         trace!("Sending compressed status message: {:?}", compressed);
@@ -131,16 +132,16 @@ impl<S: RLPXSink> P2PPeer<S> {
         // 1. snappy decompress
 
         let decompressed_len =
-            snap::raw::decompress_len(&bytes[1..]).map_err(|_| RLPXSessionError::UnknownError)?;
+            snap::raw::decompress_len(&bytes).map_err(|_| RLPXSessionError::UnknownError)?;
         let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
         let mut decoder = snap::raw::Decoder::new();
 
         decoder
-            .decompress(&bytes[..], &mut rlp_msg_bytes[..])
+            .decompress(&bytes, &mut rlp_msg_bytes)
             .map_err(|err| {
                 tracing::debug!(
                     ?err,
-                    msg=%hex::encode(&bytes[1..]),
+                    msg=%hex::encode(&bytes),
                     "error decompressing p2p message"
                 );
                 RLPXSessionError::UnknownError
