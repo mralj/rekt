@@ -6,7 +6,7 @@ use open_fastrlp::Decodable;
 use tracing::{info, trace};
 
 use super::protocol::{ProtocolVersion, ProtocolVersionError};
-use crate::eth::types::status_message::{Status, OUR_ETH_STATUS_MSG};
+use crate::eth::types::status_message::Status;
 use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
@@ -74,7 +74,7 @@ impl<S: RLPXSink> P2PPeer<S> {
     }
 
     pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
-        let rlp_msg = OUR_ETH_STATUS_MSG.rlp_encode();
+        let rlp_msg = Status::make_our_status_msg(&self.protocol_version).rlp_encode();
 
         let mut encoder = snap::raw::Encoder::new();
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len()));
@@ -149,12 +149,14 @@ impl<S: RLPXSink> P2PPeer<S> {
         // 3. log
         info!(?msg, "Got status message");
 
-        if OUR_ETH_STATUS_MSG.validate(&msg).is_err() {
+        if Status::validate(&msg, &self.protocol_version).is_err() {
             return Err(RLPXSessionError::UnknownError);
         } else {
             info!("Validated status MSG OK");
         }
 
         self.send_our_status_msg().await
+
+        // receive eth-bsc-67 upgrade status message
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use bytes::BytesMut;
-use once_cell::sync::Lazy;
+use num_traits::ToPrimitive;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -9,9 +9,8 @@ use tracing::error;
 use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
+use crate::p2p::types::protocol::ProtocolVersion;
 use crate::types::hash::H256;
-
-pub static OUR_ETH_STATUS_MSG: Lazy<Status> = Lazy::new(Status::default);
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Status {
@@ -21,7 +20,7 @@ pub struct Status {
 
     /// The chain id, as introduced in
     /// [EIP155](https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids).
-    pub chain: u64,
+    pub chain: u8,
 
     /// Total difficulty of the best chain.
     pub total_difficulty: u64,
@@ -43,9 +42,9 @@ pub struct Status {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            version: 67, // TODO: FIX THIS, this cannot be hardcoded, but must be proto v
+            version: 67,
             // negotiated
-            chain: BSC_MAINNET.chain as u64,
+            chain: BSC_MAINNET.chain,
             total_difficulty: BSC_MAINNET.td,
             blockhash: BSC_MAINNET.genesis_hash,
             genesis: BSC_MAINNET.genesis_hash,
@@ -102,19 +101,24 @@ impl Debug for Status {
 }
 
 impl Status {
+    pub fn make_our_status_msg(proto_v_negotiated: &ProtocolVersion) -> Self {
+        Self {
+            version: proto_v_negotiated.to_u8().unwrap(),
+            ..Self::default()
+        }
+    }
+
     pub fn rlp_encode(&self) -> BytesMut {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
         status_rlp
     }
 
-    pub fn validate(&self, peer_status_msg: &Status) -> Result<(), &str> {
-        if self.chain != peer_status_msg.chain {
-            error!("Chain ID mismatch, received {:?}", peer_status_msg.chain);
-            return Err("Chain ID mismatch");
-        }
-
-        if (self.version != peer_status_msg.version) && (self.version != 0) {
+    pub fn validate(
+        peer_status_msg: &Status,
+        proto_v_negotiated: &ProtocolVersion,
+    ) -> Result<(), &'static str> {
+        if proto_v_negotiated.to_u8().unwrap() != peer_status_msg.version {
             error!(
                 "Protocol version mismatch, received {:?}",
                 peer_status_msg.version
@@ -122,7 +126,12 @@ impl Status {
             return Err("Protocol version mismatch");
         }
 
-        if (self.genesis != peer_status_msg.genesis) && (self.genesis != H256::zero()) {
+        if BSC_MAINNET.chain != peer_status_msg.chain {
+            error!("Chain ID mismatch, received {:?}", peer_status_msg.chain);
+            return Err("Chain ID mismatch");
+        }
+
+        if BSC_MAINNET.genesis_hash != peer_status_msg.genesis {
             error!(
                 "Genesis hash mismatch, received {:?}",
                 peer_status_msg.genesis

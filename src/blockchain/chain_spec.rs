@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use ethers::types::Chain;
-
 use crate::types::hash::H256;
 
 use super::fork::{ForkFilter, ForkFilterKey, ForkHash, ForkId};
@@ -11,7 +9,7 @@ use super::head::Head;
 
 pub struct ChainSpec {
     /// The chain ID
-    pub chain: Chain,
+    pub chain: u8,
 
     /// The hash of the genesis block.
     ///
