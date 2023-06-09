@@ -58,7 +58,7 @@ pub fn connect_to_node(
         };
 
         let (writer, reader) = transport.split();
-        let peer = P2PPeer::new(node.str, hello_msg.id, protocol_v, writer)?;
+        let mut peer = P2PPeer::new(node.str, hello_msg.id, protocol_v, writer)?;
         peer.read_messages(reader).await
     })
 }
