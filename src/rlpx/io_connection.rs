@@ -9,12 +9,12 @@ use tracing::trace;
 use super::{Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
-pub struct ConnectionIo<Io> {
+pub struct ConnectionIO<T> {
     #[pin]
-    transport: Framed<Io, Connection>,
+    transport: Framed<T, Connection>,
 }
 
-impl<T> ConnectionIo<T>
+impl<T> ConnectionIO<T>
 where
     T: AsyncRead + AsyncWrite + Unpin,
 {
@@ -23,7 +23,7 @@ where
     }
 }
 
-impl<T> Stream for ConnectionIo<T>
+impl<T> Stream for ConnectionIO<T>
 where
     T: AsyncRead + Unpin,
 {
@@ -52,7 +52,7 @@ macro_rules! ready_map_err {
     };
 }
 
-impl<T> Sink<BytesMut> for ConnectionIo<T>
+impl<T> Sink<BytesMut> for ConnectionIO<T>
 where
     T: AsyncWrite + Unpin,
 {
