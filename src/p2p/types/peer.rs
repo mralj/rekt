@@ -7,12 +7,12 @@ use tracing::{info, trace};
 
 use super::protocol::{ProtocolVersion, ProtocolVersionError};
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::rlpx::{RLPXError, RLPXSessionError};
+use crate::rlpx::RLPXSessionError;
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
-pub trait RLPXSink: Sink<BytesMut, Error = RLPXError> + Unpin {}
-impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXError> {}
+pub trait RLPXSink: Sink<BytesMut, Error = RLPXSessionError> + Unpin {}
+impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXSessionError> {}
 
 #[derive(Debug)]
 pub struct P2PPeer<S: RLPXSink> {
@@ -50,22 +50,16 @@ impl<S: RLPXSink> Display for P2PPeer<S> {
 }
 
 impl<S: RLPXSink> P2PPeer<S> {
-    pub async fn read_messages<T>(&mut self, mut tcp_stream: T) -> Result<(), RLPXError>
+    pub async fn read_messages<T>(&mut self, mut tcp_stream: T) -> Result<(), RLPXSessionError>
     where
-        T: Stream<Item = Result<BytesMut, RLPXError>> + Unpin,
+        T: Stream<Item = Result<BytesMut, RLPXSessionError>> + Unpin,
     {
         loop {
             let msg = tcp_stream
                 .try_next()
                 .await?
-                .ok_or(RLPXError::InvalidMsgData)?;
-
-            match self.handle_messages(msg).await {
-                Err(_) => return Err(RLPXError::InvalidMsgData),
-                _ => {
-                    continue;
-                }
-            }
+                .ok_or(RLPXSessionError::NoMessage)?;
+            self.handle_messages(msg).await?;
         }
     }
 

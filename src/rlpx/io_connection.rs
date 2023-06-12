@@ -1,7 +1,4 @@
-use std::{
-    io,
-    task::{ready, Poll},
-};
+use std::task::{ready, Poll};
 
 use bytes::BytesMut;
 use futures::{Sink, Stream};
@@ -9,7 +6,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec::Framed;
 use tracing::trace;
 
-use super::{Connection, RLPXError, RLPXMsg};
+use super::{Connection, RLPXError, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
 pub struct ConnectionIo<Io> {
@@ -30,7 +27,7 @@ impl<T> Stream for ConnectionIo<T>
 where
     T: AsyncRead + Unpin,
 {
-    type Item = Result<BytesMut, RLPXError>;
+    type Item = Result<BytesMut, RLPXSessionError>;
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -39,7 +36,7 @@ where
             Some(Ok(RLPXMsg::Message(msg))) => Poll::Ready(Some(Ok(msg))),
             Some(_) => {
                 trace!("Received non-message RLPX message");
-                Poll::Ready(Some(Err(RLPXError::InvalidMsgData)))
+                Poll::Ready(Some(Err(RLPXSessionError::ExpectedRLPXMessage)))
             }
             None => Poll::Ready(None),
         }
@@ -50,31 +47,43 @@ impl<T> Sink<BytesMut> for ConnectionIo<T>
 where
     T: AsyncWrite + Unpin,
 {
-    type Error = RLPXError;
+    type Error = RLPXSessionError;
 
     fn poll_ready(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.project().transport.poll_ready(cx)
+        match ready!(self.project().transport.poll_ready(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
+        }
     }
 
     fn start_send(self: std::pin::Pin<&mut Self>, item: BytesMut) -> Result<(), Self::Error> {
         let msg = RLPXMsg::Message(item);
-        self.project().transport.start_send(msg)
+        self.project()
+            .transport
+            .start_send(msg)
+            .map_err(|e| RLPXSessionError::RlpxError(e))
     }
 
     fn poll_flush(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.project().transport.poll_flush(cx)
+        match ready!(self.project().transport.poll_flush(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
+        }
     }
 
     fn poll_close(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.project().transport.poll_close(cx)
+        match ready!(self.project().transport.poll_close(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
+        }
     }
 }
