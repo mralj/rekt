@@ -7,12 +7,12 @@ use tracing::{info, trace};
 
 use super::protocol::{ProtocolVersion, ProtocolVersionError};
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
+use crate::rlpx::{RLPXError, RLPXSessionError};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
-pub trait RLPXSink: Unpin + Sink<RLPXMsg, Error = RLPXError> {}
-impl<T> RLPXSink for T where T: Unpin + Sink<RLPXMsg, Error = RLPXError> {}
+pub trait RLPXSink: Sink<BytesMut, Error = RLPXError> + Unpin {}
+impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXError> {}
 
 #[derive(Debug)]
 pub struct P2PPeer<S: RLPXSink> {
@@ -50,25 +50,26 @@ impl<S: RLPXSink> Display for P2PPeer<S> {
 }
 
 impl<S: RLPXSink> P2PPeer<S> {
-    pub async fn read_messages<T>(&mut self, mut tcp_stream: T) -> Result<(), RLPXSessionError>
+    pub async fn read_messages<T>(&mut self, mut tcp_stream: T) -> Result<(), RLPXError>
     where
-        T: Stream<Item = Result<RLPXMsg, RLPXError>> + Unpin,
+        T: Stream<Item = Result<BytesMut, RLPXError>> + Unpin,
     {
         loop {
             let msg = tcp_stream
                 .try_next()
                 .await?
-                .ok_or(RLPXSessionError::NoMessage)?;
+                .ok_or(RLPXError::InvalidMsgData)?;
 
-            if let RLPXMsg::Message(m) = msg {
-                self.handle_messages(m).await?;
-            } else {
-                return Err(RLPXSessionError::ExpectedRLPXMessage);
+            match self.handle_messages(msg).await {
+                Err(_) => return Err(RLPXError::InvalidMsgData),
+                _ => {
+                    continue;
+                }
             }
         }
     }
 
-    pub async fn write_message(&mut self, msg: RLPXMsg) -> Result<(), RLPXSessionError> {
+    pub async fn write_message(&mut self, msg: BytesMut) -> Result<(), RLPXSessionError> {
         self.writer.send(msg).await?;
         Ok(())
     }
@@ -94,7 +95,7 @@ impl<S: RLPXSink> P2PPeer<S> {
         compressed[0] = 0x10;
         compressed.truncate(compressed_size + 1);
 
-        self.write_message(RLPXMsg::Message(compressed)).await?;
+        self.write_message(compressed).await?;
         let rlp_msg = UpgradeStatus::default().rl_encode();
 
         trace!(
@@ -118,7 +119,7 @@ impl<S: RLPXSink> P2PPeer<S> {
         // id)
         compressed[0] = 0x10 + 0x0b;
         compressed.truncate(compressed_size + 1);
-        self.write_message(RLPXMsg::Message(compressed)).await
+        self.write_message(compressed).await
     }
 
     async fn handle_messages(&mut self, bytes: BytesMut) -> Result<(), RLPXSessionError> {

@@ -3,6 +3,7 @@ mod connection;
 mod ecies;
 mod errors;
 mod handshake;
+mod io_connection;
 mod mac;
 mod msg_rw;
 mod session;

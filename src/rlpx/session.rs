@@ -16,6 +16,7 @@ use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
 use super::errors::RLPXSessionError;
+use super::io_connection::ConnectionIo;
 
 pub fn connect_to_node(
     node: NodeRecord,
@@ -57,9 +58,12 @@ pub fn connect_to_node(
             }
         };
 
+        let transport = ConnectionIo::new(transport);
         let (writer, reader) = transport.split();
         let mut peer = P2PPeer::new(node.str, hello_msg.id, protocol_v, writer)?;
-        peer.read_messages(reader).await
+        peer.read_messages(reader)
+            .await
+            .map_err(|_| RLPXSessionError::UnknownError)
     })
 }
 
