@@ -43,6 +43,15 @@ where
     }
 }
 
+macro_rules! ready_map_err {
+    ($e:expr) => {
+        match ready!($e) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
+        }
+    };
+}
+
 impl<T> Sink<BytesMut> for ConnectionIo<T>
 where
     T: AsyncWrite + Unpin,
@@ -53,10 +62,7 @@ where
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        match ready!(self.project().transport.poll_ready(cx)) {
-            Ok(()) => Poll::Ready(Ok(())),
-            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
-        }
+        ready_map_err!(self.project().transport.poll_ready(cx))
     }
 
     fn start_send(self: std::pin::Pin<&mut Self>, item: BytesMut) -> Result<(), Self::Error> {
@@ -71,19 +77,13 @@ where
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        match ready!(self.project().transport.poll_flush(cx)) {
-            Ok(()) => Poll::Ready(Ok(())),
-            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
-        }
+        ready_map_err!(self.project().transport.poll_flush(cx))
     }
 
     fn poll_close(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        match ready!(self.project().transport.poll_close(cx)) {
-            Ok(()) => Poll::Ready(Ok(())),
-            Err(e) => Poll::Ready(Err(RLPXSessionError::RlpxError(e))),
-        }
+        ready_map_err!(self.project().transport.poll_close(cx))
     }
 }
