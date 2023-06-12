@@ -6,7 +6,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::codec::Framed;
 use tracing::trace;
 
-use super::{Connection, RLPXError, RLPXMsg, RLPXSessionError};
+use super::{Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
 pub struct ConnectionIo<Io> {
@@ -64,7 +64,7 @@ where
         self.project()
             .transport
             .start_send(msg)
-            .map_err(|e| RLPXSessionError::RlpxError(e))
+            .map_err(RLPXSessionError::RlpxError)
     }
 
     fn poll_flush(
