@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
     let public_key = secp256k1::PublicKey::from_secret_key(&Secp256k1::new(), &secret_key);
 
-    let mut connect_to_nodes_tasks: FuturesUnordered<_> = RND_NODES
+    let mut connect_to_nodes_tasks: FuturesUnordered<_> = OUR_NODE
         .iter()
         .map(|n| n.parse().unwrap())
         .map(|n| connect_to_node(n, secret_key, public_key))

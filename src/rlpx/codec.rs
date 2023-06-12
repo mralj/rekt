@@ -55,7 +55,6 @@ impl Decoder for super::Connection {
                     });
                 }
                 RLPXConnectionState::Ack => {
-                    trace!("parsing ack with len {}", src.len());
                     // At minimum we  need 2 bytes, because per RLPX spec
                     // The first 2 bytes of the packet carry the size of msg
                     if src.len() < RLPX_AUTH_MSG_LEN_MARKER {
@@ -66,7 +65,6 @@ impl Decoder for super::Connection {
                     let total_size = payload_size + RLPX_AUTH_MSG_LEN_MARKER;
 
                     if src.len() < total_size {
-                        trace!("current len {}, need {}", src.len(), total_size);
                         // small perf optimization, suggested in the docs
                         src.reserve(total_size - src.len());
                         return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
@@ -89,15 +87,13 @@ impl Decoder for super::Connection {
                         return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
                     }
 
-                    let expected_msg_body_size =
+                    let _expected_msg_body_size =
                         self.read_header(&mut src.split_to(RLPX_MSG_HEADER_LEN))?;
-                    trace!("Got header, expected body size {}", expected_msg_body_size);
                     self.state = RLPXConnectionState::Body;
                 }
                 RLPXConnectionState::Body => {
                     let len_with_padding = self.body_size_rounded_up_to_multiple_of_frame_padding();
                     if src.len() < len_with_padding {
-                        trace!("current len {}, need {}", src.len(), len_with_padding);
                         return SIGNAL_TO_TCP_STREAM_MORE_DATA_IS_NEEDED;
                     }
 

@@ -14,7 +14,7 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| {
         "0d21840abff46b96c84b2ac9e10e4f5cdaeb5693cb665db62a2f3b02d2d57b5b"
     ));
     ChainSpec {
-        chain: ethers::types::Chain::BinanceSmartChain,
+        chain: 56,
         td: 1,
         genesis_hash,
         head: super::head::Head {

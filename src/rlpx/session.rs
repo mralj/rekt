@@ -2,7 +2,7 @@ use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
@@ -66,7 +66,6 @@ pub fn connect_to_node(
 async fn handle_ack_msg(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<(), RLPXSessionError> {
-    trace!("waiting for RLPX ack ...");
     let msg = transport
         .try_next()
         .await?

@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use derive_more::Display;
+use num_derive::ToPrimitive;
 use open_fastrlp::{RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -8,7 +9,7 @@ use thiserror::Error;
 const ETH_PROTOCOL: &str = "eth";
 pub static OUR_PROTOCOLS: OnceLock<Vec<Protocol>> = OnceLock::new();
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
 pub enum ProtocolVersion {
     Eth66 = 66,
     #[default]

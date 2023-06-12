@@ -1,16 +1,17 @@
 use std::fmt::{Debug, Display};
 
 use bytes::BytesMut;
-use once_cell::sync::Lazy;
+use derive_more::Display;
+use num_traits::ToPrimitive;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
-use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID;
+use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
+use crate::p2p::types::protocol::ProtocolVersion;
 use crate::types::hash::H256;
-
-pub static OUR_ETH_STATUS_MSG: Lazy<Status> = Lazy::new(Status::default);
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Status {
@@ -20,7 +21,7 @@ pub struct Status {
 
     /// The chain id, as introduced in
     /// [EIP155](https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids).
-    pub chain: u64,
+    pub chain: u8,
 
     /// Total difficulty of the best chain.
     pub total_difficulty: u64,
@@ -42,8 +43,9 @@ pub struct Status {
 impl Default for Status {
     fn default() -> Self {
         Self {
-            version: 67,
-            chain: BSC_MAINNET.chain as u64,
+            version: ProtocolVersion::default() as u8,
+            // negotiated
+            chain: BSC_MAINNET.chain,
             total_difficulty: BSC_MAINNET.td,
             blockhash: BSC_MAINNET.genesis_hash,
             genesis: BSC_MAINNET.genesis_hash,
@@ -73,8 +75,7 @@ impl Debug for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hexed_blockhash = hex::encode(self.blockhash);
         let hexed_genesis = hex::encode(self.genesis);
-        if f.alternate() {
-            write!(
+        write!(
                 f,
                 "Status {{\n\tversion: {:?},\n\tchain: {:?},\n\ttotal_difficulty: {:?},\n\tblockhash: {},\n\tgenesis: {},\n\tforkid: {:X?}\n}}",
                 self.version,
@@ -84,23 +85,96 @@ impl Debug for Status {
                 hexed_genesis,
                 self.forkid
             )
-        } else {
-            write!(
-                f,
-                "Status {{ version: {:?}, chain: {:?}, total_difficulty: {:?}, blockhash: {}, genesis: {}, forkid: {:X?} }}",
-                self.version,
-                self.chain,
-                self.total_difficulty,
-                hexed_blockhash,
-                hexed_genesis,
-                self.forkid
-            )
-        }
     }
 }
 
 impl Status {
+    pub fn make_our_status_msg(proto_v_negotiated: &ProtocolVersion) -> Self {
+        Self {
+            version: proto_v_negotiated.to_u8().unwrap(),
+            ..Self::default()
+        }
+    }
+
     pub fn rlp_encode(&self) -> BytesMut {
+        let mut status_rlp = BytesMut::new();
+        self.encode(&mut status_rlp);
+        status_rlp
+    }
+
+    pub fn validate(
+        peer_status_msg: &Status,
+        proto_v_negotiated: &ProtocolVersion,
+    ) -> Result<(), &'static str> {
+        if *proto_v_negotiated as u8 != peer_status_msg.version {
+            error!(
+                "Protocol version mismatch, received {:?}",
+                peer_status_msg.version
+            );
+            return Err("Protocol version mismatch");
+        }
+
+        if BSC_MAINNET.chain != peer_status_msg.chain {
+            error!("Chain ID mismatch, received {:?}", peer_status_msg.chain);
+            return Err("Chain ID mismatch");
+        }
+
+        if BSC_MAINNET.genesis_hash != peer_status_msg.genesis {
+            error!(
+                "Genesis hash mismatch, received {:?}",
+                peer_status_msg.genesis
+            );
+            return Err("Genesis hash mismatch");
+        }
+
+        if BSC_MAINNET_FORK_FILTER
+            .validate(peer_status_msg.forkid)
+            .is_err()
+        {
+            error!("Fork ID mismatch, received {:X?}", peer_status_msg.forkid);
+            return Err("Fork ID Mismatch");
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    RlpEncodable,
+    RlpDecodable,
+    Serialize,
+    Deserialize,
+    Default,
+)]
+struct UpgradeStatusExtension {
+    disable_peer_tx_broadcast: bool,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    RlpEncodable,
+    RlpDecodable,
+    Serialize,
+    Deserialize,
+    Default,
+)]
+pub struct UpgradeStatus {
+    extension: UpgradeStatusExtension,
+}
+
+impl UpgradeStatus {
+    pub fn rl_encode(&self) -> BytesMut {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
         status_rlp
