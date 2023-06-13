@@ -10,24 +10,24 @@ use super::{Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
 #[derive(Debug)]
-pub struct ConnectionIO {
+pub struct TcpTransport {
     #[pin]
-    transport: Framed<TcpStream, Connection>,
+    inner: Framed<TcpStream, Connection>,
 }
 
-impl ConnectionIO {
+impl TcpTransport {
     pub fn new(transport: Framed<TcpStream, Connection>) -> Self {
-        Self { transport }
+        Self { inner: transport }
     }
 }
 
-impl Stream for ConnectionIO {
+impl Stream for TcpTransport {
     type Item = Result<BytesMut, RLPXSessionError>;
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        match ready!(self.project().transport.poll_next(cx)) {
+        match ready!(self.project().inner.poll_next(cx)) {
             Some(Ok(RLPXMsg::Message(msg))) => Poll::Ready(Some(Ok(msg))),
             Some(_) => {
                 trace!("Received non-message RLPX message");
@@ -47,21 +47,20 @@ macro_rules! ready_map_err {
     };
 }
 
-impl Sink<BytesMut> for ConnectionIO {
+impl Sink<BytesMut> for TcpTransport {
     type Error = RLPXSessionError;
 
     fn poll_ready(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        ready_map_err!(self.project().transport.poll_ready(cx))
+        ready_map_err!(self.project().inner.poll_ready(cx))
     }
 
     fn start_send(self: std::pin::Pin<&mut Self>, item: BytesMut) -> Result<(), Self::Error> {
-        let msg = RLPXMsg::Message(item);
         self.project()
-            .transport
-            .start_send(msg)
+            .inner
+            .start_send(RLPXMsg::Message(item))
             .map_err(RLPXSessionError::RlpxError)
     }
 
@@ -69,13 +68,13 @@ impl Sink<BytesMut> for ConnectionIO {
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        ready_map_err!(self.project().transport.poll_flush(cx))
+        ready_map_err!(self.project().inner.poll_flush(cx))
     }
 
     fn poll_close(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        ready_map_err!(self.project().transport.poll_close(cx))
+        ready_map_err!(self.project().inner.poll_close(cx))
     }
 }

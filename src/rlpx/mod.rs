@@ -3,14 +3,14 @@ mod connection;
 mod ecies;
 mod errors;
 mod handshake;
-mod io_connection;
 mod mac;
 mod msg_rw;
 mod session;
+mod tcp_transport;
 mod utils;
 
 pub use self::codec::RLPXMsg;
 pub use self::connection::Connection;
 pub use self::errors::{RLPXError, RLPXSessionError};
-pub use self::io_connection::ConnectionIO;
 pub use self::session::connect_to_node;
+pub use self::tcp_transport::TcpTransport;
