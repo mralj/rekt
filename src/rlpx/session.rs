@@ -58,10 +58,6 @@ pub fn connect_to_node(
             }
         };
 
-        // let mut peer = P2PPeer::new(node.str, transport, hello_msg.id, protocol_v);
-        //
-        // peer.run().await;
-
         let (w, r) = ConnectionIO::new(transport).split();
         let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
         p.read_messages().await
