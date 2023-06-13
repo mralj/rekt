@@ -12,4 +12,5 @@ mod utils;
 pub use self::codec::RLPXMsg;
 pub use self::connection::Connection;
 pub use self::errors::{RLPXError, RLPXSessionError};
+pub use self::io_connection::ConnectionIO;
 pub use self::session::connect_to_node;
