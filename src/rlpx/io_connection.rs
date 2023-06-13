@@ -2,31 +2,26 @@ use std::task::{ready, Poll};
 
 use bytes::BytesMut;
 use futures::{Sink, Stream};
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use tracing::trace;
 
 use super::{Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
-pub struct ConnectionIO<T> {
+#[derive(Debug)]
+pub struct ConnectionIO {
     #[pin]
-    transport: Framed<T, Connection>,
+    transport: Framed<TcpStream, Connection>,
 }
 
-impl<T> ConnectionIO<T>
-where
-    T: AsyncRead + AsyncWrite + Unpin,
-{
-    pub fn new(transport: Framed<T, Connection>) -> Self {
+impl ConnectionIO {
+    pub fn new(transport: Framed<TcpStream, Connection>) -> Self {
         Self { transport }
     }
 }
 
-impl<T> Stream for ConnectionIO<T>
-where
-    T: AsyncRead + Unpin,
-{
+impl Stream for ConnectionIO {
     type Item = Result<BytesMut, RLPXSessionError>;
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -52,10 +47,7 @@ macro_rules! ready_map_err {
     };
 }
 
-impl<T> Sink<BytesMut> for ConnectionIO<T>
-where
-    T: AsyncWrite + Unpin,
-{
+impl Sink<BytesMut> for ConnectionIO {
     type Error = RLPXSessionError;
 
     fn poll_ready(

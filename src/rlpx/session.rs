@@ -58,12 +58,13 @@ pub fn connect_to_node(
             }
         };
 
-        let transport = ConnectionIO::new(transport);
-        let (writer, reader) = transport.split();
-        let mut peer = P2PPeer::new(node.str, hello_msg.id, protocol_v, writer)?;
-        peer.read_messages(reader)
-            .await
-            .map_err(|_| RLPXSessionError::UnknownError)
+        // let mut peer = P2PPeer::new(node.str, transport, hello_msg.id, protocol_v);
+        //
+        // peer.run().await;
+
+        let (w, r) = ConnectionIO::new(transport).split();
+        let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
+        p.read_messages().await
     })
 }
 

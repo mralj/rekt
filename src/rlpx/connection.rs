@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use aes::Aes256;
 use bytes::Bytes;
 use ctr::Ctr64BE;
@@ -98,5 +100,15 @@ impl Connection {
     pub fn body_size_rounded_up_to_multiple_of_frame_padding(&self) -> usize {
         let msg_size_wo_padding = self.body_size.unwrap();
         FRAME_PADDING * num_integer::div_ceil(msg_size_wo_padding, FRAME_PADDING) + FRAME_PADDING
+    }
+}
+
+impl Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Connection")
+            .field("state", &self.state)
+            .field("p_key", &self.public_key)
+            .field("remote_p_key", &self.remote_public_key)
+            .finish()
     }
 }
