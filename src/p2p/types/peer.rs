@@ -12,8 +12,8 @@ use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
-pub trait RLPXStream: Stream<Item = Result<BytesMut, RLPXSessionError>> + Unpin {}
-impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<BytesMut, RLPXSessionError>> {}
+pub trait RLPXStream: Stream<Item = Result<Message, RLPXSessionError>> + Unpin {}
+impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<Message, RLPXSessionError>> {}
 
 pub trait RLPXSink: Sink<BytesMut, Error = RLPXSessionError> + Unpin {}
 impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXSessionError> {}
@@ -56,7 +56,9 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
                 .reader
                 .try_next()
                 .await?
-                .ok_or(RLPXSessionError::NoMessage)?;
+                // by stream definition when Poll::Ready(None) is returned this means that
+                // stream is done and should not be polled again, or bad things will happen
+                .ok_or(RLPXSessionError::NoMessage)?; //
             self.handle_messages(msg).await?;
         }
     }
@@ -114,17 +116,14 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
         self.write_message(compressed).await
     }
 
-    async fn handle_messages(&mut self, bytes: BytesMut) -> Result<(), RLPXSessionError> {
-        let mut msg = Message::new(bytes);
-        let msg_id = msg.decode_id()?;
-        let msg_kind = msg
-            .decode_kind()?
-            .as_ref()
-            .ok_or(RLPXSessionError::UnknownError)?;
+    async fn handle_messages(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
+        if msg.kind.is_none() {
+            return Err(RLPXSessionError::UnknownError);
+        }
 
-        match msg_kind {
+        match msg.kind.unwrap() {
             MessageKind::ETH => {
-                return self.handle_eth_message(msg_id, msg.data).await;
+                return self.handle_eth_message(msg.id.unwrap(), msg.data).await;
             }
             MessageKind::P2P(p2p_msg) => trace!("Got P2P msg: {:?}", p2p_msg),
         };
@@ -196,4 +195,13 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
 
         self.send_our_status_msg().await
     }
+
+    // pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
+    //     let msg = self
+    //         .reader
+    //         .try_next()
+    //         .await?
+    //         .ok_or(RLPXSessionError::NoMessage)?;
+    //     Ok(())
+    // }
 }

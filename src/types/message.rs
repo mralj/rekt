@@ -22,8 +22,8 @@ pub enum MessageKind {
 #[derive(Debug)]
 pub struct Message {
     pub(crate) kind: Option<MessageKind>,
-    pub(crate) data: BytesMut,
     pub(crate) id: Option<u8>,
+    pub(crate) data: BytesMut,
 }
 
 impl Message {
@@ -70,7 +70,8 @@ impl Message {
                 let p2p_msg = P2PMessage::decode(id, &mut &self.data[..])?;
                 self.kind = Some(MessageKind::P2P(p2p_msg));
             }
-            _ => self.kind = Some(MessageKind::ETH),
+            0x10..=MAX_SUPPORTED_MESSAGE_ID => self.kind = Some(MessageKind::ETH),
+            _ => return Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
 
         Ok(&self.kind)
