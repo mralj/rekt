@@ -13,7 +13,7 @@ const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
 // ETH message have IDs 16 onward, and ATM there is 16 message types
 const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Clone, Eq, PartialEq)]
 pub enum MessageKind {
     P2P(P2PMessage),
     ETH,

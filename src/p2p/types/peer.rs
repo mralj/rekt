@@ -50,7 +50,8 @@ impl<R: RLPXStream, W: RLPXSink> Display for P2PPeer<R, W> {
 }
 
 impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
-    pub async fn read_messages(&mut self) -> Result<(), RLPXSessionError> {
+    pub async fn run(&mut self) -> Result<(), RLPXSessionError> {
+        self.handshake().await?;
         loop {
             let msg = self
                 .reader
@@ -136,34 +137,11 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
         msg_id: u8,
         bytes: BytesMut,
     ) -> Result<(), RLPXSessionError> {
-        if msg_id == 27 {
-            let decompressed_len =
-                snap::raw::decompress_len(&bytes).map_err(|_| RLPXSessionError::UnknownError)?;
-            let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
-            let mut decoder = snap::raw::Decoder::new();
-
-            decoder
-                .decompress(&bytes, &mut rlp_msg_bytes)
-                .map_err(|err| {
-                    tracing::debug!(
-                        ?err,
-                        msg=%hex::encode(&bytes),
-                        "error decompressing p2p message"
-                    );
-                    RLPXSessionError::UnknownError
-                })?;
-            trace!(
-                "Upgrade status extension message received {:?}",
-                hex::encode(&rlp_msg_bytes)
-            );
-        }
-
-        if msg_id != 16 {
+        let msg_id_is_bsc_upgrade_status_msg = msg_id == 27;
+        if !msg_id_is_bsc_upgrade_status_msg {
             info!("Got ETH message with ID: {:?}", msg_id);
             return Ok(());
         }
-
-        // 1. snappy decompress
 
         let decompressed_len =
             snap::raw::decompress_len(&bytes).map_err(|_| RLPXSessionError::UnknownError)?;
@@ -180,14 +158,23 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
                 );
                 RLPXSessionError::UnknownError
             })?;
-        // 2. parse
+        trace!(
+            "Upgrade status extension message received {:?}",
+            hex::encode(&rlp_msg_bytes)
+        );
+        Ok(())
+    }
 
-        let msg = Status::decode(&mut &rlp_msg_bytes[..])?;
+    pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
+        let msg = self
+            .reader
+            .try_next()
+            .await?
+            .ok_or(RLPXSessionError::NoMessage)?;
 
-        // 3. log
-        info!(?msg, "Got status message");
+        let status_msg = Status::try_from(msg).map_err(|_| RLPXSessionError::UnknownError)?;
 
-        if Status::validate(&msg, &self.protocol_version).is_err() {
+        if Status::validate(&status_msg, &self.protocol_version).is_err() {
             return Err(RLPXSessionError::UnknownError);
         } else {
             info!("Validated status MSG OK");
@@ -195,13 +182,4 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
 
         self.send_our_status_msg().await
     }
-
-    // pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
-    //     let msg = self
-    //         .reader
-    //         .try_next()
-    //         .await?
-    //         .ok_or(RLPXSessionError::NoMessage)?;
-    //     Ok(())
-    // }
 }

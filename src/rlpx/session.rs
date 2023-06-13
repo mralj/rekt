@@ -61,7 +61,7 @@ pub fn connect_to_node(
 
         let (w, r) = P2PWire::new(TcpTransport::new(transport)).split();
         let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
-        p.read_messages().await
+        p.run().await
     })
 }
 
