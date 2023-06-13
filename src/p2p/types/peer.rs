@@ -5,70 +5,63 @@ use futures::{Sink, SinkExt, Stream, TryStreamExt};
 use open_fastrlp::Decodable;
 use tracing::{info, trace};
 
-use super::protocol::{ProtocolVersion, ProtocolVersionError};
+use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::rlpx::{RLPXError, RLPXMsg, RLPXSessionError};
+use crate::rlpx::RLPXSessionError;
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
+use crate::types::node_record::NodeRecord;
 
-pub trait RLPXSink: Unpin + Sink<RLPXMsg, Error = RLPXError> {}
-impl<T> RLPXSink for T where T: Unpin + Sink<RLPXMsg, Error = RLPXError> {}
+pub trait RLPXStream: Stream<Item = Result<BytesMut, RLPXSessionError>> + Unpin {}
+impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<BytesMut, RLPXSessionError>> {}
+
+pub trait RLPXSink: Sink<BytesMut, Error = RLPXSessionError> + Unpin {}
+impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXSessionError> {}
 
 #[derive(Debug)]
-pub struct P2PPeer<S: RLPXSink> {
-    enode: String,
+pub struct P2PPeer<R: RLPXStream, W: RLPXSink> {
+    node_record: NodeRecord,
     id: H512,
     protocol_version: ProtocolVersion,
-    writer: S,
+    writer: W,
+    reader: R,
 }
 
-impl<S: RLPXSink> P2PPeer<S> {
-    pub fn new(
-        enode: String,
-        id: H512,
-        protocol: usize,
-        writer: S,
-    ) -> Result<Self, ProtocolVersionError> {
-        let protocol = ProtocolVersion::try_from(protocol)?;
-        Ok(Self {
-            enode,
+impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
+    pub fn new(enode: NodeRecord, id: H512, protocol: usize, r: R, w: W) -> Self {
+        Self {
             id,
-            writer,
-            protocol_version: protocol,
-        })
+            reader: r,
+            writer: w,
+            node_record: enode,
+            protocol_version: ProtocolVersion::from(protocol),
+        }
     }
 }
 
-impl<S: RLPXSink> Display for P2PPeer<S> {
+impl<R: RLPXStream, W: RLPXSink> Display for P2PPeer<R, W> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "enode: {}, id: {}, protocol v.: {}",
-            self.enode, self.id, self.protocol_version
+            self.node_record.str, self.id, self.protocol_version
         )
     }
 }
 
-impl<S: RLPXSink> P2PPeer<S> {
-    pub async fn read_messages<T>(&mut self, mut tcp_stream: T) -> Result<(), RLPXSessionError>
-    where
-        T: Stream<Item = Result<RLPXMsg, RLPXError>> + Unpin,
-    {
+impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
+    pub async fn read_messages(&mut self) -> Result<(), RLPXSessionError> {
         loop {
-            let msg = tcp_stream
+            let msg = self
+                .reader
                 .try_next()
                 .await?
                 .ok_or(RLPXSessionError::NoMessage)?;
-
-            if let RLPXMsg::Message(m) = msg {
-                self.handle_messages(m).await?;
-            } else {
-                return Err(RLPXSessionError::ExpectedRLPXMessage);
-            }
+            self.handle_messages(msg).await?;
         }
     }
 
-    pub async fn write_message(&mut self, msg: RLPXMsg) -> Result<(), RLPXSessionError> {
+    pub async fn write_message(&mut self, msg: BytesMut) -> Result<(), RLPXSessionError> {
         self.writer.send(msg).await?;
         Ok(())
     }
@@ -94,7 +87,7 @@ impl<S: RLPXSink> P2PPeer<S> {
         compressed[0] = 0x10;
         compressed.truncate(compressed_size + 1);
 
-        self.write_message(RLPXMsg::Message(compressed)).await?;
+        self.write_message(compressed).await?;
         let rlp_msg = UpgradeStatus::default().rl_encode();
 
         trace!(
@@ -118,7 +111,7 @@ impl<S: RLPXSink> P2PPeer<S> {
         // id)
         compressed[0] = 0x10 + 0x0b;
         compressed.truncate(compressed_size + 1);
-        self.write_message(RLPXMsg::Message(compressed)).await
+        self.write_message(compressed).await
     }
 
     async fn handle_messages(&mut self, bytes: BytesMut) -> Result<(), RLPXSessionError> {

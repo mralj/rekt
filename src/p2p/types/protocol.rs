@@ -25,13 +25,11 @@ version {0} is not supported"
     UnsupportedVersion(usize),
 }
 
-impl TryFrom<usize> for ProtocolVersion {
-    type Error = ProtocolVersionError;
-    fn try_from(version: usize) -> Result<Self, ProtocolVersionError> {
+impl From<usize> for ProtocolVersion {
+    fn from(version: usize) -> Self {
         match version {
-            66 => Ok(Self::Eth66),
-            67 => Ok(Self::Eth67),
-            _ => Err(ProtocolVersionError::UnsupportedVersion(version)),
+            66 => Self::Eth66,
+            _ => Self::Eth67,
         }
     }
 }
