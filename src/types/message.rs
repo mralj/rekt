@@ -13,7 +13,7 @@ const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
 // ETH message have IDs 16 onward, and ATM there is 16 message types
 const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
 
-#[derive(Debug, Display, Clone)]
+#[derive(Debug, Display, Clone, Eq, PartialEq)]
 pub enum MessageKind {
     P2P(P2PMessage),
     ETH,
@@ -22,8 +22,8 @@ pub enum MessageKind {
 #[derive(Debug)]
 pub struct Message {
     pub(crate) kind: Option<MessageKind>,
-    pub(crate) data: BytesMut,
     pub(crate) id: Option<u8>,
+    pub(crate) data: BytesMut,
 }
 
 impl Message {
@@ -36,6 +36,11 @@ impl Message {
     }
 
     pub fn decode_id(&mut self) -> Result<u8, DecodeError> {
+        // Just in case this was unintentionally called twice
+        if self.id.is_some() {
+            return Ok(self.id.unwrap());
+        }
+
         let message_id = u8::decode(&mut &self.data[..POSITION_OF_MSG_ID_IN_BYTE_BUFFER])
             .map_err(|_| DecodeError::Custom("Invalid message id"))?;
 
@@ -51,7 +56,12 @@ impl Message {
         }
     }
 
-    pub fn decode_kind(&mut self) -> Result<&Option<MessageKind>, DecodeError> {
+    pub fn decode_kind(&mut self) -> Result<&MessageKind, DecodeError> {
+        // Just in case this was unintentionally called twice
+        if self.kind.is_some() {
+            return Ok(&self.kind.as_ref().unwrap());
+        }
+
         if self.id.is_none() {
             return Err(DecodeError::Custom(
                 "Cannot decode message if ID is invalid",
@@ -70,9 +80,10 @@ impl Message {
                 let p2p_msg = P2PMessage::decode(id, &mut &self.data[..])?;
                 self.kind = Some(MessageKind::P2P(p2p_msg));
             }
-            _ => self.kind = Some(MessageKind::ETH),
+            0x10..=MAX_SUPPORTED_MESSAGE_ID => self.kind = Some(MessageKind::ETH),
+            _ => return Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
 
-        Ok(&self.kind)
+        Ok(&self.kind.as_ref().unwrap())
     }
 }

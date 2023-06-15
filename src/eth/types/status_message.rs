@@ -172,11 +172,3 @@ struct UpgradeStatusExtension {
 pub struct UpgradeStatus {
     extension: UpgradeStatusExtension,
 }
-
-impl UpgradeStatus {
-    pub fn rl_encode(&self) -> BytesMut {
-        let mut status_rlp = BytesMut::new();
-        self.encode(&mut status_rlp);
-        status_rlp
-    }
-}
