@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use bytes::BytesMut;
 use derive_more::Display;
 use num_traits::ToPrimitive;
-use open_fastrlp::{Decodable, Encodable, RlpDecodable, RlpEncodable};
+use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
@@ -12,7 +12,6 @@ use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
 use crate::p2p::types::protocol::ProtocolVersion;
 use crate::types::hash::H256;
-use crate::types::message::{Message, MessageKind};
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Status {
@@ -140,39 +139,6 @@ impl Status {
     }
 }
 
-impl TryFrom<Message> for Status {
-    //TODO: add proper errors for status message
-    type Error = &'static str;
-
-    fn try_from(msg: Message) -> Result<Self, Self::Error> {
-        //TODO: handle magic number here properly
-        let both_kind_and_id_are_ok = msg.id == Some(16) && msg.kind == Some(MessageKind::ETH);
-        if !both_kind_and_id_are_ok {
-            return Err("Message is not Status message");
-        }
-
-        //TODO: this should be abstracted into a function
-        // But decide on this when we implement ETH stream/sink
-        let decompressed_len = snap::raw::decompress_len(&msg.data)
-            .map_err(|_| "Could not read length for snappy decompress")?;
-        let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
-        let mut decoder = snap::raw::Decoder::new();
-
-        decoder
-            .decompress(&msg.data, &mut rlp_msg_bytes)
-            .map_err(|err| {
-                tracing::debug!(
-                    ?err,
-                    msg=%hex::encode(&msg.data),
-                    "error decompressing p2p message"
-                );
-                "Could not decompress Status message"
-            })?;
-
-        Status::decode(&mut &rlp_msg_bytes[..]).map_err(|_| "Could not decode status msg")
-    }
-}
-
 #[derive(
     Clone,
     Copy,
@@ -205,12 +171,4 @@ struct UpgradeStatusExtension {
 )]
 pub struct UpgradeStatus {
     extension: UpgradeStatusExtension,
-}
-
-impl UpgradeStatus {
-    pub fn rl_encode(&self) -> BytesMut {
-        let mut status_rlp = BytesMut::new();
-        self.encode(&mut status_rlp);
-        status_rlp
-    }
 }

@@ -36,6 +36,11 @@ impl Message {
     }
 
     pub fn decode_id(&mut self) -> Result<u8, DecodeError> {
+        // Just in case this was unintentionally called twice
+        if self.id.is_some() {
+            return Ok(self.id.unwrap());
+        }
+
         let message_id = u8::decode(&mut &self.data[..POSITION_OF_MSG_ID_IN_BYTE_BUFFER])
             .map_err(|_| DecodeError::Custom("Invalid message id"))?;
 
@@ -51,7 +56,12 @@ impl Message {
         }
     }
 
-    pub fn decode_kind(&mut self) -> Result<&Option<MessageKind>, DecodeError> {
+    pub fn decode_kind(&mut self) -> Result<&MessageKind, DecodeError> {
+        // Just in case this was unintentionally called twice
+        if self.kind.is_some() {
+            return Ok(&self.kind.as_ref().unwrap());
+        }
+
         if self.id.is_none() {
             return Err(DecodeError::Custom(
                 "Cannot decode message if ID is invalid",
@@ -74,6 +84,6 @@ impl Message {
             _ => return Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
 
-        Ok(&self.kind)
+        Ok(&self.kind.as_ref().unwrap())
     }
 }

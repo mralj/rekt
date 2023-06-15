@@ -1,22 +1,23 @@
 use std::fmt::{Display, Formatter};
 
 use bytes::BytesMut;
-use futures::{Sink, SinkExt, Stream, TryStreamExt};
+use futures::{Sink, SinkExt, Stream, StreamExt};
+
 use open_fastrlp::Decodable;
-use tracing::{info, trace};
+use tracing::{error, info, trace};
 
 use super::protocol::ProtocolVersion;
+use crate::eth::types::eth_message_payload::EthMessagePayload;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
 use crate::types::hash::H512;
-use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
-pub trait RLPXStream: Stream<Item = Result<Message, RLPXSessionError>> + Unpin {}
-impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<Message, RLPXSessionError>> {}
+pub trait RLPXStream: Stream<Item = EthMessagePayload> + Unpin {}
+impl<T> RLPXStream for T where T: Unpin + Stream<Item = EthMessagePayload> {}
 
-pub trait RLPXSink: Sink<BytesMut, Error = RLPXSessionError> + Unpin {}
-impl<T> RLPXSink for T where T: Unpin + Sink<BytesMut, Error = RLPXSessionError> {}
+pub trait RLPXSink: Sink<EthMessagePayload, Error = RLPXSessionError> + Unpin {}
+impl<T> RLPXSink for T where T: Unpin + Sink<EthMessagePayload, Error = RLPXSessionError> {}
 
 #[derive(Debug)]
 pub struct P2PPeer<R: RLPXStream, W: RLPXSink> {
@@ -55,124 +56,55 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
         loop {
             let msg = self
                 .reader
-                .try_next()
-                .await?
+                .next()
+                .await
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(RLPXSessionError::NoMessage)?; //
-            self.handle_messages(msg).await?;
+            self.handle_eth_message(msg).await?;
         }
-    }
-
-    pub async fn write_message(&mut self, msg: BytesMut) -> Result<(), RLPXSessionError> {
-        self.writer.send(msg).await?;
-        Ok(())
     }
 
     pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
-        let rlp_msg = Status::make_our_status_msg(&self.protocol_version).rlp_encode();
+        self.writer
+            .send(EthMessagePayload::new(
+                16,
+                Status::make_our_status_msg(&self.protocol_version),
+            ))
+            .await?;
 
-        let mut encoder = snap::raw::Encoder::new();
-        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len()));
-        let compressed_size = encoder
-            .compress(&rlp_msg, &mut compressed[1..])
-            .map_err(|err| {
-                tracing::debug!(
-                    ?err,
-                    msg=%hex::encode(&rlp_msg[1..]),
-                    "error compressing disconnect"
-                );
-                RLPXSessionError::UnknownError
-            })?;
-
-        // truncate the compressed buffer to the actual compressed size (plus one for the message
-        // id)
-        compressed[0] = 0x10;
-        compressed.truncate(compressed_size + 1);
-
-        self.write_message(compressed).await?;
-        let rlp_msg = UpgradeStatus::default().rl_encode();
-
-        trace!(
-            "Sending upgrade status extension: {:?}",
-            hex::encode(&rlp_msg)
-        );
-
-        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_msg.len()));
-        let compressed_size = encoder
-            .compress(&rlp_msg, &mut compressed[1..])
-            .map_err(|err| {
-                tracing::debug!(
-                    ?err,
-                    msg=%hex::encode(&rlp_msg[1..]),
-                    "error compressing disconnect"
-                );
-                RLPXSessionError::UnknownError
-            })?;
-
-        // truncate the compressed buffer to the actual compressed size (plus one for the message
-        // id)
-        compressed[0] = 0x10 + 0x0b;
-        compressed.truncate(compressed_size + 1);
-        self.write_message(compressed).await
+        self.writer
+            .send(EthMessagePayload::new(
+                0x10 + 0x0b,
+                UpgradeStatus::default(),
+            ))
+            .await
     }
 
-    async fn handle_messages(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
-        if msg.kind.is_none() {
-            return Err(RLPXSessionError::UnknownError);
-        }
-
-        match msg.kind.unwrap() {
-            MessageKind::ETH => {
-                return self.handle_eth_message(msg.id.unwrap(), msg.data).await;
-            }
-            MessageKind::P2P(p2p_msg) => trace!("Got P2P msg: {:?}", p2p_msg),
-        };
-
-        Ok(())
-    }
-
-    async fn handle_eth_message(
-        &mut self,
-        msg_id: u8,
-        bytes: BytesMut,
-    ) -> Result<(), RLPXSessionError> {
-        let msg_id_is_bsc_upgrade_status_msg = msg_id == 27;
+    async fn handle_eth_message(&mut self, msg: EthMessagePayload) -> Result<(), RLPXSessionError> {
+        let msg_id_is_bsc_upgrade_status_msg = msg.id == 27;
         if !msg_id_is_bsc_upgrade_status_msg {
-            info!("Got ETH message with ID: {:?}", msg_id);
-            return Ok(());
+            //   info!("Got ETH message with ID: {:?}", msg.id);
+        } else {
+            info!("Got upgrade status msg");
         }
 
-        let decompressed_len =
-            snap::raw::decompress_len(&bytes).map_err(|_| RLPXSessionError::UnknownError)?;
-        let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
-        let mut decoder = snap::raw::Decoder::new();
-
-        decoder
-            .decompress(&bytes, &mut rlp_msg_bytes)
-            .map_err(|err| {
-                tracing::debug!(
-                    ?err,
-                    msg=%hex::encode(&bytes),
-                    "error decompressing p2p message"
-                );
-                RLPXSessionError::UnknownError
-            })?;
-        trace!(
-            "Upgrade status extension message received {:?}",
-            hex::encode(&rlp_msg_bytes)
-        );
         Ok(())
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
         let msg = self
             .reader
-            .try_next()
-            .await?
+            .next()
+            .await
             .ok_or(RLPXSessionError::NoMessage)?;
 
-        let status_msg = Status::try_from(msg).map_err(|_| RLPXSessionError::UnknownError)?;
+        if msg.id != 16 {
+            error!("Expected status message, got {:?}", msg.id);
+            return Err(RLPXSessionError::UnknownError);
+        }
+
+        let status_msg = Status::decode(&mut &msg.data[..])?;
 
         if Status::validate(&status_msg, &self.protocol_version).is_err() {
             return Err(RLPXSessionError::UnknownError);
