@@ -59,7 +59,7 @@ impl Message {
     pub fn decode_kind(&mut self) -> Result<&MessageKind, DecodeError> {
         // Just in case this was unintentionally called twice
         if self.kind.is_some() {
-            return Ok(&self.kind.as_ref().unwrap());
+            return Ok(self.kind.as_ref().unwrap());
         }
 
         if self.id.is_none() {
@@ -84,6 +84,6 @@ impl Message {
             _ => return Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
 
-        Ok(&self.kind.as_ref().unwrap())
+        Ok(self.kind.as_ref().unwrap())
     }
 }

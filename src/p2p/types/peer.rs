@@ -1,10 +1,10 @@
 use std::fmt::{Display, Formatter};
 
-use bytes::BytesMut;
+
 use futures::{Sink, SinkExt, Stream, StreamExt};
 
 use open_fastrlp::Decodable;
-use tracing::{error, info, trace};
+use tracing::{error, info};
 
 use super::protocol::ProtocolVersion;
 use crate::eth::types::eth_message_payload::EthMessagePayload;
