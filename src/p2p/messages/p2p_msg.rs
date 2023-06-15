@@ -1,7 +1,7 @@
 use bytes::BufMut;
 use derive_more::Display;
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use super::{DisconnectReason, HelloMessage};
@@ -16,7 +16,7 @@ pub enum P2PMessageID {
 
 impl Encodable for P2PMessageID {
     fn encode(&self, out: &mut dyn BufMut) {
-        self.to_u8().unwrap().encode(out);
+        (*self as u8).encode(out)
     }
 }
 
@@ -44,6 +44,26 @@ impl P2PMessage {
             P2PMessageID::Disconnect => Ok(P2PMessage::Disconnect(DisconnectReason::decode(buf)?)),
             P2PMessageID::Ping => Ok(P2PMessage::Ping),
             P2PMessageID::Pong => Ok(P2PMessage::Pong),
+        }
+    }
+}
+
+impl Encodable for P2PMessage {
+    fn encode(&self, out: &mut dyn BufMut) {
+        match self {
+            P2PMessage::Hello(m) => {
+                P2PMessageID::Hello.encode(out);
+                m.encode(out);
+            }
+            P2PMessage::Disconnect(_r) => todo!(),
+            P2PMessage::Ping => todo!(),
+            P2PMessage::Pong => {
+                P2PMessageID::Pong.encode(out);
+                // Pong payload is _always_ snappy encoded
+                out.put_u8(0x01);
+                out.put_u8(0x00);
+                out.put_u8(open_fastrlp::EMPTY_LIST_CODE);
+            }
         }
     }
 }
