@@ -4,7 +4,6 @@ use std::task::{ready, Poll};
 use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use open_fastrlp::Encodable;
-use tracing::info;
 
 use crate::p2p::P2PMessage;
 use crate::rlpx::{RLPXSessionError, TcpTransport};
@@ -20,6 +19,42 @@ pub struct P2PWire {
     writer_queue: VecDeque<BytesMut>,
 }
 
+/*
+* These are the facts about the "system" we are building:
+* Only P2P messages we care for are:
+* 1. Ping
+* 2. Disconnect
+*
+* The reason disconnect is important is pretty obvious (we need to remove peer from our
+* server/node)
+*
+* The reason why we care about PING is to keep alive connection with the other peer(s).
+* ATM only official solution for BSC is their fork of GETH. The both TCP and (independently) GETH
+* have timeout on connection. If we don't send any messages for some time, the connection will be
+* dropped. The way GETH "takes care" of this is system of Ping/Pong messages (which are also part
+* of official `devp2p` spec).
+* But here is thing:
+* We don't really have to send our Ping messages (no one is "forcing" us to)
+* We don't really have to respond to Ping messages with our Pongs (we won't be dropped if we
+* don't), but we must make sure that messages are exchanged between our node and peer, or we'll be
+* dropped (due to GETH/TCP timeout).
+*
+* I've decided to:
+* 1. Not send our Ping messages
+* 2. Respond to Ping messages with our Pongs, but only if there is need for this
+*
+* To elaborate on second point. As already mentioned, we really don't have to send reply to Ping,
+* so what I decided to do is to send Ping only if there are no other messages already queued to be
+* sent. This way we make sure that connection is kept alive, but we don't send necessary messages
+* if we don't have to.
+*
+*
+* The `P2PWire` takes care of  messages in way described above (reacts to Pings/Disconnects, and
+* filters out all other P2P messages). If the message is not P2P and is valid ETH message it is
+* passed "forward".
+*
+* */
+
 impl P2PWire {
     pub fn new(rlpx_wire: TcpTransport) -> Self {
         Self {
@@ -28,7 +63,11 @@ impl P2PWire {
         }
     }
 
-    fn handle_p2p_msg(&mut self, msg: &P2PMessage) -> Result<(), RLPXSessionError> {
+    fn handle_p2p_msg(
+        &mut self,
+        msg: &P2PMessage,
+        cx: &mut std::task::Context<'_>,
+    ) -> Result<(), RLPXSessionError> {
         match msg {
             P2PMessage::Ping => {
                 let no_need_to_send_ping_if_there_are_messages_queued =
@@ -37,12 +76,22 @@ impl P2PWire {
                     return Ok(());
                 }
 
-                info!("Received Ping message, replying with Pong");
                 let mut buf = BytesMut::new();
                 P2PMessage::Pong.encode(&mut buf);
-                info!("Sending Pong message {:?}", hex::encode(&buf));
 
                 self.writer_queue.push_back(buf);
+
+                // Flushes (writes) sink (maybe writes our Pong message)
+                // To explain "maybe writes" our Pong message:
+                // If inner sink is busy our Ping message won't be written at this time
+                // But this is ok, it just means that we were just "now" in process of sending
+                // "some" message to a peer. And as already mentioned we Really don't have to reply
+                // to Pings with Pong, we just need to keep connection alive by sending proper
+                // p2p/eth msgs.
+                // This is why it is ok to use poll_flush_unpin here and not poll again, because
+                // "we don't care"
+                let _ = self.poll_flush_unpin(cx);
+
                 Ok(())
             }
             P2PMessage::Disconnect(_) => Err(RLPXSessionError::UnknownError), // TODO: this should
@@ -82,12 +131,8 @@ impl Stream for P2PWire {
             match msg.kind.as_ref().unwrap() {
                 MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
                 MessageKind::P2P(m) => {
-                    if let Err(e) = this.handle_p2p_msg(m) {
+                    if let Err(e) = this.handle_p2p_msg(m, cx) {
                         return Poll::Ready(Some(Err(e)));
-                    }
-
-                    if !this.writer_queue.is_empty() {
-                        this.poll_ready_unpin(cx);
                     }
                 }
             }
