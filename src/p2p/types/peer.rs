@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-
 use futures::{Sink, SinkExt, Stream, StreamExt};
 
 use open_fastrlp::Decodable;
