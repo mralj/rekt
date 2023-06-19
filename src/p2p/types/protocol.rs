@@ -1,5 +1,3 @@
-use std::sync::OnceLock;
-
 use derive_more::Display;
 use num_derive::ToPrimitive;
 use open_fastrlp::{RlpDecodable, RlpEncodable};
@@ -7,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 const ETH_PROTOCOL: &str = "eth";
-pub static OUR_PROTOCOLS: OnceLock<Vec<Protocol>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
 pub enum ProtocolVersion {
@@ -45,32 +42,21 @@ impl Protocol {
         Self { name, version }
     }
 
-    pub fn get_our_protocols() -> &'static Vec<Protocol> {
-        OUR_PROTOCOLS.get_or_init(|| {
-            vec![
-                Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
-                Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
-            ]
-        })
+    pub fn get_our_protocols() -> Vec<Protocol> {
+        vec![
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
+        ]
     }
 
-    pub fn match_protocols(
-        peer_protocols: &[Protocol],
-        our_protocols: &[Protocol],
-    ) -> Option<Protocol> {
-        let mut eth_protocols: Vec<Protocol> = peer_protocols
-            .iter()
-            .cloned()
-            .filter(|p| p.name == ETH_PROTOCOL)
-            .collect();
+    pub fn match_protocols(peer_protocols: &mut [Protocol]) -> Option<Protocol> {
+        peer_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
+        let proto = peer_protocols.first();
 
-        if eth_protocols.is_empty() {
-            return None;
+        match proto {
+            Some(p) if p.version == 67 && p.name == ETH_PROTOCOL => proto.cloned(),
+            Some(p) if p.version == 66 && p.name == ETH_PROTOCOL => proto.cloned(),
+            _ => None,
         }
-
-        eth_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
-        eth_protocols
-            .into_iter()
-            .find(|p| our_protocols.contains(p))
     }
 }

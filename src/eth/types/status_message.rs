@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display};
 use bytes::BytesMut;
 use derive_more::Display;
 use num_traits::ToPrimitive;
+use once_cell::sync::OnceCell;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -12,6 +13,11 @@ use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
 use crate::p2p::types::protocol::ProtocolVersion;
 use crate::types::hash::H256;
+use crate::types::message::{Message, MessageKind};
+
+static OUR_STATUS_MESSAGE_ETH_66: OnceCell<Message> = OnceCell::new();
+static OUR_STATUS_MESSAGE_ETH_67: OnceCell<Message> = OnceCell::new();
+static OUR_UPGRADE_STATUS_MESSAGE: OnceCell<Message> = OnceCell::new();
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Status {
@@ -96,6 +102,38 @@ impl Status {
         }
     }
 
+    pub fn get(proto_v_negotiated: &ProtocolVersion) -> Message {
+        match proto_v_negotiated {
+            ProtocolVersion::Eth66 => OUR_STATUS_MESSAGE_ETH_66.get_or_init(|| {
+                let status = Self {
+                    version: 66,
+                    ..Self::default()
+                };
+                let mut status_rlp = BytesMut::new();
+                status.encode(&mut status_rlp);
+                Message {
+                    kind: Some(MessageKind::ETH),
+                    id: Some(16),
+                    data: status_rlp,
+                }
+            }),
+            ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
+                let status = Self {
+                    version: 67,
+                    ..Self::default()
+                };
+                let mut status_rlp = BytesMut::new();
+                status.encode(&mut status_rlp);
+                Message {
+                    kind: Some(MessageKind::ETH),
+                    id: Some(16),
+                    data: status_rlp,
+                }
+            }),
+        }
+        .to_owned()
+    }
+
     pub fn rlp_encode(&self) -> BytesMut {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
@@ -171,4 +209,22 @@ struct UpgradeStatusExtension {
 )]
 pub struct UpgradeStatus {
     extension: UpgradeStatusExtension,
+}
+
+impl UpgradeStatus {
+    pub fn get() -> Message {
+        OUR_UPGRADE_STATUS_MESSAGE
+            .get_or_init(|| Message {
+                kind: Some(MessageKind::ETH),
+                id: Some(27),
+                data: UpgradeStatus::default().rlp_encode(),
+            })
+            .clone()
+    }
+
+    pub fn rlp_encode(&self) -> BytesMut {
+        let mut status_rlp = BytesMut::new();
+        self.encode(&mut status_rlp);
+        status_rlp
+    }
 }

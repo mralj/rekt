@@ -1,10 +1,15 @@
-use futures::{SinkExt, StreamExt, TryStreamExt};
+use std::io;
+use std::sync::Arc;
+use std::time::Duration;
+
+use futures::{SinkExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
+use tokio::sync::Semaphore;
+use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
 
-use crate::eth::types::eth_wire::ETHWire;
 use crate::p2p::types::p2p_wire::P2PWire;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
@@ -24,10 +29,28 @@ pub fn connect_to_node(
     node: NodeRecord,
     secret_key: SecretKey,
     pub_key: PublicKey,
+    semaphore: Arc<Semaphore>,
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
+        let permit = semaphore
+            .acquire()
+            .await
+            .expect("Semaphore should've been live");
+
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
-        let stream = TcpStream::connect(node.get_socket_addr()).await?;
+        let stream = match timeout(
+            Duration::from_secs(5),
+            TcpStream::connect(node.get_socket_addr()),
+        )
+        .await
+        {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Connection timed out",
+            )),
+        }?;
 
         let mut transport = rlpx_connection.framed(stream);
         transport.send(RLPXMsg::Auth).await?;
@@ -35,17 +58,16 @@ pub fn connect_to_node(
         handle_ack_msg(&mut transport).await?;
 
         transport
-            .send(RLPXMsg::Message(
-                p2p::HelloMessage::make_our_hello_message(pk2id(&pub_key)).rlp_encode(),
-            ))
+            .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
+                pk2id(&pub_key),
+            )))
             .await?;
 
         let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {
-            Ok(hello_msg) => {
+            Ok(mut hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                let matched_protocol =
-                    Protocol::match_protocols(&hello_msg.protocols, Protocol::get_our_protocols())
-                        .ok_or(RLPXSessionError::NoMatchingProtocols)?;
+                let matched_protocol = Protocol::match_protocols(&mut hello_msg.protocols)
+                    .ok_or(RLPXSessionError::NoMatchingProtocols)?;
 
                 (hello_msg, matched_protocol.version)
             }
@@ -60,8 +82,15 @@ pub fn connect_to_node(
             }
         };
 
-        let (w, r) = ETHWire::from(P2PWire::new(TcpTransport::new(transport))).split();
-        let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
+        // releases semaphore permit, so that concurrent connection attempts can proceed
+        drop(permit);
+
+        let mut p = P2PPeer::new(
+            node,
+            hello_msg.id,
+            protocol_v,
+            P2PWire::new(TcpTransport::new(transport)),
+        );
         p.run().await
     })
 }
