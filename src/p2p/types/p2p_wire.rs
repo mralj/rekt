@@ -214,7 +214,7 @@ impl Sink<Message> for P2PWire {
         let compressed_size = self
             .snappy_encoder
             .compress(&item.data, &mut compressed[1..])
-            .map_err(|err| {
+            .map_err(|_err| {
                 RLPXSessionError::MessageDecodeError(DecodeError::Custom(
                     "Could not snappy compress",
                 ))

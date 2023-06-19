@@ -103,6 +103,8 @@ impl Message {
             .decompress(&self.data, &mut rlp_msg_bytes)
             .map_err(|_| DecodeError::Custom("Could not snap decompress msg"))?;
 
+        self.data = rlp_msg_bytes;
+
         Ok(())
     }
 }
