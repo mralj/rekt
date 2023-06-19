@@ -51,9 +51,9 @@ pub fn connect_to_node(
         handle_ack_msg(&mut transport).await?;
 
         transport
-            .send(RLPXMsg::Message(
-                p2p::HelloMessage::make_our_hello_message(pk2id(&pub_key)).rlp_encode(),
-            ))
+            .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
+                pk2id(&pub_key),
+            )))
             .await?;
 
         let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {

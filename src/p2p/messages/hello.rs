@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use bytes::BytesMut;
+use once_cell::sync::OnceCell;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +9,7 @@ use crate::{p2p::types::Protocol, types::hash::H512};
 
 const DEFAULT_P2P_PROTOCOL_VERSION: usize = 5;
 const DEFAULT_PORT: usize = 30311;
+static OUR_HELLO_MESSAGE_RLP_ENCODED: OnceCell<BytesMut> = OnceCell::new();
 
 /// Message used in the `p2p` handshake, containing information about the supported RLPx protocol
 /// version and protocols.
@@ -36,7 +38,7 @@ impl Default for HelloMessage {
         Self {
             protocol_version: DEFAULT_P2P_PROTOCOL_VERSION,
             port: DEFAULT_PORT,
-            protocols: Protocol::get_our_protocols().clone(),
+            protocols: Protocol::get_our_protocols(),
             // we could write "anything" here, like "madnode", but we don't want to bring attention
             // to us, thus empty string. Alternatively we could lie that we are GETH node
             client_version: String::new(),
@@ -65,13 +67,18 @@ impl HelloMessage {
             id: H512::zero(),
         }
     }
-    pub fn make_our_hello_message(id: H512) -> Self {
-        Self {
-            id,
-            ..Self::default()
-        }
-    }
 
+    pub fn get_our_hello_message(id: H512) -> BytesMut {
+        OUR_HELLO_MESSAGE_RLP_ENCODED
+            .get_or_init(|| {
+                let hello = HelloMessage {
+                    id,
+                    ..HelloMessage::default()
+                };
+                hello.rlp_encode()
+            })
+            .clone()
+    }
     pub fn rlp_encode(&self) -> BytesMut {
         let mut hello_rlp = BytesMut::new();
         super::P2PMessageID::Hello.encode(&mut hello_rlp);

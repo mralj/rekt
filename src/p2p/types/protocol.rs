@@ -1,5 +1,3 @@
-use std::sync::OnceLock;
-
 use derive_more::Display;
 use num_derive::ToPrimitive;
 use open_fastrlp::{RlpDecodable, RlpEncodable};
@@ -7,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 const ETH_PROTOCOL: &str = "eth";
-pub static OUR_PROTOCOLS: OnceLock<Vec<Protocol>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
 pub enum ProtocolVersion {
@@ -45,13 +42,11 @@ impl Protocol {
         Self { name, version }
     }
 
-    pub fn get_our_protocols() -> &'static Vec<Protocol> {
-        OUR_PROTOCOLS.get_or_init(|| {
-            vec![
-                Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
-                Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
-            ]
-        })
+    pub fn get_our_protocols() -> Vec<Protocol> {
+        vec![
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
+        ]
     }
 
     pub fn match_protocols(peer_protocols: &mut [Protocol]) -> Option<Protocol> {
