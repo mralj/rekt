@@ -1,6 +1,10 @@
+use std::io;
+use std::time::Duration;
+
 use futures::{SinkExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
+use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
 
@@ -26,7 +30,20 @@ pub fn connect_to_node(
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
-        let stream = TcpStream::connect(node.get_socket_addr()).await?;
+
+        let stream = match timeout(
+            Duration::from_secs(5),
+            TcpStream::connect(node.get_socket_addr()),
+        )
+        .await
+        {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Connection timed out",
+            )),
+        }?;
 
         let mut transport = rlpx_connection.framed(stream);
         transport.send(RLPXMsg::Auth).await?;
