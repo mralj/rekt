@@ -57,11 +57,10 @@ pub fn connect_to_node(
             .await?;
 
         let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {
-            Ok(hello_msg) => {
+            Ok(mut hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                let matched_protocol =
-                    Protocol::match_protocols(&hello_msg.protocols, Protocol::get_our_protocols())
-                        .ok_or(RLPXSessionError::NoMatchingProtocols)?;
+                let matched_protocol = Protocol::match_protocols(&mut hello_msg.protocols)
+                    .ok_or(RLPXSessionError::NoMatchingProtocols)?;
 
                 (hello_msg, matched_protocol.version)
             }

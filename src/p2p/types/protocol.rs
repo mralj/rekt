@@ -54,23 +54,14 @@ impl Protocol {
         })
     }
 
-    pub fn match_protocols(
-        peer_protocols: &[Protocol],
-        our_protocols: &[Protocol],
-    ) -> Option<Protocol> {
-        let mut eth_protocols: Vec<Protocol> = peer_protocols
-            .iter()
-            .cloned()
-            .filter(|p| p.name == ETH_PROTOCOL)
-            .collect();
+    pub fn match_protocols(peer_protocols: &mut [Protocol]) -> Option<Protocol> {
+        peer_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
+        let proto = peer_protocols.first();
 
-        if eth_protocols.is_empty() {
-            return None;
+        match proto {
+            Some(p) if p.version == 67 && p.name == ETH_PROTOCOL => proto.cloned(),
+            Some(p) if p.version == 66 && p.name == ETH_PROTOCOL => proto.cloned(),
+            _ => None,
         }
-
-        eth_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
-        eth_protocols
-            .into_iter()
-            .find(|p| our_protocols.contains(p))
     }
 }
