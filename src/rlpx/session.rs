@@ -1,4 +1,4 @@
-use futures::{SinkExt, StreamExt, TryStreamExt};
+use futures::{SinkExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
@@ -59,8 +59,12 @@ pub fn connect_to_node(
             }
         };
 
-        let (w, r) = P2PWire::new(TcpTransport::new(transport)).split();
-        let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
+        let mut p = P2PPeer::new(
+            node,
+            hello_msg.id,
+            protocol_v,
+            P2PWire::new(TcpTransport::new(transport)),
+        );
         p.run().await
     })
 }

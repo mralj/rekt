@@ -91,7 +91,8 @@ impl Message {
         &mut self,
         snappy_decoder: &mut snap::raw::Decoder,
     ) -> Result<(), DecodeError> {
-        if self.id == Some(0x02) {
+        let msg_is_ping_no_need_to_decompress = self.id == Some(0x02);
+        if msg_is_ping_no_need_to_decompress {
             return Ok(());
         }
 

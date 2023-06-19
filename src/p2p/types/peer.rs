@@ -1,10 +1,11 @@
 use std::fmt::{Display, Formatter};
 
-use futures::{Sink, SinkExt, Stream, StreamExt};
+use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
 use tracing::{error, info};
 
+use super::p2p_wire::P2PWire;
 use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
@@ -12,34 +13,26 @@ use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
-pub trait RLPXStream: Stream<Item = Result<Message, RLPXSessionError>> + Unpin {}
-impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<Message, RLPXSessionError>> {}
-
-pub trait RLPXSink: Sink<Message, Error = RLPXSessionError> + Unpin {}
-impl<T> RLPXSink for T where T: Unpin + Sink<Message, Error = RLPXSessionError> {}
-
 #[derive(Debug)]
-pub struct P2PPeer<R: RLPXStream, W: RLPXSink> {
+pub struct P2PPeer {
     node_record: NodeRecord,
     id: H512,
     protocol_version: ProtocolVersion,
-    writer: W,
-    reader: R,
+    connection: P2PWire,
 }
 
-impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
-    pub fn new(enode: NodeRecord, id: H512, protocol: usize, r: R, w: W) -> Self {
+impl P2PPeer {
+    pub fn new(enode: NodeRecord, id: H512, protocol: usize, connection: P2PWire) -> Self {
         Self {
             id,
-            reader: r,
-            writer: w,
+            connection,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
         }
     }
 }
 
-impl<R: RLPXStream, W: RLPXSink> Display for P2PPeer<R, W> {
+impl Display for P2PPeer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -49,12 +42,12 @@ impl<R: RLPXStream, W: RLPXSink> Display for P2PPeer<R, W> {
     }
 }
 
-impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
+impl P2PPeer {
     pub async fn run(&mut self) -> Result<(), RLPXSessionError> {
         self.handshake().await?;
         loop {
             let msg = self
-                .reader
+                .connection
                 .next()
                 .await
                 // by stream definition when Poll::Ready(None) is returned this means that
@@ -65,7 +58,7 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
     }
 
     pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
-        self.writer
+        self.connection
             .send(Message {
                 kind: Some(MessageKind::ETH),
                 id: Some(16),
@@ -73,7 +66,7 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
             })
             .await?;
 
-        self.writer
+        self.connection
             .send(Message {
                 kind: Some(MessageKind::ETH),
                 id: Some(27),
@@ -95,7 +88,7 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
 
     pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
         let msg = self
-            .reader
+            .connection
             .next()
             .await
             .ok_or(RLPXSessionError::NoMessage)??;
