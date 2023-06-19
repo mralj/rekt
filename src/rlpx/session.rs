@@ -1,9 +1,11 @@
 use std::io;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
+use tokio::sync::Semaphore;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
@@ -27,10 +29,15 @@ pub fn connect_to_node(
     node: NodeRecord,
     secret_key: SecretKey,
     pub_key: PublicKey,
+    semaphore: Arc<Semaphore>,
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
-        let rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let permit = semaphore
+            .acquire()
+            .await
+            .expect("Semaphore should've been live");
 
+        let rlpx_connection = Connection::new(secret_key, node.pub_key);
         let stream = match timeout(
             Duration::from_secs(5),
             TcpStream::connect(node.get_socket_addr()),
@@ -74,6 +81,9 @@ pub fn connect_to_node(
                 return Err(e);
             }
         };
+
+        // releases semaphore permit, so that concurrent connection attempts can proceed
+        drop(permit);
 
         let mut p = P2PPeer::new(
             node,

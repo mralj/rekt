@@ -68,7 +68,7 @@ impl P2PPeer {
     async fn handle_eth_message(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
         let msg_id_is_bsc_upgrade_status_msg = msg.id == Some(27);
         if !msg_id_is_bsc_upgrade_status_msg {
-            info!("Got ETH message with ID: {:?}", msg.id);
+            //  info!("Got ETH message with ID: {:?}", msg.id);
         } else {
             info!("Got upgrade status msg");
         }
