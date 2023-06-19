@@ -4,7 +4,6 @@ use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
 
-use crate::eth::types::eth_wire::ETHWire;
 use crate::p2p::types::p2p_wire::P2PWire;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
@@ -60,7 +59,7 @@ pub fn connect_to_node(
             }
         };
 
-        let (w, r) = ETHWire::from(P2PWire::new(TcpTransport::new(transport))).split();
+        let (w, r) = P2PWire::new(TcpTransport::new(transport)).split();
         let mut p = P2PPeer::new(node, hello_msg.id, protocol_v, r, w);
         p.run().await
     })

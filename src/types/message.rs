@@ -21,9 +21,9 @@ pub enum MessageKind {
 
 #[derive(Debug)]
 pub struct Message {
-    pub(crate) kind: Option<MessageKind>,
-    pub(crate) id: Option<u8>,
-    pub(crate) data: BytesMut,
+    pub kind: Option<MessageKind>,
+    pub id: Option<u8>,
+    pub data: BytesMut,
 }
 
 impl Message {
@@ -85,5 +85,24 @@ impl Message {
         }
 
         Ok(self.kind.as_ref().unwrap())
+    }
+
+    pub fn snappy_decompress(
+        &mut self,
+        snappy_decoder: &mut snap::raw::Decoder,
+    ) -> Result<(), DecodeError> {
+        if self.id == Some(0x02) {
+            return Ok(());
+        }
+
+        let decompressed_len = snap::raw::decompress_len(&self.data)
+            .map_err(|_| DecodeError::Custom("Could not read length for snappy decompress"))?;
+        let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
+
+        snappy_decoder
+            .decompress(&self.data, &mut rlp_msg_bytes)
+            .map_err(|_| DecodeError::Custom("Could not snap decompress msg"))?;
+
+        Ok(())
     }
 }

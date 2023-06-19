@@ -6,17 +6,17 @@ use open_fastrlp::Decodable;
 use tracing::{error, info};
 
 use super::protocol::ProtocolVersion;
-use crate::eth::types::eth_message_payload::EthMessagePayload;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
 use crate::types::hash::H512;
+use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
-pub trait RLPXStream: Stream<Item = EthMessagePayload> + Unpin {}
-impl<T> RLPXStream for T where T: Unpin + Stream<Item = EthMessagePayload> {}
+pub trait RLPXStream: Stream<Item = Result<Message, RLPXSessionError>> + Unpin {}
+impl<T> RLPXStream for T where T: Unpin + Stream<Item = Result<Message, RLPXSessionError>> {}
 
-pub trait RLPXSink: Sink<EthMessagePayload, Error = RLPXSessionError> + Unpin {}
-impl<T> RLPXSink for T where T: Unpin + Sink<EthMessagePayload, Error = RLPXSessionError> {}
+pub trait RLPXSink: Sink<Message, Error = RLPXSessionError> + Unpin {}
+impl<T> RLPXSink for T where T: Unpin + Sink<Message, Error = RLPXSessionError> {}
 
 #[derive(Debug)]
 pub struct P2PPeer<R: RLPXStream, W: RLPXSink> {
@@ -59,31 +59,33 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
                 .await
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
-                .ok_or(RLPXSessionError::NoMessage)?; //
+                .ok_or(RLPXSessionError::NoMessage)??; //
             self.handle_eth_message(msg).await?;
         }
     }
 
     pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
         self.writer
-            .send(EthMessagePayload::new(
-                16,
-                Status::make_our_status_msg(&self.protocol_version),
-            ))
+            .send(Message {
+                kind: Some(MessageKind::ETH),
+                id: Some(16),
+                data: Status::make_our_status_msg(&self.protocol_version).rlp_encode(),
+            })
             .await?;
 
         self.writer
-            .send(EthMessagePayload::new(
-                0x10 + 0x0b,
-                UpgradeStatus::default(),
-            ))
+            .send(Message {
+                kind: Some(MessageKind::ETH),
+                id: Some(27),
+                data: UpgradeStatus::default().rlp_encode(),
+            })
             .await
     }
 
-    async fn handle_eth_message(&mut self, msg: EthMessagePayload) -> Result<(), RLPXSessionError> {
-        let msg_id_is_bsc_upgrade_status_msg = msg.id == 27;
+    async fn handle_eth_message(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
+        let msg_id_is_bsc_upgrade_status_msg = msg.id == Some(27);
         if !msg_id_is_bsc_upgrade_status_msg {
-            //   info!("Got ETH message with ID: {:?}", msg.id);
+            //  info!("Got ETH message with ID: {:?}", msg.id);
         } else {
             info!("Got upgrade status msg");
         }
@@ -96,9 +98,9 @@ impl<R: RLPXStream, W: RLPXSink> P2PPeer<R, W> {
             .reader
             .next()
             .await
-            .ok_or(RLPXSessionError::NoMessage)?;
+            .ok_or(RLPXSessionError::NoMessage)??;
 
-        if msg.id != 16 {
+        if msg.id != Some(16) {
             error!("Expected status message, got {:?}", msg.id);
             return Err(RLPXSessionError::UnknownError);
         }
