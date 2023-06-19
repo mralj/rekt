@@ -10,7 +10,7 @@ use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
 use crate::types::hash::H512;
-use crate::types::message::{Message, MessageKind};
+use crate::types::message::Message;
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
@@ -59,26 +59,16 @@ impl P2PPeer {
 
     pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
         self.connection
-            .send(Message {
-                kind: Some(MessageKind::ETH),
-                id: Some(16),
-                data: Status::make_our_status_msg(&self.protocol_version).rlp_encode(),
-            })
+            .send(Status::get(&self.protocol_version))
             .await?;
 
-        self.connection
-            .send(Message {
-                kind: Some(MessageKind::ETH),
-                id: Some(27),
-                data: UpgradeStatus::default().rlp_encode(),
-            })
-            .await
+        self.connection.send(UpgradeStatus::get()).await
     }
 
     async fn handle_eth_message(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
         let msg_id_is_bsc_upgrade_status_msg = msg.id == Some(27);
         if !msg_id_is_bsc_upgrade_status_msg {
-            //  info!("Got ETH message with ID: {:?}", msg.id);
+            info!("Got ETH message with ID: {:?}", msg.id);
         } else {
             info!("Got upgrade status msg");
         }

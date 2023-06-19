@@ -19,7 +19,7 @@ pub enum MessageKind {
     ETH,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub kind: Option<MessageKind>,
     pub id: Option<u8>,
