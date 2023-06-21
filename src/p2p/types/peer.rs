@@ -16,7 +16,7 @@ use crate::types::node_record::NodeRecord;
 #[derive(Debug)]
 pub struct P2PPeer {
     node_record: NodeRecord,
-    id: H512,
+    pub id: H512,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
 }
