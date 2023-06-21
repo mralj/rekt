@@ -5,7 +5,6 @@ use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use open_fastrlp::{DecodeError, Encodable};
 
-
 use crate::p2p::P2PMessage;
 use crate::rlpx::{RLPXSessionError, TcpTransport};
 use crate::types::message::{Message, MessageKind};

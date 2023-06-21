@@ -94,16 +94,18 @@ pub fn connect_to_node(
             protocol_v,
             P2PWire::new(TcpTransport::new(transport)),
         );
+
         {
-            let mut p_m = peers.lock().unwrap();
-            p_m.insert(p.id);
+            peers.lock().unwrap().insert(p.id);
         }
 
-        let r = p.run().await;
-        let mut p_m = peers.lock().unwrap();
-        p_m.remove(&p.id);
+        let task_result = p.run().await;
 
-        r
+        {
+            peers.lock().unwrap().remove(&p.id);
+        }
+
+        task_result
     })
 }
 
