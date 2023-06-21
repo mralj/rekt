@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -32,7 +32,7 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
-    peers: Arc<Mutex<HashSet<H512>>>,
+    peers: Arc<Mutex<HashMap<H512, String>>>,
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
         let permit = semaphore
@@ -92,6 +92,7 @@ pub fn connect_to_node(
             node,
             hello_msg.id,
             protocol_v,
+            hello_msg.client_version,
             P2PWire::new(TcpTransport::new(transport)),
         );
 
