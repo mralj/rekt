@@ -95,11 +95,7 @@ pub fn connect_to_node(
             P2PWire::new(TcpTransport::new(transport)),
         );
 
-        {
-            peers.lock().unwrap().insert(p.id);
-        }
-
-        let task_result = p.run().await;
+        let task_result = p.run(peers.clone()).await;
 
         {
             peers.lock().unwrap().remove(&p.id);

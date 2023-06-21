@@ -1,4 +1,6 @@
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, Mutex};
 
 use futures::{SinkExt, StreamExt};
 
@@ -43,8 +45,12 @@ impl Display for P2PPeer {
 }
 
 impl P2PPeer {
-    pub async fn run(&mut self) -> Result<(), RLPXSessionError> {
+    pub async fn run(&mut self, peers: Arc<Mutex<HashSet<H512>>>) -> Result<(), RLPXSessionError> {
         self.handshake().await?;
+        {
+            peers.lock().unwrap().insert(self.id);
+        }
+
         loop {
             let msg = self
                 .connection
