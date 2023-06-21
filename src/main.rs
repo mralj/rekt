@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::sync::Arc;
 
 use futures::stream::FuturesUnordered;
@@ -7,14 +8,18 @@ use secp256k1::{Secp256k1, SecretKey};
 use rekt::{constants::*, rlpx::connect_to_node};
 use tokio::sync::Semaphore;
 use tracing::{error, Level};
+use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let collector = tracing_subscriber::fmt()
+    let file = File::create("log.txt")?;
+    let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
+        .with_ansi(false)
+        .with_writer(file)
         .finish();
 
-    tracing::subscriber::set_global_default(collector).expect("Could not init tracing");
+    tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
     let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
     let public_key = secp256k1::PublicKey::from_secret_key(&Secp256k1::new(), &secret_key);
