@@ -1,5 +1,6 @@
+use std::collections::HashMap;
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
@@ -18,6 +19,7 @@ use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
+use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
 use crate::types::node_record::NodeRecord;
@@ -30,6 +32,7 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
+    peers: Arc<Mutex<HashMap<H512, String>>>,
 ) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
     tokio::spawn(async move {
         let permit = semaphore
@@ -89,9 +92,17 @@ pub fn connect_to_node(
             node,
             hello_msg.id,
             protocol_v,
+            hello_msg.client_version,
             P2PWire::new(TcpTransport::new(transport)),
         );
-        p.run().await
+
+        let task_result = p.run(peers.clone()).await;
+
+        {
+            peers.lock().unwrap().remove(&p.id);
+        }
+
+        task_result
     })
 }
 

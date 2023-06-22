@@ -131,11 +131,11 @@ impl Stream for P2PWire {
                 continue;
             }
 
+            msg.snappy_decompress(&mut this.snappy_decoder)?;
+
             if let Err(e) = msg.decode_kind() {
                 return Poll::Ready(Some(Err(RLPXSessionError::MessageDecodeError(e))));
             }
-
-            msg.snappy_decompress(&mut this.snappy_decoder)?;
 
             match msg.kind.as_ref().unwrap() {
                 MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),

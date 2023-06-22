@@ -1,4 +1,6 @@
+use std::collections::{HashMap};
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, Mutex};
 
 use futures::{SinkExt, StreamExt};
 
@@ -16,16 +18,24 @@ use crate::types::node_record::NodeRecord;
 #[derive(Debug)]
 pub struct P2PPeer {
     node_record: NodeRecord,
-    id: H512,
+    pub id: H512,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
+    info: String,
 }
 
 impl P2PPeer {
-    pub fn new(enode: NodeRecord, id: H512, protocol: usize, connection: P2PWire) -> Self {
+    pub fn new(
+        enode: NodeRecord,
+        id: H512,
+        protocol: usize,
+        info: String,
+        connection: P2PWire,
+    ) -> Self {
         Self {
             id,
             connection,
+            info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
         }
@@ -43,8 +53,15 @@ impl Display for P2PPeer {
 }
 
 impl P2PPeer {
-    pub async fn run(&mut self) -> Result<(), RLPXSessionError> {
+    pub async fn run(
+        &mut self,
+        peers: Arc<Mutex<HashMap<H512, String>>>,
+    ) -> Result<(), RLPXSessionError> {
         self.handshake().await?;
+        {
+            peers.lock().unwrap().insert(self.id, self.info.clone());
+        }
+
         loop {
             let msg = self
                 .connection
