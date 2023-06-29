@@ -98,6 +98,8 @@ pub enum RLPXSessionError {
     NoMatchingProtocols,
     #[error("Unsupported protocol version: {0}")]
     UnsupportedProtocol(#[from] p2p::types::protocol::ProtocolVersionError),
+    #[error("Too many attempts")]
+    TooManyConnectionAttempts,
 }
 
 pub struct PeerErr {

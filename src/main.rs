@@ -18,7 +18,7 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = get_config()?;
 
-    let file = File::create("log.txt")?;
+    let _file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_ansi(false)

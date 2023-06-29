@@ -41,12 +41,15 @@ pub fn connect_to_node(
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
-                        let _ = tx
-                            .send(PeerErr::new(
-                                conn_task.next_attempt(),
-                                RLPXSessionError::from(e),
-                            ))
-                            .await;
+                        let t = conn_task.next_attempt();
+                        if t.attempts > 10 {
+                            let _ = tx
+                                .send(PeerErr::new(t, RLPXSessionError::TooManyConnectionAttempts))
+                                .await;
+                            return;
+                        }
+
+                        let _ = tx.send(PeerErr::new(t, RLPXSessionError::from(e))).await;
                         return;
                     }
                 }
