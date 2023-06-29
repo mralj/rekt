@@ -1,20 +1,20 @@
 use std::collections::HashMap;
-use std::str::FromStr;
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+
+
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::sync::Semaphore;
-use tokio::task::JoinHandle;
-use tracing::error;
+
+
 
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
 use crate::types::hash::H512;
-use crate::types::node_record::NodeRecord;
+
 
 use super::connection_task::ConnectionTask;
 
@@ -102,7 +102,7 @@ impl OutboundConnections {
             }
             let task = task_r.unwrap();
 
-            let error_worth_retrying = match task.err {
+            let _error_worth_retrying = match task.err {
                 RLPXSessionError::DisconnectRequested(reason) => match reason {
                     DisconnectReason::TooManyPeers | DisconnectReason::PingTimeout => reason,
                     _ => continue,
@@ -122,7 +122,7 @@ impl OutboundConnections {
 
             tokio::time::sleep(
                 ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
-                    + Duration::from(task.conn_task.next_attempt - Instant::now()),
+                    + (task.conn_task.next_attempt - Instant::now()),
             )
             .await;
         }

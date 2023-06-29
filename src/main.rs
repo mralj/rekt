@@ -3,18 +3,18 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::stream::FuturesUnordered;
+
 use futures::StreamExt;
 use rekt::config::get_config;
 use rekt::server::outbound_connections::OutboundConnections;
 use rekt::types::hash::H512;
-use secp256k1::{Secp256k1, SecretKey};
 
-use rekt::rlpx::connect_to_node;
+
+
 use tokio::select;
-use tokio::sync::Semaphore;
+
 use tokio::time::interval;
-use tracing::{error, info, Level};
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
