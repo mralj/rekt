@@ -89,26 +89,17 @@ pub fn connect_to_node(
                 .await
         );
 
-        let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {
+        let (hello_msg, protocol_v) = map_err!(match handle_hello_msg(&mut transport).await {
             Ok(mut hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
                 let matched_protocol =
                     map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
                         .ok_or(RLPXSessionError::NoMatchingProtocols));
 
-                (hello_msg, matched_protocol.version)
+                Ok((hello_msg, matched_protocol.version))
             }
-            Err(e) => {
-                if let RLPXSessionError::DisconnectRequested(reason) = e {
-                    //NOTE: we can further handle disconnects here
-                    // like logging this to file or deciding to retry based on disconnect
-                    // reason/count
-                    error!("Disconnect requested: {}", reason);
-                }
-                let _ = tx.send(PeerErr::new(conn_task, e)).await;
-                return;
-            }
-        };
+            Err(e) => Err(e),
+        });
 
         // releases semaphore permit, so that concurrent connection attempts can proceed
         drop(permit);
@@ -126,9 +117,7 @@ pub fn connect_to_node(
             peers.lock().unwrap().remove(&p.id);
         }
 
-        if let Err(e) = task_result {
-            let _ = tx.send(PeerErr::new(conn_task, e)).await;
-        }
+        map_err!(task_result);
     });
 }
 
