@@ -3,13 +3,10 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-
 use futures::StreamExt;
 use rekt::config::get_config;
 use rekt::server::outbound_connections::OutboundConnections;
 use rekt::types::hash::H512;
-
-
 
 use tokio::select;
 
