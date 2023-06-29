@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
+use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio::sync::Semaphore;
@@ -19,29 +20,47 @@ use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
+use crate::server::connection_task::ConnectionTask;
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
-use crate::types::node_record::NodeRecord;
-
-use super::errors::RLPXSessionError;
+use super::errors::{PeerErr, RLPXSessionError};
 use super::tcp_transport::TcpTransport;
 
 pub fn connect_to_node(
-    node: NodeRecord,
+    conn_task: ConnectionTask,
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
     peers: Arc<Mutex<HashMap<H512, String>>>,
-) -> tokio::task::JoinHandle<Result<(), RLPXSessionError>> {
+    tx: AsyncSender<PeerErr>,
+) {
     tokio::spawn(async move {
+        macro_rules! map_err {
+            ($e: expr) => {
+                match $e {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let _ = tx
+                            .send(PeerErr::new(
+                                conn_task.next_attempt(),
+                                RLPXSessionError::from(e),
+                            ))
+                            .await;
+                        return;
+                    }
+                }
+            };
+        }
+
+        let node = conn_task.node.clone();
         let permit = semaphore
             .acquire()
             .await
             .expect("Semaphore should've been live");
 
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
-        let stream = match timeout(
+        let stream = map_err!(match timeout(
             Duration::from_secs(5),
             TcpStream::connect(node.get_socket_addr()),
         )
@@ -53,24 +72,26 @@ pub fn connect_to_node(
                 io::ErrorKind::TimedOut,
                 "Connection timed out",
             )),
-        }?;
+        });
 
         let mut transport = rlpx_connection.framed(stream);
-        transport.send(RLPXMsg::Auth).await?;
+        map_err!(transport.send(RLPXMsg::Auth).await);
+        map_err!(handle_ack_msg(&mut transport).await);
 
-        handle_ack_msg(&mut transport).await?;
-
-        transport
-            .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
-                pk2id(&pub_key),
-            )))
-            .await?;
+        map_err!(
+            transport
+                .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
+                    pk2id(&pub_key),
+                )))
+                .await
+        );
 
         let (hello_msg, protocol_v) = match handle_hello_msg(&mut transport).await {
             Ok(mut hello_msg) => {
                 info!("Received Hello: {:?}", hello_msg);
-                let matched_protocol = Protocol::match_protocols(&mut hello_msg.protocols)
-                    .ok_or(RLPXSessionError::NoMatchingProtocols)?;
+                let matched_protocol =
+                    map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
+                        .ok_or(RLPXSessionError::NoMatchingProtocols));
 
                 (hello_msg, matched_protocol.version)
             }
@@ -81,7 +102,8 @@ pub fn connect_to_node(
                     // reason/count
                     error!("Disconnect requested: {}", reason);
                 }
-                return Err(e);
+                let _ = tx.send(PeerErr::new(conn_task, e)).await;
+                return;
             }
         };
 
@@ -97,13 +119,14 @@ pub fn connect_to_node(
         );
 
         let task_result = p.run(peers.clone()).await;
-
         {
             peers.lock().unwrap().remove(&p.id);
         }
 
-        task_result
-    })
+        if let Err(e) = task_result {
+            let _ = tx.send(PeerErr::new(conn_task, e)).await;
+        }
+    });
 }
 
 async fn handle_ack_msg(

@@ -6,6 +6,7 @@ use std::time::Duration;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use rekt::config::get_config;
+use rekt::server::outbound_connections::OutboundConnections;
 use rekt::types::hash::H512;
 use secp256k1::{Secp256k1, SecretKey};
 
@@ -54,22 +55,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let secret_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-    let public_key = secp256k1::PublicKey::from_secret_key(&Secp256k1::new(), &secret_key);
+    let outbound_connections = OutboundConnections::new(config.nodes, peers);
+    outbound_connections.start().await;
 
-    let semaphore = Arc::new(Semaphore::new(1_000)); // Limit to 1000 concurrent connection attempts.
-    let mut connect_to_nodes_tasks: FuturesUnordered<_> = config
-        .nodes
-        .iter()
-        .map(|n| n.parse().unwrap())
-        .map(|n| connect_to_node(n, secret_key, public_key, semaphore.clone(), peers.clone()))
-        .collect();
-
-    while let Some(task_result) = connect_to_nodes_tasks.next().await {
-        if let Ok(Err(e)) = task_result {
-            error!("{}", e)
-        }
-    }
+    let _ = tokio::signal::ctrl_c().await;
 
     Ok(())
 }
