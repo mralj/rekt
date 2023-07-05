@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use super::codec::RLPXMsg;
 use crate::p2p;
+use crate::server::connection_task::ConnectionTask;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -97,4 +98,17 @@ pub enum RLPXSessionError {
     NoMatchingProtocols,
     #[error("Unsupported protocol version: {0}")]
     UnsupportedProtocol(#[from] p2p::types::protocol::ProtocolVersionError),
+    #[error("Too many attempts")]
+    TooManyConnectionAttempts,
+}
+
+pub struct PeerErr {
+    pub conn_task: ConnectionTask,
+    pub err: RLPXSessionError,
+}
+
+impl PeerErr {
+    pub fn new(conn_task: ConnectionTask, err: RLPXSessionError) -> Self {
+        PeerErr { conn_task, err }
+    }
 }
