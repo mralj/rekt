@@ -1,11 +1,12 @@
-use std::collections::HashMap;
-
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use dashmap::DashMap;
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
+use tokio::select;
 use tokio::sync::Semaphore;
+use tokio::time::interval;
 
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
@@ -22,7 +23,7 @@ pub struct OutboundConnections {
     our_private_key: secp256k1::SecretKey,
 
     semaphore: Arc<Semaphore>,
-    peers: Arc<Mutex<HashMap<H512, String>>>,
+    peers: Arc<DashMap<H512, String>>,
 
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
@@ -32,7 +33,7 @@ pub struct OutboundConnections {
 }
 
 impl OutboundConnections {
-    pub fn new(nodes: Vec<String>, peers: Arc<Mutex<HashMap<H512, String>>>) -> Self {
+    pub fn new(nodes: Vec<String>) -> Self {
         let our_private_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
         let our_pub_key =
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_private_key);
@@ -41,6 +42,8 @@ impl OutboundConnections {
 
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
+
+        let peers = Arc::new(DashMap::with_capacity(2 * nodes.len()));
 
         Self {
             nodes,
@@ -58,6 +61,7 @@ impl OutboundConnections {
     pub async fn start(&self) {
         let task_runner = self.clone();
         let retry_runner = self.clone();
+        let log_runner = self.clone();
 
         tokio::task::spawn(async move {
             task_runner.run().await;
@@ -65,6 +69,10 @@ impl OutboundConnections {
 
         tokio::task::spawn(async move {
             retry_runner.run_retirer().await;
+        });
+
+        tokio::task::spawn(async move {
+            log_runner.run_logger().await;
         });
 
         for node in self.nodes.iter() {
@@ -120,6 +128,25 @@ impl OutboundConnections {
                     + (task.conn_task.next_attempt - Instant::now()),
             )
             .await;
+        }
+    }
+
+    pub async fn run_logger(&self) {
+        let mut count_interval = interval(Duration::from_secs(30));
+        let mut info_interval = interval(Duration::from_secs(10 * 60));
+
+        loop {
+            select! {
+                _ = count_interval.tick() => {
+                    println!("{}", self.peers.len());
+                },
+                _ = info_interval.tick() => {
+                    tracing::info!("==================== ==========================  ==========");
+                    for v in self.peers.iter() {
+                        tracing::info!("{}", v.value())
+                    }
+                }
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use dashmap::DashMap;
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
@@ -32,7 +33,7 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
-    peers: Arc<Mutex<HashMap<H512, String>>>,
+    peers: Arc<DashMap<H512, String>>,
     tx: AsyncSender<PeerErr>,
 ) {
     tokio::spawn(async move {
@@ -113,9 +114,7 @@ pub fn connect_to_node(
         );
 
         let task_result = p.run(peers.clone()).await;
-        {
-            peers.lock().unwrap().remove(&p.id);
-        }
+        peers.remove(&p.id);
 
         map_err!(task_result);
     });
