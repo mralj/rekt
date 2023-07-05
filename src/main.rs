@@ -3,7 +3,6 @@ use std::fs::File;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::StreamExt;
 use rekt::config::get_config;
 use rekt::server::outbound_connections::OutboundConnections;
 use rekt::types::hash::H512;
@@ -18,7 +17,7 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = get_config()?;
 
-    let _file = File::create("log.txt")?;
+    let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_ansi(false)
