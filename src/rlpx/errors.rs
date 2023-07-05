@@ -100,6 +100,8 @@ pub enum RLPXSessionError {
     UnsupportedProtocol(#[from] p2p::types::protocol::ProtocolVersionError),
     #[error("Too many attempts")]
     TooManyConnectionAttempts,
+    #[error("Already connected")]
+    AlreadyConnected,
 }
 
 pub struct PeerErr {

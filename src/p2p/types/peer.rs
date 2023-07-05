@@ -59,6 +59,18 @@ impl P2PPeer {
         peers_blacklist_by_ip: Arc<DashSet<String>>,
     ) -> Result<(), RLPXSessionError> {
         self.handshake().await?;
+
+        // check if we have connected to this peer before
+        // or to peer with the same ip
+
+        let dont_connect_to_peer = peers_blacklist_by_ip
+            .contains(&self.node_record.address.to_string())
+            || peers.contains_key(&self.node_record.id);
+
+        if dont_connect_to_peer {
+            return Err(RLPXSessionError::AlreadyConnected);
+        }
+
         peers.insert(self.node_record.id, self.info.clone());
         peers_blacklist_by_ip.insert(self.node_record.address.to_string());
 
