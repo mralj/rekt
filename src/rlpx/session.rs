@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
@@ -34,6 +33,7 @@ pub fn connect_to_node(
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
     peers: Arc<DashMap<H512, String>>,
+    peer_blacklist_by_ip: Arc<DashSet<String>>,
     tx: AsyncSender<PeerErr>,
 ) {
     tokio::spawn(async move {
@@ -42,19 +42,21 @@ pub fn connect_to_node(
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
-                        let t = conn_task.next_attempt();
-                        if t.attempts > 10 {
-                            let _ = tx
-                                .send(PeerErr::new(t, RLPXSessionError::TooManyConnectionAttempts))
-                                .await;
-                            return;
-                        }
-
-                        let _ = tx.send(PeerErr::new(t, RLPXSessionError::from(e))).await;
+                        let _ = tx
+                            .send(PeerErr::new(
+                                conn_task.next_attempt(),
+                                RLPXSessionError::from(e),
+                            ))
+                            .await;
                         return;
                     }
                 }
             };
+        }
+
+        let already_connected_to_the_peer = peers.contains_key(&conn_task.node.id);
+        if already_connected_to_the_peer {
+            return;
         }
 
         let node = conn_task.node.clone();
@@ -106,15 +108,16 @@ pub fn connect_to_node(
         drop(permit);
 
         let mut p = P2PPeer::new(
-            node,
+            node.clone(),
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
             P2PWire::new(TcpTransport::new(transport)),
         );
 
-        let task_result = p.run(peers.clone()).await;
+        let task_result = p.run(peers.clone(), peer_blacklist_by_ip.clone()).await;
         peers.remove(&p.id);
+        peer_blacklist_by_ip.remove(&node.address.to_string());
 
         map_err!(task_result);
     });

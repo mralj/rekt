@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
@@ -53,9 +53,14 @@ impl Display for P2PPeer {
 }
 
 impl P2PPeer {
-    pub async fn run(&mut self, peers: Arc<DashMap<H512, String>>) -> Result<(), RLPXSessionError> {
+    pub async fn run(
+        &mut self,
+        peers: Arc<DashMap<H512, String>>,
+        peers_blacklist_by_ip: Arc<DashSet<String>>,
+    ) -> Result<(), RLPXSessionError> {
         self.handshake().await?;
-        peers.insert(self.id, self.info.clone());
+        peers.insert(self.node_record.id, self.info.clone());
+        peers_blacklist_by_ip.insert(self.node_record.address.to_string());
 
         loop {
             let msg = self

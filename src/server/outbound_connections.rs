@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
@@ -22,8 +22,11 @@ pub struct OutboundConnections {
     our_pub_key: PublicKey,
     our_private_key: secp256k1::SecretKey,
 
-    semaphore: Arc<Semaphore>,
+    concurrent_conn_attempts_semaphore: Arc<Semaphore>,
+
     peers: Arc<DashMap<H512, String>>,
+    peers_blacklist_by_id: Arc<DashSet<H512>>,
+    peers_blacklist_by_ip: Arc<DashSet<String>>,
 
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
@@ -44,17 +47,21 @@ impl OutboundConnections {
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
         let peers = Arc::new(DashMap::with_capacity(2 * nodes.len()));
+        let peers_blacklist_by_id = Arc::new(DashSet::with_capacity(nodes.len()));
+        let peers_blacklist_by_ip = Arc::new(DashSet::with_capacity(nodes.len()));
 
         Self {
             nodes,
             peers,
+            peers_blacklist_by_id,
+            peers_blacklist_by_ip,
             our_pub_key,
             our_private_key,
-            semaphore,
             conn_rx,
             conn_tx,
             retry_rx,
             retry_tx,
+            concurrent_conn_attempts_semaphore: semaphore,
         }
     }
 
@@ -77,6 +84,7 @@ impl OutboundConnections {
 
         for node in self.nodes.iter() {
             let task = ConnectionTask::new(node);
+
             let _ = self.conn_tx.send(task).await;
         }
     }
@@ -85,26 +93,37 @@ impl OutboundConnections {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
+                let we_should_not_try_connecting_to_this_node =
+                    self.peers.contains_key(&task.node.id)
+                        || self.peers_blacklist_by_id.contains(&task.node.id)
+                        || self
+                            .peers_blacklist_by_ip
+                            .contains(&task.node.address.to_string());
+
+                if we_should_not_try_connecting_to_this_node {
+                    continue;
+                }
+
                 connect_to_node(
                     task,
                     self.our_private_key,
                     self.our_pub_key,
-                    self.semaphore.clone(),
+                    self.concurrent_conn_attempts_semaphore.clone(),
                     self.peers.clone(),
+                    self.peers_blacklist_by_ip.clone(),
                     self.retry_tx.clone(),
                 );
             }
         }
     }
 
-    pub async fn run_retirer(&self) {
+    pub async fn run_retirer(self) {
         loop {
             let task_r = self.retry_rx.recv().await;
             if task_r.is_err() {
                 continue;
             }
             let task = task_r.unwrap();
-
             let _error_worth_retrying = match task.err {
                 RLPXSessionError::DisconnectRequested(reason) => match reason {
                     DisconnectReason::TooManyPeers | DisconnectReason::PingTimeout => reason,
@@ -113,21 +132,32 @@ impl OutboundConnections {
                 _ => continue,
             };
 
-            if task
-                .conn_task
-                .next_attempt
-                .saturating_duration_since(Instant::now())
-                .is_zero()
-            {
-                let _ = self.conn_tx.send(task.conn_task).await;
+            let task = task.conn_task;
+            if self.peers_blacklist_by_id.contains(&task.node.id) {
                 continue;
             }
 
-            tokio::time::sleep(
-                ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
-                    + (task.conn_task.next_attempt - Instant::now()),
-            )
-            .await;
+            if self
+                .peers_blacklist_by_ip
+                .contains(&task.node.address.to_string())
+            {
+                continue;
+            }
+
+            let it_is_not_yet_time_to_retry = !task
+                .next_attempt
+                .saturating_duration_since(Instant::now())
+                .is_zero();
+
+            if it_is_not_yet_time_to_retry {
+                tokio::time::sleep(
+                    ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
+                        + (task.next_attempt - Instant::now()),
+                )
+                .await;
+            }
+
+            let _ = self.conn_tx.send(task).await;
         }
     }
 
