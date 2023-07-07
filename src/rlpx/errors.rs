@@ -102,6 +102,8 @@ pub enum RLPXSessionError {
     TooManyConnectionAttempts,
     #[error("Already connected")]
     AlreadyConnected,
+    #[error("Already connected to same ip")]
+    AlreadyConnectedToSameIP,
 }
 
 pub struct PeerErr {

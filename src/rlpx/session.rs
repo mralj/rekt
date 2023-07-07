@@ -20,7 +20,7 @@ use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
-use crate::server::peers::{PEERS, PEERS_BY_IP};
+use crate::server::peers::PEERS;
 
 use crate::types::message::{Message, MessageKind};
 
@@ -110,7 +110,6 @@ pub fn connect_to_node(
 
         let task_result = p.run().await;
         PEERS.remove(&p.id);
-        PEERS_BY_IP.remove(&node.ip);
 
         map_err!(task_result);
     });
