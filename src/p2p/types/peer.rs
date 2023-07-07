@@ -58,8 +58,7 @@ impl P2PPeer {
         // check if we have connected to this peer before
         // or to peer with the same ip
 
-        let dont_connect_to_peer = BLACKLIST_PEERS_BY_IP
-            .contains(&self.node_record.address.to_string())
+        let dont_connect_to_peer = BLACKLIST_PEERS_BY_IP.contains(&self.node_record.ip)
             || PEERS.contains_key(&self.node_record.id);
 
         if dont_connect_to_peer {

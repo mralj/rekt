@@ -2,7 +2,6 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
@@ -111,7 +110,7 @@ pub fn connect_to_node(
 
         let task_result = p.run().await;
         PEERS.remove(&p.id);
-        BLACKLIST_PEERS_BY_IP.remove(&node.address.to_string());
+        BLACKLIST_PEERS_BY_IP.remove(&node.ip);
 
         map_err!(task_result);
     });

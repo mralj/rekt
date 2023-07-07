@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
@@ -10,7 +9,6 @@ use tokio::time::interval;
 
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
-
 
 use super::connection_task::ConnectionTask;
 use super::peers::{BLACKLIST_PEERS_BY_ID, BLACKLIST_PEERS_BY_IP, PEERS};
@@ -55,14 +53,12 @@ impl OutboundConnections {
         }
     }
 
-    pub async fn start(&self) {
+    pub async fn start(self: Arc<Self>) {
         let task_runner = self.clone();
         let retry_runner = self.clone();
         let log_runner = self.clone();
 
-        tokio::task::spawn(async move {
-            task_runner.run().await;
-        });
+        tokio::task::spawn(async move { task_runner.run().await });
 
         tokio::task::spawn(async move {
             retry_runner.run_retirer().await;
@@ -79,13 +75,13 @@ impl OutboundConnections {
         }
     }
 
-    pub async fn run(&self) {
+    async fn run(&self) {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
                 let we_should_not_try_connecting_to_this_node = PEERS.contains_key(&task.node.id) // already connected
                     || BLACKLIST_PEERS_BY_ID.contains(&task.node.id)
-                    || BLACKLIST_PEERS_BY_IP.contains(&task.node.address.to_string());
+                    || BLACKLIST_PEERS_BY_IP.contains(&task.node.ip);
 
                 if we_should_not_try_connecting_to_this_node {
                     continue;
@@ -102,7 +98,7 @@ impl OutboundConnections {
         }
     }
 
-    pub async fn run_retirer(self) {
+    async fn run_retirer(&self) {
         loop {
             let task_r = self.retry_rx.recv().await;
             if task_r.is_err() {
@@ -122,7 +118,7 @@ impl OutboundConnections {
                 continue;
             }
 
-            if BLACKLIST_PEERS_BY_IP.contains(&task.node.address.to_string()) {
+            if BLACKLIST_PEERS_BY_IP.contains(&task.node.ip) {
                 continue;
             }
 
@@ -143,7 +139,7 @@ impl OutboundConnections {
         }
     }
 
-    pub async fn run_logger(&self) {
+    async fn run_logger(&self) {
         let mut count_interval = interval(Duration::from_secs(30));
         let mut info_interval = interval(Duration::from_secs(10 * 60));
 

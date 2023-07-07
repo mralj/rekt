@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::sync::Arc;
 
 use rekt::config::get_config;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -19,8 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
-    let outbound_connections = OutboundConnections::new(config.nodes);
-    outbound_connections.start().await;
+    let outbound_connections = Arc::new(OutboundConnections::new(config.nodes));
+    OutboundConnections::start(outbound_connections).await;
 
     let _ = tokio::signal::ctrl_c().await;
 
