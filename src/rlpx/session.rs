@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
@@ -21,7 +20,8 @@ use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
-use crate::types::hash::H512;
+use crate::server::peers::{PEERS, PEERS_BY_IP};
+
 use crate::types::message::{Message, MessageKind};
 
 use super::errors::{PeerErr, RLPXSessionError};
@@ -32,7 +32,6 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
-    peers: Arc<Mutex<HashMap<H512, String>>>,
     tx: AsyncSender<PeerErr>,
 ) {
     tokio::spawn(async move {
@@ -41,27 +40,24 @@ pub fn connect_to_node(
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
-                        let t = conn_task.next_attempt();
-                        if t.attempts > 10 {
-                            let _ = tx
-                                .send(PeerErr::new(t, RLPXSessionError::TooManyConnectionAttempts))
-                                .await;
-                            return;
-                        }
-
-                        let _ = tx.send(PeerErr::new(t, RLPXSessionError::from(e))).await;
+                        let _ = tx
+                            .send(PeerErr::new(
+                                conn_task.next_attempt(),
+                                RLPXSessionError::from(e),
+                            ))
+                            .await;
                         return;
                     }
                 }
             };
         }
 
-        let node = conn_task.node.clone();
         let permit = semaphore
             .acquire()
             .await
             .expect("Semaphore should've been live");
 
+        let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
         let stream = map_err!(match timeout(
             Duration::from_secs(5),
@@ -105,17 +101,16 @@ pub fn connect_to_node(
         drop(permit);
 
         let mut p = P2PPeer::new(
-            node,
+            node.clone(),
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
             P2PWire::new(TcpTransport::new(transport)),
         );
 
-        let task_result = p.run(peers.clone()).await;
-        {
-            peers.lock().unwrap().remove(&p.id);
-        }
+        let task_result = p.run().await;
+        PEERS.remove(&p.id);
+        PEERS_BY_IP.remove(&node.ip);
 
         map_err!(task_result);
     });
