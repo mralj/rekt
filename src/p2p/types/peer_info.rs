@@ -25,10 +25,6 @@ impl From<&P2PPeer> for PeerInfo {
 
 impl Display for PeerInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "IP: {}, INFO: {}, ENODE: {}",
-            self.ip, self.info, self.enode
-        )
+        write!(f, "IP: {}, INFO: {}", self.ip, self.info)
     }
 }
