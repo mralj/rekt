@@ -21,6 +21,7 @@ use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
+use crate::server::peers::{BLACKLIST_PEERS_BY_IP, PEERS};
 use crate::types::hash::H512;
 use crate::types::message::{Message, MessageKind};
 
@@ -32,8 +33,6 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     semaphore: Arc<Semaphore>,
-    peers: Arc<DashMap<H512, String>>,
-    peer_blacklist_by_ip: Arc<DashSet<String>>,
     tx: AsyncSender<PeerErr>,
 ) {
     tokio::spawn(async move {
@@ -54,17 +53,12 @@ pub fn connect_to_node(
             };
         }
 
-        let already_connected_to_the_peer = peers.contains_key(&conn_task.node.id);
-        if already_connected_to_the_peer {
-            return;
-        }
-
-        let node = conn_task.node.clone();
         let permit = semaphore
             .acquire()
             .await
             .expect("Semaphore should've been live");
 
+        let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
         let stream = map_err!(match timeout(
             Duration::from_secs(5),
@@ -115,9 +109,9 @@ pub fn connect_to_node(
             P2PWire::new(TcpTransport::new(transport)),
         );
 
-        let task_result = p.run(peers.clone(), peer_blacklist_by_ip.clone()).await;
-        peers.remove(&p.id);
-        peer_blacklist_by_ip.remove(&node.address.to_string());
+        let task_result = p.run().await;
+        PEERS.remove(&p.id);
+        BLACKLIST_PEERS_BY_IP.remove(&node.address.to_string());
 
         map_err!(task_result);
     });

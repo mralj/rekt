@@ -13,6 +13,7 @@ use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
 use crate::types::hash::H512;
 
 use super::connection_task::ConnectionTask;
+use super::peers::{BLACKLIST_PEERS_BY_ID, BLACKLIST_PEERS_BY_IP, PEERS};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -23,10 +24,6 @@ pub struct OutboundConnections {
     our_private_key: secp256k1::SecretKey,
 
     concurrent_conn_attempts_semaphore: Arc<Semaphore>,
-
-    peers: Arc<DashMap<H512, String>>,
-    peers_blacklist_by_id: Arc<DashSet<H512>>,
-    peers_blacklist_by_ip: Arc<DashSet<String>>,
 
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
@@ -46,15 +43,8 @@ impl OutboundConnections {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
-        let peers = Arc::new(DashMap::with_capacity(2 * nodes.len()));
-        let peers_blacklist_by_id = Arc::new(DashSet::with_capacity(nodes.len()));
-        let peers_blacklist_by_ip = Arc::new(DashSet::with_capacity(nodes.len()));
-
         Self {
             nodes,
-            peers,
-            peers_blacklist_by_id,
-            peers_blacklist_by_ip,
             our_pub_key,
             our_private_key,
             conn_rx,
@@ -93,12 +83,9 @@ impl OutboundConnections {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
-                let we_should_not_try_connecting_to_this_node =
-                    self.peers.contains_key(&task.node.id)
-                        || self.peers_blacklist_by_id.contains(&task.node.id)
-                        || self
-                            .peers_blacklist_by_ip
-                            .contains(&task.node.address.to_string());
+                let we_should_not_try_connecting_to_this_node = PEERS.contains_key(&task.node.id) // already connected
+                    || BLACKLIST_PEERS_BY_ID.contains(&task.node.id)
+                    || BLACKLIST_PEERS_BY_IP.contains(&task.node.address.to_string());
 
                 if we_should_not_try_connecting_to_this_node {
                     continue;
@@ -109,8 +96,6 @@ impl OutboundConnections {
                     self.our_private_key,
                     self.our_pub_key,
                     self.concurrent_conn_attempts_semaphore.clone(),
-                    self.peers.clone(),
-                    self.peers_blacklist_by_ip.clone(),
                     self.retry_tx.clone(),
                 );
             }
@@ -133,14 +118,11 @@ impl OutboundConnections {
             };
 
             let task = task.conn_task;
-            if self.peers_blacklist_by_id.contains(&task.node.id) {
+            if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
                 continue;
             }
 
-            if self
-                .peers_blacklist_by_ip
-                .contains(&task.node.address.to_string())
-            {
+            if BLACKLIST_PEERS_BY_IP.contains(&task.node.address.to_string()) {
                 continue;
             }
 
@@ -168,11 +150,11 @@ impl OutboundConnections {
         loop {
             select! {
                 _ = count_interval.tick() => {
-                    println!("{}", self.peers.len());
+                    println!("{}", PEERS.len());
                 },
                 _ = info_interval.tick() => {
                     tracing::info!("==================== ==========================  ==========");
-                    for v in self.peers.iter() {
+                    for v in PEERS.iter() {
                         tracing::info!("{}", v.value())
                     }
                 }
