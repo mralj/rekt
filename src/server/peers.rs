@@ -1,12 +1,13 @@
 use dashmap::{DashMap, DashSet};
 use once_cell::sync::Lazy;
 
+use crate::p2p::types::peer_info::PeerInfo;
 use crate::types::hash::H512;
 
 // we've never connected above 2.5k peers, especially now that we blacklist IPs
 const MAX_PEERS_UPPER_BOUND: usize = 2_500;
 
-pub static PEERS: Lazy<DashMap<H512, String>> =
+pub static PEERS: Lazy<DashMap<H512, PeerInfo>> =
     Lazy::new(|| DashMap::with_capacity(2 * MAX_PEERS_UPPER_BOUND));
 
 pub static PEERS_BY_IP: Lazy<DashSet<String>> =
