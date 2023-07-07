@@ -146,7 +146,7 @@ impl OutboundConnections {
         loop {
             select! {
                 _ = count_interval.tick() => {
-                    println!("{}", PEERS.len());
+                    println!("{}", PEERS_BY_IP.len());
                 },
                 _ = info_interval.tick() => {
                     tracing::info!("==================== ==========================  ==========");
