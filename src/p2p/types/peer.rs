@@ -9,7 +9,7 @@ use super::p2p_wire::P2PWire;
 use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
-use crate::server::peers::{BLACKLIST_PEERS_BY_IP, PEERS};
+use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 use crate::types::message::Message;
 use crate::types::node_record::NodeRecord;
@@ -58,15 +58,15 @@ impl P2PPeer {
         // check if we have connected to this peer before
         // or to peer with the same ip
 
-        let dont_connect_to_peer = BLACKLIST_PEERS_BY_IP.contains(&self.node_record.ip)
-            || PEERS.contains_key(&self.node_record.id);
+        let dont_connect_to_peer =
+            PEERS_BY_IP.contains(&self.node_record.ip) || PEERS.contains_key(&self.node_record.id);
 
         if dont_connect_to_peer {
             return Err(RLPXSessionError::AlreadyConnected);
         }
 
         PEERS.insert(self.node_record.id, self.info.clone());
-        BLACKLIST_PEERS_BY_IP.insert(self.node_record.address.to_string());
+        PEERS_BY_IP.insert(self.node_record.address.to_string());
 
         loop {
             let msg = self

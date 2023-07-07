@@ -11,7 +11,7 @@ use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
 
 use super::connection_task::ConnectionTask;
-use super::peers::{BLACKLIST_PEERS_BY_ID, BLACKLIST_PEERS_BY_IP, PEERS};
+use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -81,7 +81,7 @@ impl OutboundConnections {
             if let Ok(task) = task {
                 let we_should_not_try_connecting_to_this_node = PEERS.contains_key(&task.node.id) // already connected
                     || BLACKLIST_PEERS_BY_ID.contains(&task.node.id)
-                    || BLACKLIST_PEERS_BY_IP.contains(&task.node.ip);
+                    || PEERS_BY_IP.contains(&task.node.ip);
 
                 if we_should_not_try_connecting_to_this_node {
                     continue;
@@ -118,7 +118,7 @@ impl OutboundConnections {
                 continue;
             }
 
-            if BLACKLIST_PEERS_BY_IP.contains(&task.node.ip) {
+            if PEERS_BY_IP.contains(&task.node.ip) {
                 continue;
             }
 
