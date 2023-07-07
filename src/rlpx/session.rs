@@ -2,7 +2,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dashmap::{DashMap, DashSet};
+
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
@@ -22,7 +22,7 @@ use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
 use crate::server::peers::{BLACKLIST_PEERS_BY_IP, PEERS};
-use crate::types::hash::H512;
+
 use crate::types::message::{Message, MessageKind};
 
 use super::errors::{PeerErr, RLPXSessionError};

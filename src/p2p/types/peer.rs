@@ -1,7 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
-use dashmap::{DashMap, DashSet};
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dashmap::{DashMap, DashSet};
+
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
@@ -10,7 +10,7 @@ use tokio::time::interval;
 
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
-use crate::types::hash::H512;
+
 
 use super::connection_task::ConnectionTask;
 use super::peers::{BLACKLIST_PEERS_BY_ID, BLACKLIST_PEERS_BY_IP, PEERS};
