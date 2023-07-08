@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use super::codec::RLPXMsg;
 use crate::p2p;
+use crate::p2p::errors::P2PError;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -97,8 +98,6 @@ pub enum RLPXSessionError {
     NoMatchingProtocols,
     #[error("Unsupported protocol version: {0}")]
     UnsupportedProtocol(#[from] p2p::types::protocol::ProtocolVersionError),
-    #[error("Too many attempts")]
-    TooManyConnectionAttempts,
-    #[error("Already connected")]
-    AlreadyConnected,
+    #[error("P2P error: {0}")]
+    P2PError(#[from] P2PError),
 }

@@ -5,11 +5,11 @@ use futures::{SinkExt, StreamExt};
 use open_fastrlp::Decodable;
 use tracing::{error, info};
 
+use super::errors::P2PError;
 use super::p2p_wire::P2PWire;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::rlpx::RLPXSessionError;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 use crate::types::message::Message;
@@ -53,7 +53,7 @@ impl Display for P2PPeer {
 }
 
 impl P2PPeer {
-    pub async fn run(&mut self) -> Result<(), RLPXSessionError> {
+    pub async fn run(&mut self) -> Result<(), P2PError> {
         self.handshake().await?;
 
         // check if we have connected to this peer before
@@ -63,7 +63,7 @@ impl P2PPeer {
             PEERS_BY_IP.contains(&self.node_record.ip) || PEERS.contains_key(&self.node_record.id);
 
         if dont_connect_to_peer {
-            return Err(RLPXSessionError::AlreadyConnected);
+            return Err(P2PError::AlreadyConnected);
         }
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &P2PPeer));
@@ -76,12 +76,12 @@ impl P2PPeer {
                 .await
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
-                .ok_or(RLPXSessionError::NoMessage)??; //
+                .ok_or(P2PError::NoMessage)??; //
             self.handle_eth_message(msg).await?;
         }
     }
 
-    pub async fn send_our_status_msg(&mut self) -> Result<(), RLPXSessionError> {
+    pub async fn send_our_status_msg(&mut self) -> Result<(), P2PError> {
         self.connection
             .send(Status::get(&self.protocol_version))
             .await?;
@@ -89,7 +89,7 @@ impl P2PPeer {
         self.connection.send(UpgradeStatus::get()).await
     }
 
-    async fn handle_eth_message(&mut self, msg: Message) -> Result<(), RLPXSessionError> {
+    async fn handle_eth_message(&mut self, msg: Message) -> Result<(), P2PError> {
         let msg_id_is_bsc_upgrade_status_msg = msg.id == Some(27);
         if !msg_id_is_bsc_upgrade_status_msg {
             //  info!("Got ETH message with ID: {:?}", msg.id);
@@ -100,22 +100,18 @@ impl P2PPeer {
         Ok(())
     }
 
-    pub async fn handshake(&mut self) -> Result<(), RLPXSessionError> {
-        let msg = self
-            .connection
-            .next()
-            .await
-            .ok_or(RLPXSessionError::NoMessage)??;
+    pub async fn handshake(&mut self) -> Result<(), P2PError> {
+        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
         if msg.id != Some(16) {
             error!("Expected status message, got {:?}", msg.id);
-            return Err(RLPXSessionError::UnknownError);
+            return Err(P2PError::ExpectedStatusMessage);
         }
 
         let status_msg = Status::decode(&mut &msg.data[..])?;
 
         if Status::validate(&status_msg, &self.protocol_version).is_err() {
-            return Err(RLPXSessionError::UnknownError);
+            return Err(P2PError::CouldNotValidateStatusMessage);
         } else {
             info!("Validated status MSG OK");
         }
