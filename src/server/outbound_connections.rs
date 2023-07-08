@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
-use tokio::sync::Semaphore;
 use tokio::time::interval;
 
 use crate::p2p::DisconnectReason;
@@ -21,8 +20,6 @@ pub struct OutboundConnections {
     our_pub_key: PublicKey,
     our_private_key: secp256k1::SecretKey,
 
-    concurrent_conn_attempts_semaphore: Arc<Semaphore>,
-
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
 
@@ -36,8 +33,6 @@ impl OutboundConnections {
         let our_pub_key =
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_private_key);
 
-        let semaphore = Arc::new(Semaphore::new(1000));
-
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
@@ -49,7 +44,6 @@ impl OutboundConnections {
             conn_tx,
             retry_rx,
             retry_tx,
-            concurrent_conn_attempts_semaphore: semaphore,
         }
     }
 
@@ -91,7 +85,6 @@ impl OutboundConnections {
                     task,
                     self.our_private_key,
                     self.our_pub_key,
-                    self.concurrent_conn_attempts_semaphore.clone(),
                     self.retry_tx.clone(),
                 );
             }
@@ -141,7 +134,7 @@ impl OutboundConnections {
 
     async fn run_logger(&self) {
         let mut count_interval = interval(Duration::from_secs(30));
-        let mut info_interval = interval(Duration::from_secs(10 * 60));
+        let mut info_interval = interval(Duration::from_secs(5 * 60));
 
         loop {
             select! {

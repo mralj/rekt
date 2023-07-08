@@ -6,6 +6,7 @@ use open_fastrlp::Decodable;
 use tracing::{error, info};
 
 use super::p2p_wire::P2PWire;
+use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::rlpx::RLPXSessionError;
@@ -16,11 +17,11 @@ use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
 pub struct P2PPeer {
-    node_record: NodeRecord,
+    pub(crate) node_record: NodeRecord,
     pub id: H512,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
-    info: String,
+    pub(crate) info: String,
 }
 
 impl P2PPeer {
@@ -65,8 +66,8 @@ impl P2PPeer {
             return Err(RLPXSessionError::AlreadyConnected);
         }
 
-        PEERS.insert(self.node_record.id, self.info.clone());
-        PEERS_BY_IP.insert(self.node_record.address.to_string());
+        PEERS.insert(self.node_record.id, PeerInfo::from(self as &P2PPeer));
+        PEERS_BY_IP.insert(self.node_record.ip.clone());
 
         loop {
             let msg = self
