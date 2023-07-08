@@ -1,12 +1,10 @@
 use std::io;
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
-use tokio::sync::Semaphore;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
@@ -31,7 +29,6 @@ pub fn connect_to_node(
     conn_task: ConnectionTask,
     secret_key: SecretKey,
     pub_key: PublicKey,
-    semaphore: Arc<Semaphore>,
     tx: AsyncSender<PeerErr>,
 ) {
     tokio::spawn(async move {
@@ -51,11 +48,6 @@ pub fn connect_to_node(
                 }
             };
         }
-
-        let permit = semaphore
-            .acquire()
-            .await
-            .expect("Semaphore should've been live");
 
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
@@ -97,9 +89,6 @@ pub fn connect_to_node(
             Err(e) => Err(e),
         });
 
-        // releases semaphore permit, so that concurrent connection attempts can proceed
-        drop(permit);
-
         let mut p = P2PPeer::new(
             node.clone(),
             hello_msg.id,
@@ -109,7 +98,7 @@ pub fn connect_to_node(
         );
 
         let task_result = p.run().await;
-        PEERS.remove(&p.id);
+        PEERS.remove(&node.id);
         PEERS_BY_IP.remove(&node.ip);
 
         map_err!(task_result);

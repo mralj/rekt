@@ -67,7 +67,7 @@ impl P2PPeer {
         }
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &P2PPeer));
-        PEERS_BY_IP.insert(self.node_record.address.to_string());
+        PEERS_BY_IP.insert(self.node_record.ip.clone());
 
         loop {
             let msg = self
