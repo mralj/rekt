@@ -30,4 +30,6 @@ pub enum P2PError {
     TooManyConnectionAttempts,
     #[error("Already connected")]
     AlreadyConnected,
+    #[error("Already connected to the same ip")]
+    AlreadyConnectedToSameIp,
 }

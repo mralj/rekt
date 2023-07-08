@@ -56,13 +56,11 @@ impl P2PPeer {
     pub async fn run(&mut self) -> Result<(), P2PError> {
         self.handshake().await?;
 
-        // check if we have connected to this peer before
-        // or to peer with the same ip
+        if PEERS_BY_IP.contains(&self.node_record.ip) {
+            return Err(P2PError::AlreadyConnectedToSameIp);
+        }
 
-        let dont_connect_to_peer =
-            PEERS_BY_IP.contains(&self.node_record.ip) || PEERS.contains_key(&self.node_record.id);
-
-        if dont_connect_to_peer {
+        if PEERS.contains_key(&self.node_record.id) {
             return Err(P2PError::AlreadyConnected);
         }
 

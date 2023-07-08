@@ -9,6 +9,7 @@ use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
 
+use crate::p2p::errors::P2PError;
 use crate::p2p::types::p2p_wire::P2PWire;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
@@ -100,7 +101,13 @@ pub fn connect_to_node(
 
         let task_result = p.run().await;
         PEERS.remove(&node.id);
-        PEERS_BY_IP.remove(&node.ip);
+
+        // In case we got already connected to same ip error we do not remove the IP from the set
+        // of already connected ips
+        // But in all other cases we must remove the IP from the set
+        if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
+            PEERS_BY_IP.remove(&node.ip);
+        }
 
         map_err!(task_result);
     });

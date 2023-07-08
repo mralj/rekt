@@ -125,7 +125,7 @@ impl Stream for P2PWire {
                 Some(Ok(bytes)) => bytes,
             };
             let mut msg = Message::new(bytes);
-            if let Err(_) = msg.decode_id() {
+            if msg.decode_id().is_err() {
                 return Poll::Ready(Some(Err(P2PError::MessageIdDecodeError)));
             }
 
@@ -135,7 +135,7 @@ impl Stream for P2PWire {
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
 
-            if let Err(_) = msg.decode_kind() {
+            if msg.decode_kind().is_err() {
                 return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
             }
 
