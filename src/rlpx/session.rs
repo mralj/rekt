@@ -50,6 +50,13 @@ pub fn connect_to_node(
                 }
             };
         }
+        if PEERS.contains_key(&conn_task.node.id) {
+            map_err!(Err(P2PError::AlreadyConnected))
+        }
+
+        if PEERS_BY_IP.contains(&conn_task.node.ip) {
+            map_err!(Err(P2PError::AlreadyConnectedToSameIp))
+        }
 
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
