@@ -18,18 +18,19 @@ use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
+use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 
 use crate::types::message::{Message, MessageKind};
 
-use super::errors::{PeerErr, RLPXSessionError};
+use super::errors::RLPXSessionError;
 use super::tcp_transport::TcpTransport;
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
     secret_key: SecretKey,
     pub_key: PublicKey,
-    tx: AsyncSender<PeerErr>,
+    tx: AsyncSender<ConnectionTaskError>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -38,7 +39,7 @@ pub fn connect_to_node(
                     Ok(v) => v,
                     Err(e) => {
                         let _ = tx
-                            .send(PeerErr::new(
+                            .send(ConnectionTaskError::new(
                                 conn_task.next_attempt(),
                                 RLPXSessionError::from(e),
                             ))

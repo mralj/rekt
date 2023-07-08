@@ -5,7 +5,6 @@ use thiserror::Error;
 
 use super::codec::RLPXMsg;
 use crate::p2p;
-use crate::server::connection_task::ConnectionTask;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
@@ -102,15 +101,4 @@ pub enum RLPXSessionError {
     TooManyConnectionAttempts,
     #[error("Already connected")]
     AlreadyConnected,
-}
-
-pub struct PeerErr {
-    pub conn_task: ConnectionTask,
-    pub err: RLPXSessionError,
-}
-
-impl PeerErr {
-    pub fn new(conn_task: ConnectionTask, err: RLPXSessionError) -> Self {
-        PeerErr { conn_task, err }
-    }
 }

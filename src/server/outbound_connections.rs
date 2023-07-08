@@ -7,9 +7,10 @@ use tokio::select;
 use tokio::time::interval;
 
 use crate::p2p::DisconnectReason;
-use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
+use crate::rlpx::{connect_to_node, RLPXSessionError};
 
 use super::connection_task::ConnectionTask;
+use super::errors::ConnectionTaskError;
 use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
@@ -23,8 +24,8 @@ pub struct OutboundConnections {
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
 
-    retry_rx: AsyncReceiver<PeerErr>,
-    retry_tx: AsyncSender<PeerErr>,
+    retry_rx: AsyncReceiver<ConnectionTaskError>,
+    retry_tx: AsyncSender<ConnectionTaskError>,
 }
 
 impl OutboundConnections {
