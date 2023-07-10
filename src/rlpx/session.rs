@@ -9,6 +9,7 @@ use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::{error, info};
 
+use crate::p2p::errors::P2PError;
 use crate::p2p::types::p2p_wire::P2PWire;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
@@ -18,18 +19,19 @@ use crate::rlpx::errors::RLPXError;
 use crate::rlpx::utils::pk2id;
 use crate::rlpx::Connection;
 use crate::server::connection_task::ConnectionTask;
+use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 
 use crate::types::message::{Message, MessageKind};
 
-use super::errors::{PeerErr, RLPXSessionError};
+use super::errors::RLPXSessionError;
 use super::tcp_transport::TcpTransport;
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
     secret_key: SecretKey,
     pub_key: PublicKey,
-    tx: AsyncSender<PeerErr>,
+    tx: AsyncSender<ConnectionTaskError>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -38,7 +40,7 @@ pub fn connect_to_node(
                     Ok(v) => v,
                     Err(e) => {
                         let _ = tx
-                            .send(PeerErr::new(
+                            .send(ConnectionTaskError::new(
                                 conn_task.next_attempt(),
                                 RLPXSessionError::from(e),
                             ))
@@ -47,6 +49,13 @@ pub fn connect_to_node(
                     }
                 }
             };
+        }
+        if PEERS.contains_key(&conn_task.node.id) {
+            map_err!(Err(P2PError::AlreadyConnected))
+        }
+
+        if PEERS_BY_IP.contains(&conn_task.node.ip) {
+            map_err!(Err(P2PError::AlreadyConnectedToSameIp))
         }
 
         let node = conn_task.node.clone();
@@ -99,7 +108,13 @@ pub fn connect_to_node(
 
         let task_result = p.run().await;
         PEERS.remove(&node.id);
-        PEERS_BY_IP.remove(&node.ip);
+
+        // In case we got already connected to same ip error we do not remove the IP from the set
+        // of already connected ips
+        // But in all other cases we must remove the IP from the set
+        if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
+            PEERS_BY_IP.remove(&node.ip);
+        }
 
         map_err!(task_result);
     });

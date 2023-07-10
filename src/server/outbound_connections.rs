@@ -6,11 +6,13 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
 use tokio::time::interval;
 
+use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
-use crate::rlpx::{connect_to_node, PeerErr, RLPXSessionError};
+use crate::rlpx::{connect_to_node, RLPXSessionError};
 
 use super::connection_task::ConnectionTask;
-use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP};
+use super::errors::ConnectionTaskError;
+use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -23,8 +25,8 @@ pub struct OutboundConnections {
     conn_rx: AsyncReceiver<ConnectionTask>,
     conn_tx: AsyncSender<ConnectionTask>,
 
-    retry_rx: AsyncReceiver<PeerErr>,
-    retry_tx: AsyncSender<PeerErr>,
+    retry_rx: AsyncReceiver<ConnectionTaskError>,
+    retry_tx: AsyncSender<ConnectionTaskError>,
 }
 
 impl OutboundConnections {
@@ -73,11 +75,7 @@ impl OutboundConnections {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
-                let we_should_not_try_connecting_to_this_node = PEERS.contains_key(&task.node.id) // already connected
-                    || BLACKLIST_PEERS_BY_ID.contains(&task.node.id)
-                    || PEERS_BY_IP.contains(&task.node.ip);
-
-                if we_should_not_try_connecting_to_this_node {
+                if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
                     continue;
                 }
 
@@ -98,23 +96,15 @@ impl OutboundConnections {
                 continue;
             }
             let task = task_r.unwrap();
-            let _error_worth_retrying = match task.err {
-                RLPXSessionError::DisconnectRequested(reason) => match reason {
-                    DisconnectReason::TooManyPeers | DisconnectReason::PingTimeout => reason,
-                    _ => continue,
-                },
+            match task.err {
+                RLPXSessionError::DisconnectRequested(DisconnectReason::TooManyPeers) => {}
+                RLPXSessionError::DisconnectRequested(DisconnectReason::PingTimeout) => {}
+                RLPXSessionError::P2PError(P2PError::AlreadyConnected) => {}
+                RLPXSessionError::P2PError(P2PError::AlreadyConnectedToSameIp) => {}
                 _ => continue,
             };
 
             let task = task.conn_task;
-            if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
-                continue;
-            }
-
-            if PEERS_BY_IP.contains(&task.node.ip) {
-                continue;
-            }
-
             let it_is_not_yet_time_to_retry = !task
                 .next_attempt
                 .saturating_duration_since(Instant::now())
@@ -126,6 +116,10 @@ impl OutboundConnections {
                         + (task.next_attempt - Instant::now()),
                 )
                 .await;
+            }
+
+            if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
+                continue;
             }
 
             let _ = self.conn_tx.send(task).await;

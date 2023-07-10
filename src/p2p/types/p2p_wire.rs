@@ -3,11 +3,13 @@ use std::task::{ready, Poll};
 
 use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use open_fastrlp::{DecodeError, Encodable};
+use open_fastrlp::Encodable;
 
 use crate::p2p::P2PMessage;
-use crate::rlpx::{RLPXSessionError, TcpTransport};
+use crate::rlpx::TcpTransport;
 use crate::types::message::{Message, MessageKind};
+
+use super::errors::P2PError;
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
 
@@ -71,7 +73,7 @@ impl P2PWire {
         &mut self,
         msg: &P2PMessage,
         cx: &mut std::task::Context<'_>,
-    ) -> Result<(), RLPXSessionError> {
+    ) -> Result<(), P2PError> {
         match msg {
             P2PMessage::Ping => {
                 let no_need_to_send_ping_if_there_are_messages_queued =
@@ -98,8 +100,8 @@ impl P2PWire {
 
                 Ok(())
             }
-            P2PMessage::Disconnect(r) => Err(RLPXSessionError::DisconnectRequested(*r)),
-            P2PMessage::Hello(_) => Err(RLPXSessionError::UnknownError), // TODO: proper err here
+            P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
+            P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
             // NOTE: this is no-op for us, technically we should never
             // receive pong message as we don't send Pings, but we'll just ignore it
             P2PMessage::Pong => Ok(()),
@@ -108,7 +110,7 @@ impl P2PWire {
 }
 
 impl Stream for P2PWire {
-    type Item = Result<Message, RLPXSessionError>;
+    type Item = Result<Message, P2PError>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -119,12 +121,12 @@ impl Stream for P2PWire {
         while let Poll::Ready(bytes_r) = this.inner.poll_next_unpin(cx) {
             let bytes = match bytes_r {
                 None => return Poll::Ready(None),
-                Some(Err(e)) => return Poll::Ready(Some(Err(e))),
+                Some(Err(_)) => return Poll::Ready(Some(Err(P2PError::RlpxError))),
                 Some(Ok(bytes)) => bytes,
             };
             let mut msg = Message::new(bytes);
-            if let Err(e) = msg.decode_id() {
-                return Poll::Ready(Some(Err(RLPXSessionError::MessageDecodeError(e))));
+            if msg.decode_id().is_err() {
+                return Poll::Ready(Some(Err(P2PError::MessageIdDecodeError)));
             }
 
             if !message_is_of_interest(msg.id.unwrap()) {
@@ -133,8 +135,8 @@ impl Stream for P2PWire {
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
 
-            if let Err(e) = msg.decode_kind() {
-                return Poll::Ready(Some(Err(RLPXSessionError::MessageDecodeError(e))));
+            if msg.decode_kind().is_err() {
+                return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
             }
 
             match msg.kind.as_ref().unwrap() {
@@ -166,7 +168,7 @@ fn message_is_of_interest(msg_id: u8) -> bool {
 }
 
 impl Sink<Message> for P2PWire {
-    type Error = RLPXSessionError;
+    type Error = P2PError;
 
     fn poll_ready(
         mut self: std::pin::Pin<&mut Self>,
@@ -180,7 +182,7 @@ impl Sink<Message> for P2PWire {
         // for sure send data to "inner")
         match this.inner.poll_ready_unpin(cx) {
             Poll::Pending => {}
-            Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+            Poll::Ready(Err(_)) => return Poll::Ready(Err(P2PError::RlpxError)),
             Poll::Ready(Ok(())) => {
                 if this.poll_flush(cx).is_ready() {
                     return Poll::Ready(Ok(()));
@@ -208,17 +210,13 @@ impl Sink<Message> for P2PWire {
         // bad happened, return err
         if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
             //TODO: add proper err here
-            return Err(RLPXSessionError::UnknownError);
+            return Err(P2PError::TooManyMessagesQueued);
         }
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
         let compressed_size = self
             .snappy_encoder
             .compress(&item.data, &mut compressed[1..])
-            .map_err(|_err| {
-                RLPXSessionError::MessageDecodeError(DecodeError::Custom(
-                    "Could not snappy compress",
-                ))
-            })?;
+            .map_err(|_err| P2PError::SnappyCompressError)?;
 
         compressed[0] = item.id.unwrap();
         compressed.truncate(compressed_size + 1);
@@ -236,11 +234,11 @@ impl Sink<Message> for P2PWire {
         // send the one by one
         loop {
             match ready!(this.inner.as_mut().poll_flush(cx)) {
-                Err(err) => return Poll::Ready(Err(err)),
+                Err(_) => return Poll::Ready(Err(P2PError::RlpxError)),
                 Ok(()) => {
                     if let Some(message) = this.writer_queue.pop_front() {
-                        if let Err(err) = this.inner.as_mut().start_send(message) {
-                            return Poll::Ready(Err(err));
+                        if this.inner.as_mut().start_send(message).is_err() {
+                            return Poll::Ready(Err(P2PError::RlpxError));
                         }
                     } else {
                         // there are no messages on queue, we are done writing

@@ -13,7 +13,7 @@ pub enum ProtocolVersion {
     Eth67 = 67,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Copy, Clone)]
 pub enum ProtocolVersionError {
     #[error(
         "Protocol

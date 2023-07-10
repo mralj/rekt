@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod p2p_wire;
 pub mod peer;
 pub mod peer_info;
