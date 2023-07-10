@@ -16,5 +16,10 @@ construct_fixed_hash! {
 }
 
 construct_fixed_hash! {
+    #[derive(AsRef, Deref, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen, Serialize, Deserialize)]
+    pub struct H160(20);
+}
+
+construct_fixed_hash! {
     pub struct H128(16);
 }

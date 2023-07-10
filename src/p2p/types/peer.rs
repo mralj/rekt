@@ -13,7 +13,7 @@ use crate::eth;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
-use crate::types::message::Message;
+
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
