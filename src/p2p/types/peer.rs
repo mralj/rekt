@@ -114,6 +114,12 @@ impl P2PPeer {
             info!("Validated status MSG OK");
         }
 
-        self.send_our_status_msg().await
+        self.send_our_status_msg().await?;
+        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        if msg.id != Some(27) {
+            return Err(P2PError::ExpectedUpgradeStatusMessage);
+        }
+
+        Ok(())
     }
 }

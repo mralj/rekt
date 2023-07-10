@@ -24,6 +24,8 @@ pub enum P2PError {
     UnexpectedHelloMessageReceived,
     #[error("Expected status message")]
     ExpectedStatusMessage,
+    #[error("Expected upgrade status message")]
+    ExpectedUpgradeStatusMessage,
     #[error("Could not validate status message")]
     CouldNotValidateStatusMessage,
     #[error("Too many attempts")]
