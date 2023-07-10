@@ -9,6 +9,7 @@ use super::errors::P2PError;
 use super::p2p_wire::P2PWire;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
+use crate::eth;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
@@ -75,7 +76,7 @@ impl P2PPeer {
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
-            self.handle_eth_message(msg).await?;
+            eth::msg_handler::handle_eth_message(msg);
         }
     }
 
@@ -85,17 +86,6 @@ impl P2PPeer {
             .await?;
 
         self.connection.send(UpgradeStatus::get()).await
-    }
-
-    async fn handle_eth_message(&mut self, msg: Message) -> Result<(), P2PError> {
-        let msg_id_is_bsc_upgrade_status_msg = msg.id == Some(27);
-        if !msg_id_is_bsc_upgrade_status_msg {
-            //  info!("Got ETH message with ID: {:?}", msg.id);
-        } else {
-            info!("Got upgrade status msg");
-        }
-
-        Ok(())
     }
 
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
