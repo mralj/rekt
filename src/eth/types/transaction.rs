@@ -5,6 +5,15 @@ use sha3::{Digest, Keccak256};
 
 use crate::types::hash::H160;
 
+// Nonce
+// Gas Price
+// Gas Limit
+// Recipient Address
+// Value
+// Data
+// v
+// r
+// s
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct Transaction {
     pub nonce: U256,
@@ -14,16 +23,6 @@ pub struct Transaction {
     pub value: U256,
     pub data: Bytes,
 }
-
-//Nonce
-// Gas Price
-// Gas Limit
-// Recipient Address
-// Value
-// Data
-// v
-// r
-// s
 
 impl Default for Transaction {
     fn default() -> Self {
@@ -40,7 +39,7 @@ impl Default for Transaction {
 
 impl Transaction {
     fn decode(buf: &mut &[u8], hash: &str) -> Result<Self, DecodeError> {
-        let h = match Header::decode(buf) {
+        let tx_header = match Header::decode(buf) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode header: {:?}", e);
@@ -48,12 +47,13 @@ impl Transaction {
             }
         };
 
-        if !h.list {
+        if !tx_header.list {
             return Err(DecodeError::UnexpectedString);
         }
 
-        let buf = &mut &buf[..h.payload_length];
-        let nonce = match u64::decode(buf) {
+        let payload_view = &mut &buf[..tx_header.payload_length];
+
+        let nonce = match u64::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode nonce: {:?}", e);
@@ -61,7 +61,7 @@ impl Transaction {
             }
         };
 
-        let gas_price = match u64::decode(buf) {
+        let gas_price = match u64::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode gas price: {:?}", e);
@@ -70,7 +70,7 @@ impl Transaction {
         };
 
         // skip gas limit
-        let h = match Header::decode(buf) {
+        let h = match Header::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode gas price header: {:?}", e);
@@ -78,9 +78,9 @@ impl Transaction {
             }
         };
 
-        buf.advance(h.payload_length);
+        payload_view.advance(h.payload_length);
 
-        let recipient = match H160::decode(buf) {
+        let recipient = match H160::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!(
@@ -92,7 +92,7 @@ impl Transaction {
         };
 
         // skip value
-        let h = match Header::decode(buf) {
+        let h = match Header::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode value header: {:?}", e);
@@ -100,9 +100,9 @@ impl Transaction {
             }
         };
 
-        buf.advance(h.payload_length);
+        payload_view.advance(h.payload_length);
 
-        let _data = match Bytes::decode(buf) {
+        let _data = match Bytes::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode data: {:?}", e);
@@ -110,41 +110,13 @@ impl Transaction {
             }
         };
 
-        //skip, r,s,v
-        let h = match Header::decode(buf) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode v header: {:?}", e);
-                return Err(e);
-            }
-        };
-
-        buf.advance(h.payload_length);
-        let h = match Header::decode(buf) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode r header: {:?}", e);
-                return Err(e);
-            }
-        };
-
-        buf.advance(h.payload_length);
-        let h = match Header::decode(buf) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode s header: {:?}", e);
-                return Err(e);
-            }
-        };
-        buf.advance(h.payload_length);
-
-        tracing::info!(
+        println!(
             "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-            nonce,
-            gas_price,
-            recipient,
-            hash
+            nonce, gas_price, recipient, hash
         );
+
+        // we skip v, r, s
+        buf.advance(tx_header.payload_length);
 
         Ok(Transaction::default())
     }
