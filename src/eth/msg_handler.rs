@@ -1,16 +1,15 @@
-use bytes::BytesMut;
-use ethers::types::{U128, U256};
 use open_fastrlp::Decodable;
 
 use crate::types::hash::H256;
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
+use super::types::transaction::decode_txs;
 
 pub fn handle_eth_message(msg: Message) -> Result<(), ETHError> {
     match msg.id {
-        Some(24) => handle_tx_hashes(msg),
         Some(18) => handle_txs(msg),
+        Some(24) => handle_tx_hashes(msg),
         _ => Ok(()),
     }
 }
@@ -46,37 +45,6 @@ fn handle_tx_hashes(msg: Message) -> Result<(), ETHError> {
 }
 
 fn handle_txs(msg: Message) -> Result<(), ETHError> {
-    let rlp_encoded_list_of_txs: Vec<BytesMut> = Vec::decode(&mut &msg.data[..])?;
-
-    for tx in rlp_encoded_list_of_txs {
-        let tx_rlp = open_fastrlp::Rlp::new(&tx);
-        if let Err(e) = tx_rlp {
-            println!("Invalid RLP: {}", e);
-            continue;
-        }
-
-        let mut tx_rlp = tx_rlp.unwrap();
-
-        let nonce: U256 = match tx_rlp.get_next() {
-            Ok(n) => match n {
-                Some(n) => n,
-                None => {
-                    println!("Invalid nonce");
-                    continue;
-                }
-            },
-            Err(e) => {
-                println!("Invalid nonce: {}", e);
-                continue;
-            }
-        };
-
-        // let gas_price: U128 = tx_rlp.get_next().unwrap().unwrap();
-        // let gas_limit: U256 = tx_rlp.get_next().unwrap().unwrap();
-        // let to: H256 = tx_rlp.get_next().unwrap().unwrap();
-
-        println!("Nonce: {}", nonce)
-    }
-
+    decode_txs(&mut &msg.data[..]);
     Ok(())
 }
