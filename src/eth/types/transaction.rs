@@ -99,7 +99,7 @@ impl Transaction {
 
         buf.advance(h.payload_length);
 
-        let data = match Bytes::decode(buf) {
+        let _data = match Bytes::decode(buf) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode data: {:?}", e);
@@ -107,33 +107,33 @@ impl Transaction {
             }
         };
 
-        // skip, r,s,v
-        // let h = match Header::decode(buf) {
-        //     Ok(h) => h,
-        //     Err(e) => {
-        //         println!("Failed to decode v header: {:?}", e);
-        //         return Err(e);
-        //     }
-        // };
+        //skip, r,s,v
+        let h = match Header::decode(buf) {
+            Ok(h) => h,
+            Err(e) => {
+                println!("Failed to decode v header: {:?}", e);
+                return Err(e);
+            }
+        };
 
-        // buf.advance(h.payload_length);
-        // let h = match Header::decode(buf) {
-        //     Ok(h) => h,
-        //     Err(e) => {
-        //         println!("Failed to decode r header: {:?}", e);
-        //         return Err(e);
-        //     }
-        // };
+        buf.advance(h.payload_length);
+        let h = match Header::decode(buf) {
+            Ok(h) => h,
+            Err(e) => {
+                println!("Failed to decode r header: {:?}", e);
+                return Err(e);
+            }
+        };
 
-        // buf.advance(h.payload_length);
-        // let h = match Header::decode(buf) {
-        //     Ok(h) => h,
-        //     Err(e) => {
-        //         println!("Failed to decode s header: {:?}", e);
-        //         return Err(e);
-        //     }
-        // };
-        // buf.advance(h.payload_length);
+        buf.advance(h.payload_length);
+        let h = match Header::decode(buf) {
+            Ok(h) => h,
+            Err(e) => {
+                println!("Failed to decode s header: {:?}", e);
+                return Err(e);
+            }
+        };
+        buf.advance(h.payload_length);
 
         tracing::info!(
             "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
