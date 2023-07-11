@@ -107,9 +107,40 @@ impl Transaction {
             }
         };
 
-        println!(
-            "nonce: {:?}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-            nonce, gas_price, recipient, hash
+        // skip, r,s,v
+        // let h = match Header::decode(buf) {
+        //     Ok(h) => h,
+        //     Err(e) => {
+        //         println!("Failed to decode v header: {:?}", e);
+        //         return Err(e);
+        //     }
+        // };
+
+        // buf.advance(h.payload_length);
+        // let h = match Header::decode(buf) {
+        //     Ok(h) => h,
+        //     Err(e) => {
+        //         println!("Failed to decode r header: {:?}", e);
+        //         return Err(e);
+        //     }
+        // };
+
+        // buf.advance(h.payload_length);
+        // let h = match Header::decode(buf) {
+        //     Ok(h) => h,
+        //     Err(e) => {
+        //         println!("Failed to decode s header: {:?}", e);
+        //         return Err(e);
+        //     }
+        // };
+        // buf.advance(h.payload_length);
+
+        tracing::info!(
+            "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce,
+            gas_price,
+            recipient,
+            hash
         );
 
         Ok(Transaction::default())
