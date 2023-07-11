@@ -83,7 +83,10 @@ impl Transaction {
         let recipient = match H160::decode(buf) {
             Ok(n) => n,
             Err(e) => {
-                println!("Failed to decode recipient: {:?}", e);
+                println!(
+                    "Failed to decode recipient: {:?}, for hash tx: https://bscscan.com/tx/0x{}",
+                    e, hash
+                );
                 return Err(e);
             }
         };
