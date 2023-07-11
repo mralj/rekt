@@ -1,11 +1,9 @@
-use std::time::Instant;
-
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 use ethers::types::{U128, U256};
-use open_fastrlp::{Decodable, DecodeError, Header, Rlp, RlpDecodable, RlpEncodable};
+use open_fastrlp::{Decodable, DecodeError, Header, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
-use crate::types::hash::{H160, H256};
+use crate::types::hash::H160;
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct Transaction {
@@ -110,8 +108,8 @@ impl Transaction {
         };
 
         println!(
-            "nonce: {:?}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}, data: {:#x}",
-            nonce, gas_price, recipient, hash, data
+            "nonce: {:?}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, hash
         );
 
         Ok(Transaction::default())
@@ -129,6 +127,9 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
         let hash = eth_tx_hash(payload_view);
         Transaction::decode(payload_view, &hash)?;
     }
+
+    buf.advance(h.payload_length);
+
     Ok(Vec::new())
 }
 
