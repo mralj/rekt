@@ -83,18 +83,6 @@ impl P2PPeer {
         }
     }
 
-    pub async fn send_our_status_msg(&mut self) -> Result<(), P2PError> {
-        self.connection
-            .send(Status::get(&self.protocol_version))
-            .await?;
-
-        // if self.protocol_version == ProtocolVersion::Eth67 {
-        //     return self.connection.send(UpgradeStatus::get()).await;
-        // }
-        self.connection.send(UpgradeStatus::get()).await
-        //Ok(())
-    }
-
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
@@ -111,13 +99,21 @@ impl P2PPeer {
             info!("Validated status MSG OK");
         }
 
-        self.send_our_status_msg().await?;
-        // if self.protocol_version == ProtocolVersion::Eth67 {
-        //     let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        //     if msg.id != Some(27) {
-        //         return Err(P2PError::ExpectedUpgradeStatusMessage);
-        //     }
-        // }
+        self.handle_status_messages().await
+    }
+
+    pub async fn handle_status_messages(&mut self) -> Result<(), P2PError> {
+        self.connection
+            .send(Status::get(&self.protocol_version))
+            .await?;
+
+        if self.protocol_version == ProtocolVersion::Eth67 {
+            self.connection.send(UpgradeStatus::get()).await?;
+            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+            if msg.id != Some(27) {
+                return Err(P2PError::ExpectedUpgradeStatusMessage);
+            }
+        }
 
         Ok(())
     }
