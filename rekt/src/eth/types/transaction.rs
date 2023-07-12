@@ -1,6 +1,6 @@
 use bytes::{Buf, Bytes};
 use ethers::types::{U128, U256};
-use open_fastrlp::{Decodable, DecodeError, Header, RlpEncodable};
+use open_fastrlp::{Decodable, DecodeError, Header, HeaderLen, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
 use crate::types::hash::H160;
@@ -38,8 +38,11 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8], hash: &str) -> Result<Self, DecodeError> {
-        let tx_header = match Header::decode(buf) {
+    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        let tx_byte_len = HeaderLen::decode(buf)?;
+        let hash = eth_tx_hash(&buf[..tx_byte_len.advance + tx_byte_len.payload_length]);
+
+        let tx_header = match Header::decode_when_len_is_known(buf, tx_byte_len) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode header: {:?}", e);
@@ -70,7 +73,7 @@ impl Transaction {
         };
 
         // skip gas limit
-        let h = match Header::decode(payload_view) {
+        let h = match HeaderLen::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode gas price header: {:?}", e);
@@ -78,7 +81,7 @@ impl Transaction {
             }
         };
 
-        payload_view.advance(h.payload_length);
+        payload_view.advance(h.payload_length + h.advance);
 
         let recipient = match H160::decode(payload_view) {
             Ok(n) => n,
@@ -92,7 +95,7 @@ impl Transaction {
         };
 
         // skip value
-        let h = match Header::decode(payload_view) {
+        let h = match HeaderLen::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode value header: {:?}", e);
@@ -130,8 +133,7 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
 
     let payload_view = &mut &buf[..h.payload_length];
     while !payload_view.is_empty() {
-        let hash = eth_tx_hash(payload_view);
-        Transaction::decode(payload_view, &hash)?;
+        Transaction::decode(payload_view)?;
     }
 
     buf.advance(h.payload_length);

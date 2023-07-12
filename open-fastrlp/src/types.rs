@@ -14,9 +14,21 @@ impl From<HeaderLen> for Header {
 }
 
 pub struct HeaderLen {
+    pub payload_length: usize,
+    pub advance: usize,
+    pub total_length: usize,
     pub(crate) list: bool,
-    pub(crate) payload_length: usize,
-    pub(crate) advance: usize,
+}
+
+impl HeaderLen {
+    pub fn new(payload_length: usize, advance: usize, list: bool) -> Self {
+        Self {
+            payload_length,
+            advance,
+            list,
+            total_length: payload_length + advance,
+        }
+    }
 }
 
 pub const EMPTY_STRING_CODE: u8 = 0x80;
