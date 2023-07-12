@@ -11,7 +11,6 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::eth::types::transaction::TX_HASHES;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 
@@ -77,8 +76,7 @@ impl P2PPeer {
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
-            let hashes = TX_HASHES.clone();
-            let r = eth::msg_handler::handle_eth_message(msg, hashes).await?;
+            let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {
                 self.connection.send(r).await?;
             }

@@ -1,8 +1,4 @@
-use std::collections::HashSet;
-use std::sync::Arc;
-
 use open_fastrlp::Decodable;
-use tokio::sync::RwLock;
 
 use crate::types::hash::H256;
 use crate::types::message::Message;
@@ -10,22 +6,16 @@ use crate::types::message::Message;
 use super::types::errors::ETHError;
 use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 
-pub async fn handle_eth_message(
-    msg: Message,
-    hashes: Arc<RwLock<HashSet<H256>>>,
-) -> Result<Option<Message>, ETHError> {
+pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
-        Some(18) => handle_txs(msg, true, hashes).await,
-        Some(24) => handle_tx_hashes(msg, hashes).await,
-        Some(26) => handle_txs(msg, false, hashes).await,
+        Some(18) => handle_txs(msg, true),
+        Some(24) => handle_tx_hashes(msg),
+        Some(26) => handle_txs(msg, false),
         _ => Ok(None),
     }
 }
 
-async fn handle_tx_hashes(
-    msg: Message,
-    hashes: Arc<RwLock<HashSet<H256>>>,
-) -> Result<Option<Message>, ETHError> {
+fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -51,9 +41,11 @@ async fn handle_tx_hashes(
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    let hashes = hashes.read().await;
 
-    let hashes = anno_hashes.iter().filter(|h| !hashes.contains(h)).collect();
+    let hashes = anno_hashes
+        .iter()
+        .filter(|h| !TX_HASHES.contains(h))
+        .collect();
 
     Ok(Some(Message {
         id: Some(25),
@@ -62,11 +54,7 @@ async fn handle_tx_hashes(
     }))
 }
 
-async fn handle_txs(
-    msg: Message,
-    is_direct: bool,
-    hashes: Arc<RwLock<HashSet<H256>>>,
-) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..], is_direct, hashes).await;
+fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
+    decode_txs(&mut &msg.data[..], is_direct);
     Ok(None)
 }

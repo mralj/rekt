@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::sync::Arc;
 
+use once_cell::sync::Lazy;
 use rekt::config::get_config;
 use rekt::server::outbound_connections::OutboundConnections;
 
@@ -10,6 +11,7 @@ use tracing_subscriber::FmtSubscriber;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = get_config()?;
+    Lazy::force(&rekt::eth::types::transaction::TX_HASHES);
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
