@@ -1,5 +1,5 @@
 use crate::types::Header;
-use crate::HeaderLen;
+use crate::HeaderInfo;
 use bytes::{Buf, Bytes, BytesMut};
 
 pub trait Decodable: Sized {
@@ -81,9 +81,9 @@ impl core::fmt::Display for DecodeError {
 
 impl Header {
     pub fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
-        let h = HeaderLen::decode(buf)?;
-        if h.advance > 0 {
-            buf.advance(h.advance);
+        let h = HeaderInfo::decode(buf)?;
+        if h.header_len > 0 {
+            buf.advance(h.header_len);
         }
 
         Ok(Header::from(h))
@@ -91,17 +91,17 @@ impl Header {
 
     pub fn decode_when_len_is_known(
         buf: &mut &[u8],
-        header_len: HeaderLen,
+        header_len: HeaderInfo,
     ) -> Result<Self, DecodeError> {
-        if header_len.advance > 0 {
-            buf.advance(header_len.advance);
+        if header_len.header_len > 0 {
+            buf.advance(header_len.header_len);
         }
 
         Ok(Header::from(header_len))
     }
 }
 
-impl HeaderLen {
+impl HeaderInfo {
     pub fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
         if !buf.has_remaining() {
             return Err(DecodeError::InputTooShort);
@@ -110,19 +110,11 @@ impl HeaderLen {
         let b = buf[0];
         let h: Self = {
             if b < 0x80 {
-                Self {
-                    list: false,
-                    payload_length: 1,
-                    advance: 0,
-                }
+                HeaderInfo::new(0, 1, false)
             } else if b < 0xB8 {
-                let h = Self {
-                    list: false,
-                    payload_length: b as usize - 0x80,
-                    advance: 1,
-                };
+                let h = HeaderInfo::new(1, b as usize - 0x80, false);
 
-                if h.payload_length == 1 {
+                if h.payload_len == 1 {
                     if buf.len() == 1 {
                         return Err(DecodeError::InputTooShort);
                     }
@@ -145,19 +137,10 @@ impl HeaderLen {
                     return Err(DecodeError::NonCanonicalSize);
                 }
 
-                Self {
-                    list: false,
-                    payload_length,
-                    advance: 1 + len_of_len,
-                }
+                HeaderInfo::new(1 + len_of_len, payload_length, false)
             } else if b < 0xF8 {
-                Self {
-                    list: true,
-                    payload_length: b as usize - 0xC0,
-                    advance: 1,
-                }
+                HeaderInfo::new(1, b as usize - 0xC0, true)
             } else {
-                let list = true;
                 let len_of_len = b as usize - 0xF7;
                 if buf.len() < len_of_len + 1 {
                     return Err(DecodeError::InputTooShort);
@@ -170,15 +153,11 @@ impl HeaderLen {
                     return Err(DecodeError::NonCanonicalSize);
                 }
 
-                Self {
-                    list,
-                    payload_length,
-                    advance: 1 + len_of_len,
-                }
+                HeaderInfo::new(1 + len_of_len, payload_length, true)
             }
         };
 
-        if buf.len() < h.payload_length + h.advance {
+        if buf.len() < h.total_len {
             return Err(DecodeError::InputTooShort);
         }
 

@@ -4,29 +4,29 @@ pub struct Header {
     pub payload_length: usize,
 }
 
-impl From<HeaderLen> for Header {
-    fn from(value: HeaderLen) -> Self {
+impl From<HeaderInfo> for Header {
+    fn from(value: HeaderInfo) -> Self {
         Self {
             list: value.list,
-            payload_length: value.payload_length,
+            payload_length: value.payload_len,
         }
     }
 }
 
-pub struct HeaderLen {
-    pub payload_length: usize,
-    pub advance: usize,
-    pub total_length: usize,
+pub struct HeaderInfo {
+    pub payload_len: usize,
+    pub header_len: usize,
+    pub total_len: usize,
     pub(crate) list: bool,
 }
 
-impl HeaderLen {
-    pub fn new(payload_length: usize, advance: usize, list: bool) -> Self {
+impl HeaderInfo {
+    pub fn new(header_len: usize, payload_len: usize, list: bool) -> Self {
         Self {
-            payload_length,
-            advance,
+            payload_len,
+            header_len,
             list,
-            total_length: payload_length + advance,
+            total_len: payload_len + header_len,
         }
     }
 }

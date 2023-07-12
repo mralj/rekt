@@ -1,6 +1,6 @@
 use bytes::{Buf, Bytes};
 use ethers::types::{U128, U256};
-use open_fastrlp::{Decodable, DecodeError, Header, HeaderLen, RlpEncodable};
+use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
 use crate::types::hash::H160;
@@ -39,10 +39,10 @@ impl Default for Transaction {
 
 impl Transaction {
     fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
-        let tx_byte_len = HeaderLen::decode(buf)?;
-        let hash = eth_tx_hash(&buf[..tx_byte_len.advance + tx_byte_len.payload_length]);
+        let tx_header_info = HeaderInfo::decode(buf)?;
+        let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        let tx_header = match Header::decode_when_len_is_known(buf, tx_byte_len) {
+        let tx_header = match Header::decode_when_len_is_known(buf, tx_header_info) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode header: {:?}", e);
@@ -73,7 +73,7 @@ impl Transaction {
         };
 
         // skip gas limit
-        let h = match HeaderLen::decode(payload_view) {
+        let h = match HeaderInfo::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode gas price header: {:?}", e);
@@ -81,7 +81,7 @@ impl Transaction {
             }
         };
 
-        payload_view.advance(h.payload_length + h.advance);
+        payload_view.advance(h.total_len);
 
         let recipient = match H160::decode(payload_view) {
             Ok(n) => n,
@@ -95,7 +95,7 @@ impl Transaction {
         };
 
         // skip value
-        let h = match HeaderLen::decode(payload_view) {
+        let h = match HeaderInfo::decode(payload_view) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode value header: {:?}", e);
@@ -103,7 +103,7 @@ impl Transaction {
             }
         };
 
-        payload_view.advance(h.payload_length);
+        payload_view.advance(h.total_len);
 
         let _data = match Bytes::decode(payload_view) {
             Ok(n) => n,
