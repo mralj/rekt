@@ -80,7 +80,7 @@ impl Transaction {
         }
 
         {
-            hashes.clone().write().await.insert(hash);
+            hashes.write().await.insert(hash);
         }
 
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
