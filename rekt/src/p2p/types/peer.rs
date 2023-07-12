@@ -112,12 +112,12 @@ impl P2PPeer {
         }
 
         self.send_our_status_msg().await?;
-        if self.protocol_version == ProtocolVersion::Eth67 {
-            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if msg.id != Some(27) {
-                return Err(P2PError::ExpectedUpgradeStatusMessage);
-            }
-        }
+        // if self.protocol_version == ProtocolVersion::Eth67 {
+        //     let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        //     if msg.id != Some(27) {
+        //         return Err(P2PError::ExpectedUpgradeStatusMessage);
+        //     }
+        // }
 
         Ok(())
     }
