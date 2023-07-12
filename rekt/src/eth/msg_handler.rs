@@ -8,9 +8,9 @@ use super::types::transaction::{decode_txs, TransactionRequest};
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
-        Some(18) => handle_txs(msg),
+        Some(18) => handle_txs(msg, true),
         Some(24) => handle_tx_hashes(msg),
-        Some(26) => Ok(None),
+        Some(26) => handle_txs(msg, false),
         _ => Ok(None),
     }
 }
@@ -49,7 +49,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     }))
 }
 
-fn handle_txs(msg: Message) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..]);
+fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
+    decode_txs(&mut &msg.data[..], is_direct);
     Ok(None)
 }

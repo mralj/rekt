@@ -131,10 +131,10 @@ impl Transaction {
             }
         };
 
-        // println!(
-        //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-        //     nonce, gas_price, recipient, hash
-        // );
+        println!(
+            "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, hash
+        );
 
         // we skip v, r, s
         buf.advance(tx_header.payload_length);
@@ -143,7 +143,30 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+    if is_direct {
+        decode_txs_direct(buf)
+    } else {
+        let h = Header::decode(buf)?;
+        if !h.list {
+            return Err(DecodeError::UnexpectedString);
+        }
+        // skip decoding request id
+        let h = match HeaderInfo::decode(buf) {
+            Ok(h) => h,
+            Err(e) => {
+                println!("Failed to decode request id header: {:?}", e);
+                return Err(e);
+            }
+        };
+
+        buf.advance(h.total_len);
+
+        decode_txs_direct(buf)
+    }
+}
+
+pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
