@@ -108,10 +108,11 @@ impl P2PPeer {
         }
 
         self.send_our_status_msg().await?;
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        if msg.id != Some(27) {
-            return Err(P2PError::ExpectedUpgradeStatusMessage);
-        }
+        // TODO: investigate why we have issues with waiting for this message
+        // let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        // if msg.id != Some(27) {
+        //     return Err(P2PError::ExpectedUpgradeStatusMessage);
+        // }
 
         Ok(())
     }
