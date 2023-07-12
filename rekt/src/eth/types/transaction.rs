@@ -101,16 +101,7 @@ impl Transaction {
 
         payload_view.advance(h.total_len);
 
-        let recipient = match H160::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!(
-                    "Failed to decode recipient: {:?}, for hash tx: https://bscscan.com/tx/0x{}",
-                    e, hash
-                );
-                return Err(e);
-            }
-        };
+        let recipient = H160::decode(payload_view)?;
 
         // skip value
         let h = match HeaderInfo::decode(payload_view) {
