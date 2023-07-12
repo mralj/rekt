@@ -1,0 +1,40 @@
+[task.check]
+command = "cargo"
+args = ["check"]
+
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+[tasks.lint]
+command = "cargo"
+args = ["clippy", "--fix", "--allow-dirty",  "--allow-staged"]
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["clean"]
+
+[tasks.test]
+command = "cargo"
+args = ["test"]
+dependencies = ["clean"]
+
+[tasks.s]
+dependencies = [
+    "format",
+    "lint",
+    "check"
+]
+
+[tasks.m]
+dependencies = [
+    "s",
+    "build",
+    "test"
+]
