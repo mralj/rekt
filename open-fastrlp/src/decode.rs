@@ -1,4 +1,5 @@
 use crate::types::Header;
+use crate::HeaderLen;
 use bytes::{Buf, Bytes, BytesMut};
 
 pub trait Decodable: Sized {
@@ -80,6 +81,17 @@ impl core::fmt::Display for DecodeError {
 
 impl Header {
     pub fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        let h = HeaderLen::decode(buf)?;
+        if h.advance > 0 {
+            buf.advance(h.advance);
+        }
+
+        Ok(Header::from(h))
+    }
+}
+
+impl HeaderLen {
+    pub fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
         if !buf.has_remaining() {
             return Err(DecodeError::InputTooShort);
         }
@@ -90,35 +102,34 @@ impl Header {
                 Self {
                     list: false,
                     payload_length: 1,
+                    advance: 0,
                 }
             } else if b < 0xB8 {
-                buf.advance(1);
                 let h = Self {
                     list: false,
                     payload_length: b as usize - 0x80,
+                    advance: 1,
                 };
 
                 if h.payload_length == 1 {
-                    if !buf.has_remaining() {
+                    if buf.len() == 1 {
                         return Err(DecodeError::InputTooShort);
                     }
-                    if buf[0] < 0x80 {
+                    if buf[1] < 0x80 {
                         return Err(DecodeError::NonCanonicalSingleByte);
                     }
                 }
 
                 h
             } else if b < 0xC0 {
-                buf.advance(1);
                 let len_of_len = b as usize - 0xB7;
-                if buf.len() < len_of_len {
+                if buf.len() < len_of_len + 1 {
                     return Err(DecodeError::InputTooShort);
                 }
                 let payload_length = usize::try_from(u64::from_be_bytes(
-                    static_left_pad(&buf[..len_of_len]).ok_or(DecodeError::LeadingZero)?,
+                    static_left_pad(&buf[1..=len_of_len]).ok_or(DecodeError::LeadingZero)?,
                 ))
                 .map_err(|_| DecodeError::Custom("Input too big"))?;
-                buf.advance(len_of_len);
                 if payload_length < 56 {
                     return Err(DecodeError::NonCanonicalSize);
                 }
@@ -126,25 +137,24 @@ impl Header {
                 Self {
                     list: false,
                     payload_length,
+                    advance: 1 + len_of_len,
                 }
             } else if b < 0xF8 {
-                buf.advance(1);
                 Self {
                     list: true,
                     payload_length: b as usize - 0xC0,
+                    advance: 1,
                 }
             } else {
-                buf.advance(1);
                 let list = true;
                 let len_of_len = b as usize - 0xF7;
-                if buf.len() < len_of_len {
+                if buf.len() < len_of_len + 1 {
                     return Err(DecodeError::InputTooShort);
                 }
                 let payload_length = usize::try_from(u64::from_be_bytes(
-                    static_left_pad(&buf[..len_of_len]).ok_or(DecodeError::LeadingZero)?,
+                    static_left_pad(&buf[1..=len_of_len]).ok_or(DecodeError::LeadingZero)?,
                 ))
                 .map_err(|_| DecodeError::Custom("Input too big"))?;
-                buf.advance(len_of_len);
                 if payload_length < 56 {
                     return Err(DecodeError::NonCanonicalSize);
                 }
@@ -152,11 +162,12 @@ impl Header {
                 Self {
                     list,
                     payload_length,
+                    advance: 1 + len_of_len,
                 }
             }
         };
 
-        if buf.remaining() < h.payload_length {
+        if buf.len() < h.payload_length + h.advance {
             return Err(DecodeError::InputTooShort);
         }
 
