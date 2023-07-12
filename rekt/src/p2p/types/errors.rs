@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::eth::types::errors::ETHError;
 use crate::p2p::DisconnectReason;
 
 #[derive(Debug, Error, Copy, Clone)]
@@ -34,4 +35,6 @@ pub enum P2PError {
     AlreadyConnected,
     #[error("Already connected to the same ip")]
     AlreadyConnectedToSameIp,
+    #[error("ETH error: {0}")]
+    EthError(#[from] ETHError),
 }

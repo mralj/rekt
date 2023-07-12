@@ -4,17 +4,21 @@ use crate::types::hash::H256;
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
-use super::types::transaction::decode_txs;
+use super::types::transaction::{decode_txs, TransactionRequest};
 
-pub fn handle_eth_message(msg: Message) -> Result<(), ETHError> {
+pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(18) => handle_txs(msg),
         Some(24) => handle_tx_hashes(msg),
-        _ => Ok(()),
+        Some(26) => {
+            println!("Got tx response");
+            Ok(None)
+        }
+        _ => Ok(None),
     }
 }
 
-fn handle_tx_hashes(msg: Message) -> Result<(), ETHError> {
+fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -39,12 +43,16 @@ fn handle_tx_hashes(msg: Message) -> Result<(), ETHError> {
     // vector to allocate on stack
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
-    let _hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    Ok(())
+    Ok(Some(Message {
+        id: Some(25),
+        kind: Some(crate::types::message::MessageKind::ETH),
+        data: TransactionRequest::new(hashes).rlp_encode(),
+    }))
 }
 
-fn handle_txs(msg: Message) -> Result<(), ETHError> {
+fn handle_txs(msg: Message) -> Result<Option<Message>, ETHError> {
     decode_txs(&mut &msg.data[..]);
-    Ok(())
+    Ok(None)
 }

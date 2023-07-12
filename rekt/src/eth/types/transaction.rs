@@ -1,9 +1,27 @@
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use ethers::types::{U128, U256};
-use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo, RlpEncodable};
+use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
-use crate::types::hash::H160;
+use crate::types::hash::{H160, H256};
+
+#[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
+pub struct TransactionRequest {
+    id: u64,
+    hashes: Vec<H256>,
+}
+
+impl TransactionRequest {
+    pub fn new(hashes: Vec<H256>) -> Self {
+        Self { id: 0, hashes }
+    }
+
+    pub fn rlp_encode(&self) -> BytesMut {
+        let mut rlp = BytesMut::new();
+        self.encode(&mut rlp);
+        rlp
+    }
+}
 
 // Nonce
 // Gas Price
@@ -113,10 +131,10 @@ impl Transaction {
             }
         };
 
-        println!(
-            "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-            nonce, gas_price, recipient, hash
-        );
+        // println!(
+        //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+        //     nonce, gas_price, recipient, hash
+        // );
 
         // we skip v, r, s
         buf.advance(tx_header.payload_length);
