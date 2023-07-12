@@ -88,7 +88,11 @@ impl P2PPeer {
             .send(Status::get(&self.protocol_version))
             .await?;
 
-        self.connection.send(UpgradeStatus::get()).await
+        if self.protocol_version == ProtocolVersion::Eth67 {
+            return self.connection.send(UpgradeStatus::get()).await;
+        }
+
+        Ok(())
     }
 
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
@@ -108,11 +112,12 @@ impl P2PPeer {
         }
 
         self.send_our_status_msg().await?;
-        // TODO: investigate why we have issues with waiting for this message
-        // let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        // if msg.id != Some(27) {
-        //     return Err(P2PError::ExpectedUpgradeStatusMessage);
-        // }
+        if self.protocol_version == ProtocolVersion::Eth67 {
+            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+            if msg.id != Some(27) {
+                return Err(P2PError::ExpectedUpgradeStatusMessage);
+            }
+        }
 
         Ok(())
     }
