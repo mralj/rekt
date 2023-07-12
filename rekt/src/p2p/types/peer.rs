@@ -88,9 +88,9 @@ impl P2PPeer {
             .send(Status::get(&self.protocol_version))
             .await?;
 
-        if self.protocol_version == ProtocolVersion::Eth67 {
-            return self.connection.send(UpgradeStatus::get()).await;
-        }
+        // if self.protocol_version == ProtocolVersion::Eth67 {
+        //     return self.connection.send(UpgradeStatus::get()).await;
+        // }
 
         Ok(())
     }
