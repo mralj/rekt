@@ -91,8 +91,8 @@ impl P2PPeer {
         // if self.protocol_version == ProtocolVersion::Eth67 {
         //     return self.connection.send(UpgradeStatus::get()).await;
         // }
-
-        Ok(())
+        self.connection.send(UpgradeStatus::get()).await
+        //Ok(())
     }
 
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
