@@ -42,7 +42,7 @@ impl Transaction {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        let tx_header = match Header::decode_when_len_is_known(buf, tx_header_info) {
+        let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
             Err(e) => {
                 println!("Failed to decode header: {:?}", e);

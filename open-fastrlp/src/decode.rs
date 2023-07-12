@@ -89,15 +89,12 @@ impl Header {
         Ok(Header::from(h))
     }
 
-    pub fn decode_when_len_is_known(
-        buf: &mut &[u8],
-        header_len: HeaderInfo,
-    ) -> Result<Self, DecodeError> {
-        if header_len.header_len > 0 {
-            buf.advance(header_len.header_len);
+    pub fn decode_from_info(buf: &mut &[u8], header_info: HeaderInfo) -> Result<Self, DecodeError> {
+        if header_info.header_len > 0 {
+            buf.advance(header_info.header_len);
         }
 
-        Ok(Header::from(header_len))
+        Ok(Header::from(header_info))
     }
 }
 
