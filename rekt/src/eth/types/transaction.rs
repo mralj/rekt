@@ -1,18 +1,28 @@
+use std::collections::HashSet;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
 use bytes::{Buf, Bytes, BytesMut};
 use ethers::types::{U128, U256};
+use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
+use tokio::sync::RwLock;
 
 use crate::types::hash::{H160, H256};
 
+pub(crate) static TX_HASHES: Lazy<Arc<RwLock<HashSet<H256>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(HashSet::with_capacity(4_000_000))));
+
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
-pub struct TransactionRequest {
+pub struct TransactionRequest<'a> {
     id: u64,
-    hashes: Vec<H256>,
+    hashes: Vec<&'a H256>,
 }
 
-impl TransactionRequest {
-    pub fn new(hashes: Vec<H256>) -> Self {
+impl<'a> TransactionRequest<'a> {
+    pub fn new(hashes: Vec<&'a H256>) -> Self {
         Self { id: 0, hashes }
     }
 
@@ -56,9 +66,22 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+    async fn decode(
+        buf: &mut &[u8],
+        hashes: Arc<RwLock<HashSet<H256>>>,
+    ) -> Result<Self, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
+
+        {
+            if hashes.read().await.contains(&hash) {
+                return Ok(Self::default());
+            }
+        }
+
+        {
+            hashes.clone().write().await.insert(hash);
+        }
 
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
@@ -103,6 +126,14 @@ impl Transaction {
 
         let recipient = H160::decode(payload_view)?;
 
+        if recipient == H160::from_str("0x10ED43C718714eb63d5aA57B78B54704E256024E").unwrap() {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_micros();
+            tracing::info!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
+        }
+
         // skip value
         let h = match HeaderInfo::decode(payload_view) {
             Ok(h) => h,
@@ -134,9 +165,13 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+pub async fn decode_txs(
+    buf: &mut &[u8],
+    is_direct: bool,
+    hashes: Arc<RwLock<HashSet<H256>>>,
+) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf)
+        decode_txs_direct(buf, hashes).await
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -153,11 +188,14 @@ pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, 
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf)
+        decode_txs_direct(buf, hashes).await
     }
 }
 
-pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub async fn decode_txs_direct(
+    buf: &mut &[u8],
+    hashes: Arc<RwLock<HashSet<H256>>>,
+) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -165,7 +203,7 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
 
     let payload_view = &mut &buf[..h.payload_length];
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view)?;
+        Transaction::decode(payload_view, hashes.clone()).await?;
     }
 
     buf.advance(h.payload_length);
@@ -173,11 +211,11 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
     Ok(Vec::new())
 }
 
-fn eth_tx_hash(raw_tx: &[u8]) -> String {
+fn eth_tx_hash(raw_tx: &[u8]) -> H256 {
     let mut hasher = Keccak256::new();
     hasher.update(raw_tx);
     let result = hasher.finalize();
-    to_hex_string(&result)
+    H256::from_slice(&result)
 }
 
 fn to_hex_string(bytes: &[u8]) -> String {

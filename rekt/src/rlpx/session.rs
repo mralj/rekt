@@ -39,7 +39,7 @@ pub fn connect_to_node(
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
-                        tracing::error!("PEER ERR:{}", e);
+                        //tracing::error!("PEER ERR:{}", e);
                         let _ = tx
                             .send(ConnectionTaskError::new(
                                 conn_task.next_attempt(),

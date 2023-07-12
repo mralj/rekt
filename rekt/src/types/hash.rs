@@ -11,9 +11,11 @@ construct_fixed_hash! {
 impl_fixed_hash_serde!(H512, 64);
 
 construct_fixed_hash! {
-    #[derive(AsRef, Deref, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen, Serialize, Deserialize)]
+    #[derive(AsRef, Deref, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen)]
     pub struct H256(32);
 }
+
+impl_fixed_hash_serde!(H256, 32);
 
 construct_fixed_hash! {
     #[derive(AsRef, Deref, RlpEncodableWrapper, RlpDecodableWrapper, RlpMaxEncodedLen, Serialize, Deserialize)]

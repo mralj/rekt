@@ -1,21 +1,28 @@
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use open_fastrlp::Decodable;
+use tokio::sync::RwLock;
 
 use crate::types::hash::H256;
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
-use super::types::transaction::{decode_txs, TransactionRequest};
+use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 
-pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
+pub async fn handle_eth_message(
+    msg: Message,
+    hashes: Arc<RwLock<HashSet<H256>>>,
+) -> Result<Option<Message>, ETHError> {
     match msg.id {
-        Some(18) => handle_txs(msg, true),
-        Some(24) => handle_tx_hashes(msg),
-        Some(26) => handle_txs(msg, false),
+        Some(18) => handle_txs(msg, true, hashes).await,
+        Some(24) => handle_tx_hashes(msg).await,
+        Some(26) => handle_txs(msg, false, hashes).await,
         _ => Ok(None),
     }
 }
 
-fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
+async fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -41,6 +48,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    let hashes = hashes.iter().filter(|_| true).collect();
 
     Ok(Some(Message {
         id: Some(25),
@@ -49,7 +57,11 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     }))
 }
 
-fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..], is_direct);
+async fn handle_txs(
+    msg: Message,
+    is_direct: bool,
+    hashes: Arc<RwLock<HashSet<H256>>>,
+) -> Result<Option<Message>, ETHError> {
+    decode_txs(&mut &msg.data[..], is_direct, hashes);
     Ok(None)
 }
