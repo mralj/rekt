@@ -67,10 +67,7 @@ impl Transaction {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        if !TX_HASHES.insert(hash) {
-            return Ok(Self::default());
-        }
-
+        TX_HASHES.insert(hash);
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
             Err(e) => {
