@@ -39,6 +39,7 @@ pub fn connect_to_node(
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
+                        tracing::error!("PEER ERR:{}", e);
                         let _ = tx
                             .send(ConnectionTaskError::new(
                                 conn_task.next_attempt(),
@@ -88,7 +89,6 @@ pub fn connect_to_node(
 
         let (hello_msg, protocol_v) = map_err!(match handle_hello_msg(&mut transport).await {
             Ok(mut hello_msg) => {
-                info!("Received Hello: {:?}", hello_msg);
                 let matched_protocol =
                     map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
                         .ok_or(RLPXSessionError::NoMatchingProtocols));

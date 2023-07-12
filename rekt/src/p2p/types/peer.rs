@@ -95,8 +95,6 @@ impl P2PPeer {
 
         if Status::validate(&status_msg, &self.protocol_version).is_err() {
             return Err(P2PError::CouldNotValidateStatusMessage);
-        } else {
-            info!("Validated status MSG OK");
         }
 
         self.handle_status_messages().await
