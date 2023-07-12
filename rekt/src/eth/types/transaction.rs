@@ -152,9 +152,9 @@ impl Transaction {
     }
 }
 
-pub async fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf).await
+        decode_txs_direct(buf)
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -171,11 +171,11 @@ pub async fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transact
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf).await
+        decode_txs_direct(buf)
     }
 }
 
-pub async fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -196,12 +196,4 @@ fn eth_tx_hash(raw_tx: &[u8]) -> H256 {
     hasher.update(raw_tx);
     let result = hasher.finalize();
     H256::from_slice(&result)
-}
-
-fn to_hex_string(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect::<Vec<String>>()
-        .join("")
 }
