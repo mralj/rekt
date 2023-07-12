@@ -10,10 +10,7 @@ pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(18) => handle_txs(msg),
         Some(24) => handle_tx_hashes(msg),
-        Some(26) => {
-            println!("Got tx response");
-            Ok(None)
-        }
+        Some(26) => Ok(None),
         _ => Ok(None),
     }
 }
