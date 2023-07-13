@@ -82,11 +82,11 @@ impl P2PPeer {
                 .ok_or(P2PError::NoMessage)??; //
 
             //handle messages only after 10m to reduce old TXs
-            if Instant::now().duration_since(self.connected_on)
-                <= time::Duration::from_secs(10 * 60)
-            {
-                continue;
-            }
+            // if Instant::now().duration_since(self.connected_on)
+            //     <= time::Duration::from_secs(10 * 60)
+            // {
+            //     continue;
+            // }
 
             let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {
