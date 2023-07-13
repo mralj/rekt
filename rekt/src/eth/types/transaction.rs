@@ -63,15 +63,13 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+    fn decode(buf: &mut &[u8]) -> Result<H256, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
         if TX_HASHES.contains(&hash) {
-            return Ok(Self::default());
+            return Err(DecodeError::Custom("Already decoded"));
         }
-
-        TX_HASHES.insert(hash);
 
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
@@ -123,7 +121,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            //println!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
+            println!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
         }
 
         // skip value
@@ -153,7 +151,7 @@ impl Transaction {
         // we skip v, r, s
         buf.advance(tx_header.payload_length);
 
-        Ok(Transaction::default())
+        Ok(hash)
     }
 }
 
@@ -187,8 +185,14 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
     }
 
     let payload_view = &mut &buf[..h.payload_length];
+    let mut hashes: Vec<H256> = Vec::with_capacity(1_000);
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view)?;
+        let h = Transaction::decode(payload_view)?;
+        hashes.push(h);
+    }
+
+    for h in hashes {
+        TX_HASHES.insert(h);
     }
 
     buf.advance(h.payload_length);

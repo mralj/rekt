@@ -42,7 +42,10 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    let hashes = anno_hashes.iter().filter(|_| true).collect();
+    let hashes = anno_hashes
+        .iter()
+        .filter(|h| !TX_HASHES.contains(h))
+        .collect();
 
     Ok(Some(Message {
         id: Some(25),
