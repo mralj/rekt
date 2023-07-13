@@ -147,12 +147,9 @@ impl Stream for P2PWire {
             }
 
             if msg_is_txs_msg(msg.id.unwrap()) {
-                let s = Instant::now();
                 if MSG_CACHE.insert(msg.data.to_vec(), ()).is_some() {
                     continue;
                 }
-
-                println!("msg cache miss: {:?}", s.elapsed());
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
