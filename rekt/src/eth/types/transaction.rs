@@ -1,6 +1,9 @@
+use std::default;
+use std::hash::BuildHasherDefault;
 use std::str::FromStr;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use ahash::AHasher;
 use bytes::{Buf, Bytes, BytesMut};
 use dashmap::DashSet;
 use ethers::types::{U128, U256};
@@ -10,7 +13,10 @@ use sha3::{Digest, Keccak256};
 
 use crate::types::hash::{H160, H256};
 
-pub static TX_HASHES: Lazy<DashSet<H256>> = Lazy::new(|| DashSet::with_capacity(4_000_000));
+type AHasherBuilder = BuildHasherDefault<AHasher>;
+
+pub static TX_HASHES: Lazy<DashSet<H256, BuildHasherDefault<AHasher>>> =
+    Lazy::new(|| DashSet::with_capacity_and_hasher(4_000_000, AHasherBuilder::default()));
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct TransactionRequest<'a> {
