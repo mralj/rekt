@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use bytes::{Buf, Bytes, BytesMut};
 use dashmap::DashSet;
@@ -79,12 +79,14 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        if TX_HASHES.contains(&hash) {
+        let s = Instant::now();
+        if !TX_HASHES.insert(hash) {
             buf.advance(tx_header.payload_length);
+            println!("Already decoded: {:?}", s.elapsed());
             return Err(DecodeError::Custom("Already decoded"));
         }
 
-        TX_HASHES.insert(hash);
+        println!("Decoding: {:?}", s.elapsed());
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
