@@ -6,11 +6,11 @@ use crate::types::message::Message;
 use super::types::errors::ETHError;
 use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 
-pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
+pub async fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
-        Some(18) => handle_txs(msg, true),
+        Some(18) => handle_txs(msg, true).await,
         Some(24) => handle_tx_hashes(msg),
-        Some(26) => handle_txs(msg, false),
+        Some(26) => handle_txs(msg, false).await,
         _ => Ok(None),
     }
 }
@@ -51,7 +51,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     }))
 }
 
-fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..], is_direct);
+async fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
+    decode_txs(&mut &msg.data[..], is_direct).await;
     Ok(None)
 }

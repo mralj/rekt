@@ -1,16 +1,18 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bytes::{Buf, Bytes, BytesMut};
-use dashmap::DashSet;
 use ethers::types::{U128, U256};
 use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
+use tokio::sync::RwLock;
 
 use crate::types::hash::{H160, H256};
 
-pub static TX_HASHES: Lazy<DashSet<H256>> = Lazy::new(|| DashSet::with_capacity(4_000_000));
+pub static TX_HASHES: Lazy<RwLock<HashSet<H256>>> =
+    Lazy::new(|| RwLock::new(HashSet::with_capacity(4_000_000)));
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct TransactionRequest<'a> {
@@ -63,16 +65,17 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+    async fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        if TX_HASHES.contains(&hash) {
-            return Ok(Self::default());
+        {
+            if TX_HASHES.read().await.contains(&hash) {
+                return Ok(Self::default());
+            }
+
+            TX_HASHES.write().await.insert(hash);
         }
-
-        TX_HASHES.insert(hash);
-
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
             Err(e) => {
@@ -123,7 +126,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            //println!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
+            println!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
         }
 
         // skip value
@@ -157,9 +160,9 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+pub async fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf)
+        decode_txs_direct(buf).await
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -176,11 +179,11 @@ pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, 
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf)
+        decode_txs_direct(buf).await
     }
 }
 
-pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub async fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -188,7 +191,7 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
 
     let payload_view = &mut &buf[..h.payload_length];
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view)?;
+        Transaction::decode(payload_view).await?;
     }
 
     buf.advance(h.payload_length);
