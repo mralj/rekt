@@ -48,7 +48,7 @@ pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|
     DashMap::with_capacity_and_hasher_and_shard_amount(
         4_000_000,
         IdentityBuildHasher::default(),
-        512,
+        1024,
     )
 });
 
@@ -120,11 +120,14 @@ impl Transaction {
         }
 
         let s = Instant::now();
-        if TX_HASHES.insert(hash, ()).is_none() {
+
+        if TX_HASHES.contains_key(&hash) {
             println!("cache hit: {:?}", s.elapsed());
             buf.advance(tx_header.payload_length);
             return Err(DecodeError::Custom("Already decoded"));
         }
+
+        TX_HASHES.insert(hash, ());
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
