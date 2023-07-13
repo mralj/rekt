@@ -88,7 +88,6 @@ impl Transaction {
         let s = Instant::now();
         if !TX_HASHES.insert(hash) {
             buf.advance(tx_header.payload_length);
-            println!("Already decoded: {:?}", s.elapsed());
             return Err(DecodeError::Custom("Already decoded"));
         }
 
