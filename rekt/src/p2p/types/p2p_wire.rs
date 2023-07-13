@@ -146,10 +146,9 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            if msg_is_txs_msg(msg.id.unwrap()) {
-                if MSG_CACHE.insert(msg.data.to_vec(), ()).is_some() {
-                    continue;
-                }
+            if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
+            {
+                continue;
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
