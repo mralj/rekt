@@ -124,7 +124,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            println!("{}; https://bscscan.com/tx/{:#x}", timestamp, hash);
+            tracing::info!("{},{:#x}", timestamp, hash);
         }
 
         // skip value
