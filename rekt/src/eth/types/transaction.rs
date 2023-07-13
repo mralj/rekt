@@ -188,10 +188,8 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
     }
 
     let payload_view = &mut &buf[..h.payload_length];
-    let mut hashes: Vec<H256> = Vec::with_capacity(1_000);
     while !payload_view.is_empty() {
-        let h = Transaction::decode(payload_view)?;
-        hashes.push(h);
+        Transaction::decode(payload_view)?;
     }
 
     // for h in hashes {
