@@ -149,7 +149,7 @@ impl Stream for P2PWire {
             if msg_is_txs_msg(msg.id.unwrap()) {
                 let s = Instant::now();
                 if MSG_CACHE.insert(msg.data.to_vec(), ()).is_some() {
-                    println!("cache hit: {:?}", s.elapsed());
+                    println!("msg cache hit: {:?}", s.elapsed());
                     continue;
                 }
             }
