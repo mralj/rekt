@@ -67,10 +67,6 @@ impl Transaction {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        if TX_HASHES.contains(&hash) {
-            return Err(DecodeError::Custom("Already decoded"));
-        }
-
         let tx_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(h) => h,
             Err(e) => {
@@ -82,6 +78,13 @@ impl Transaction {
         if !tx_header.list {
             return Err(DecodeError::UnexpectedString);
         }
+
+        if TX_HASHES.contains(&hash) {
+            buf.advance(tx_header.payload_length);
+            return Err(DecodeError::Custom("Already decoded"));
+        }
+
+        TX_HASHES.insert(hash);
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
@@ -191,9 +194,9 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
         hashes.push(h);
     }
 
-    for h in hashes {
-        TX_HASHES.insert(h);
-    }
+    // for h in hashes {
+    //     TX_HASHES.insert(h);
+    // }
 
     buf.advance(h.payload_length);
 
