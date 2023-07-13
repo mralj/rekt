@@ -1,4 +1,6 @@
+use core::time;
 use std::fmt::{Display, Formatter};
+use std::time::Instant;
 
 use futures::{SinkExt, StreamExt};
 
@@ -18,11 +20,12 @@ use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
 pub struct P2PPeer {
-    pub(crate) node_record: NodeRecord,
     pub id: H512,
+    pub(crate) node_record: NodeRecord,
+    pub(crate) info: String,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
-    pub(crate) info: String,
+    connected_on: Instant,
 }
 
 impl P2PPeer {
@@ -39,6 +42,7 @@ impl P2PPeer {
             info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            connected_on: Instant::now(),
         }
     }
 }
@@ -76,6 +80,14 @@ impl P2PPeer {
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
+
+            //handle messages only after 10m to reduce old TXs
+            if Instant::now().duration_since(self.connected_on)
+                <= time::Duration::from_secs(10 * 60)
+            {
+                continue;
+            }
+
             let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {
                 self.connection.send(r).await?;
