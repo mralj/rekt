@@ -9,13 +9,13 @@ use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 pub async fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(18) => handle_txs(msg, true).await,
-        Some(24) => handle_tx_hashes(msg),
+        Some(24) => handle_tx_hashes(msg).await,
         Some(26) => handle_txs(msg, false).await,
         _ => Ok(None),
     }
 }
 
-fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
+async fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -41,8 +41,11 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-
-    let hashes = anno_hashes.iter().filter(|_| true).collect();
+    let tx_hashes = TX_HASHES.read().await;
+    let hashes = anno_hashes
+        .iter()
+        .filter(|h| !tx_hashes.contains(h))
+        .collect();
 
     Ok(Some(Message {
         id: Some(25),
