@@ -119,13 +119,11 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        let s = Instant::now();
         if TX_HASHES.insert(hash, ()).is_some() {
             buf.advance(tx_header.payload_length);
             return Err(DecodeError::Custom("Already decoded"));
         }
 
-        println!("cache miss: {:?}", s.elapsed());
         let payload_view = &mut &buf[..tx_header.payload_length];
 
         let nonce = match u64::decode(payload_view) {

@@ -1,8 +1,12 @@
 use std::collections::VecDeque;
+use std::hash::BuildHasherDefault;
 use std::task::{ready, Poll};
+use std::time::Instant;
 
 use bytes::BytesMut;
+use dashmap::DashMap;
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use once_cell::sync::Lazy;
 use open_fastrlp::Encodable;
 
 use crate::p2p::P2PMessage;
@@ -12,6 +16,15 @@ use crate::types::message::{Message, MessageKind};
 use super::errors::P2PError;
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
+
+pub static MSG_CACHE: Lazy<DashMap<Vec<u8>, (), xxhash_rust::xxh3::Xxh3Builder>> =
+    Lazy::new(|| {
+        DashMap::with_capacity_and_hasher_and_shard_amount(
+            4_000_000,
+            xxhash_rust::xxh3::Xxh3Builder::new(),
+            1024,
+        )
+    });
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -134,7 +147,11 @@ impl Stream for P2PWire {
             }
 
             if msg_is_txs_msg(msg.id.unwrap()) {
-                // check cache here
+                let s = Instant::now();
+                if MSG_CACHE.insert(msg.data.to_vec(), ()).is_some() {
+                    println!("cache hit: {:?}", s.elapsed());
+                    continue;
+                }
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;

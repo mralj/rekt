@@ -44,3 +44,4 @@ toml = "0.7.4"
 kanal = "0.1.0-pre8"
 dashmap = "5.4.0"
 ahash = "0.8.3"
+xxhash-rust = { version = "0.8.6", features = ["xxh3"]}
