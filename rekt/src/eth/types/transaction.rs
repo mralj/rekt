@@ -5,7 +5,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use ahash::AHasher;
 use bytes::{Buf, Bytes, BytesMut};
-use dashmap::DashSet;
+use dashmap::{DashMap, DashSet};
 use ethers::types::{U128, U256};
 use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
@@ -15,8 +15,9 @@ use crate::types::hash::{H160, H256};
 
 type AHasherBuilder = BuildHasherDefault<AHasher>;
 
-pub static TX_HASHES: Lazy<DashSet<H256, BuildHasherDefault<AHasher>>> =
-    Lazy::new(|| DashSet::with_capacity_and_hasher(4_000_000, AHasherBuilder::default()));
+pub static TX_HASHES: Lazy<DashMap<H256, (), BuildHasherDefault<AHasher>>> = Lazy::new(|| {
+    DashMap::with_capacity_and_hasher_and_shard_amount(4_000_000, AHasherBuilder::default(), 1024)
+});
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct TransactionRequest<'a> {
@@ -86,7 +87,7 @@ impl Transaction {
         }
 
         let s = Instant::now();
-        if !TX_HASHES.insert(hash) {
+        if TX_HASHES.insert(hash, ()).is_none() {
             buf.advance(tx_header.payload_length);
             return Err(DecodeError::Custom("Already decoded"));
         }

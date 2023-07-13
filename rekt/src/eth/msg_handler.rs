@@ -44,7 +44,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let hashes = anno_hashes
         .iter()
-        .filter(|h| !TX_HASHES.contains(h))
+        .filter(|h| !TX_HASHES.contains_key(h))
         .collect();
 
     Ok(Some(Message {
