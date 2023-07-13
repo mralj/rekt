@@ -48,7 +48,7 @@ pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|
     DashMap::with_capacity_and_hasher_and_shard_amount(
         4_000_000,
         IdentityBuildHasher::default(),
-        1024,
+        512,
     )
 });
 
