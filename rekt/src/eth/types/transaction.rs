@@ -1,5 +1,5 @@
 use std::default;
-use std::hash::BuildHasherDefault;
+use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
 use std::str::FromStr;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -15,8 +15,41 @@ use crate::types::hash::{H160, H256};
 
 type AHasherBuilder = BuildHasherDefault<AHasher>;
 
-pub static TX_HASHES: Lazy<DashMap<H256, (), BuildHasherDefault<AHasher>>> = Lazy::new(|| {
-    DashMap::with_capacity_and_hasher_and_shard_amount(4_000_000, AHasherBuilder::default(), 1024)
+#[derive(Default)]
+pub struct IdentityHasher(u64);
+
+impl Hasher for IdentityHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // Take the first 8 bytes from the input and interpret them as a u64.
+        // This will panic if bytes is less than 8 bytes long.
+        let bytes: [u8; 8] = bytes[..8]
+            .try_into()
+            .expect("Should've had at least 8 bytes");
+        self.0 = u64::from_ne_bytes(bytes);
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct IdentityBuildHasher;
+
+impl BuildHasher for IdentityBuildHasher {
+    type Hasher = IdentityHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        IdentityHasher(0)
+    }
+}
+
+pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|| {
+    DashMap::with_capacity_and_hasher_and_shard_amount(
+        4_000_000,
+        IdentityBuildHasher::default(),
+        1024,
+    )
 });
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
