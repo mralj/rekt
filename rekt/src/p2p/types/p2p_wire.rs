@@ -133,6 +133,10 @@ impl Stream for P2PWire {
                 continue;
             }
 
+            if msg_is_txs_msg(msg.id.unwrap()) {
+                // check cache here
+            }
+
             msg.snappy_decompress(&mut this.snappy_decoder)?;
 
             if msg.decode_kind().is_err() {
@@ -161,8 +165,15 @@ fn message_is_of_interest(msg_id: u8) -> bool {
         18 => true, // ETH/Transactions
         26 => true, // ETH/PooledTransactions
         24 => true, // ETH/NewPoolTransactionHashes
-        19 => true, // ETH/GetBlockHeaders
-        21 => true, // ETH/GetBlockBodies
+        _ => false,
+    }
+}
+
+fn msg_is_txs_msg(msg_id: u8) -> bool {
+    match msg_id {
+        18 => true, // ETH/Transactions
+        26 => true, // ETH/PooledTransactions
+        24 => true, // ETH/NewPoolTransactionHashes
         _ => false,
     }
 }

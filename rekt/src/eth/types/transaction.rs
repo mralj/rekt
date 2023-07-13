@@ -122,10 +122,9 @@ impl Transaction {
         let s = Instant::now();
         if TX_HASHES.insert(hash, ()).is_none() {
             buf.advance(tx_header.payload_length);
+            println!("cache hit: {:?}", s.elapsed());
             return Err(DecodeError::Custom("Already decoded"));
         }
-
-        println!("Decoding: {:?}", s.elapsed());
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
