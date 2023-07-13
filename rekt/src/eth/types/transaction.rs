@@ -122,12 +122,13 @@ impl Transaction {
         let s = Instant::now();
 
         if TX_HASHES.contains_key(&hash) {
-            println!("cache hit: {:?}", s.elapsed());
             buf.advance(tx_header.payload_length);
             return Err(DecodeError::Custom("Already decoded"));
         }
 
         TX_HASHES.insert(hash, ());
+
+        println!("insert: {:?}", s.elapsed());
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
