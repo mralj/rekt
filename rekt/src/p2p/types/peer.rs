@@ -88,7 +88,7 @@ impl P2PPeer {
     ) -> Result<(), P2PError> {
         match tokio::spawn(async move {
             while let Some(m) = peer.msg_rx.stream().next().await {
-                writer.send(m).await.map_err(|_| P2PError::Unknown)?
+                writer.send(m).await?
             }
 
             Err(P2PError::NoMessage)
@@ -115,11 +115,11 @@ impl P2PPeer {
                     .ok_or(P2PError::NoMessage)??; //
 
                 //handle messages only after 5m to reduce old TXs
-                // if Instant::now().duration_since(self.connected_on)
-                //     <= time::Duration::from_secs(5 * 60)
-                // {
-                //     continue;
-                // }
+                if Instant::now().duration_since(peer.connected_on)
+                    <= time::Duration::from_secs(5 * 60)
+                {
+                    continue;
+                }
 
                 let r = eth::msg_handler::handle_eth_message(msg);
                 if let Ok(Some(r)) = r {
