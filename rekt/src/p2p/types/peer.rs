@@ -166,6 +166,9 @@ impl P2PPeer {
             return Err(P2PError::AlreadyConnected);
         }
 
+        PEERS.insert(peer.node_record.id, PeerInfo::from(&peer as &P2PPeer));
+        PEERS_BY_IP.insert(peer.node_record.ip.clone());
+
         Ok(())
     }
 
