@@ -5,6 +5,8 @@ use crate::p2p::DisconnectReason;
 
 #[derive(Debug, Error, Copy, Clone)]
 pub enum P2PError {
+    #[error("Unknown")]
+    Unknown,
     #[error("No message")]
     NoMessage,
     #[error("Decode error: {0}")]

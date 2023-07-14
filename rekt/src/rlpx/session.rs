@@ -1,7 +1,8 @@
 use std::io;
+use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
@@ -98,15 +99,17 @@ pub fn connect_to_node(
             Err(e) => Err(e),
         });
 
-        let mut p = P2PPeer::new(
+        let p = Arc::new(P2PPeer::new(
             node.clone(),
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
-            P2PWire::new(TcpTransport::new(transport)),
-        );
+        ));
 
-        let task_result = p.run().await;
+        let mut wire = P2PWire::new(TcpTransport::new(transport));
+        map_err!(P2PPeer::handshake(p.clone(), &mut wire).await);
+
+        let task_result = P2PPeer::run(p, wire).await;
         PEERS.remove(&node.id);
 
         // In case we got already connected to same ip error we do not remove the IP from the set

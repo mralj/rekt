@@ -77,7 +77,7 @@ impl P2PWire {
         Self {
             inner: rlpx_wire,
             writer_queue: VecDeque::with_capacity(MAX_WRITER_QUEUE_SIZE + 1),
-            snappy_decoder: snap::raw::Decoder::default(),
+            snappy_decoder: snap::raw::Decoder::new(),
             snappy_encoder: snap::raw::Encoder::new(),
         }
     }
