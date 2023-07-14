@@ -62,17 +62,9 @@ impl Display for P2PPeer {
 
 impl P2PPeer {
     pub async fn run(peer: Arc<P2PPeer>, wire: P2PWire) -> Result<(), P2PError> {
-        if PEERS_BY_IP.contains(&peer.node_record.ip) {
-            return Err(P2PError::AlreadyConnectedToSameIp);
-        }
-
-        if PEERS.contains_key(&peer.node_record.id) {
-            return Err(P2PError::AlreadyConnected);
-        }
-
         let (w, r) = wire.split();
-        let w_task = P2PPeer::run_writer(peer.clone(), w);
         let r_task = P2PPeer::run_reader(peer.clone(), r);
+        let w_task = P2PPeer::run_writer(peer.clone(), w);
 
         pin_mut!(w_task, r_task); // needed for `select!`
 
@@ -143,6 +135,14 @@ impl P2PPeer {
         }
     }
     pub async fn handshake(peer: Arc<P2PPeer>, wire: &mut P2PWire) -> Result<(), P2PError> {
+        if PEERS_BY_IP.contains(&peer.node_record.ip) {
+            return Err(P2PError::AlreadyConnectedToSameIp);
+        }
+
+        if PEERS.contains_key(&peer.node_record.id) {
+            return Err(P2PError::AlreadyConnected);
+        }
+
         let msg = wire.next().await.ok_or(P2PError::NoMessage)??;
 
         if msg.id != Some(16) {
