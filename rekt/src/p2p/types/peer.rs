@@ -88,7 +88,10 @@ impl P2PPeer {
     ) -> Result<(), P2PError> {
         match tokio::spawn(async move {
             while let Some(m) = peer.msg_rx.stream().next().await {
-                writer.send(m).await?
+                let r = eth::msg_handler::handle_eth_message(m);
+                if let Ok(Some(r)) = r {
+                    writer.send(r).await?
+                }
             }
 
             Err(P2PError::NoMessage)
@@ -121,10 +124,7 @@ impl P2PPeer {
                     continue;
                 }
 
-                let r = eth::msg_handler::handle_eth_message(msg);
-                if let Ok(Some(r)) = r {
-                    peer.msg_tx.send(r).await.map_err(|_| P2PError::Unknown)?;
-                }
+                peer.msg_tx.send(msg).await.map_err(|_| P2PError::Unknown)?;
             }
         })
         .await
