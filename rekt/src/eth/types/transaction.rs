@@ -1,19 +1,15 @@
-use std::default;
-use std::hash::{BuildHasher, BuildHasherDefault, Hasher};
+use std::hash::{BuildHasher, Hasher};
 use std::str::FromStr;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use ahash::AHasher;
 use bytes::{Buf, Bytes, BytesMut};
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use ethers::types::{U128, U256};
 use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
 use crate::types::hash::{H160, H256};
-
-type AHasherBuilder = BuildHasherDefault<AHasher>;
 
 #[derive(Default)]
 pub struct IdentityHasher(u64);
@@ -155,9 +151,7 @@ impl Transaction {
 
         let recipient = H160::decode(payload_view)?;
 
-        if recipient == H160::from_str("0x10ED43C718714eb63d5aA57B78B54704E256024E").unwrap()
-            || recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap()
-        {
+        if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
