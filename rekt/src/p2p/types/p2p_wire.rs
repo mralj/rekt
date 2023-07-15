@@ -157,14 +157,6 @@ impl Stream for P2PWire {
                 return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
             }
 
-            // match msg.kind.as_ref().unwrap() {
-            //     MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
-            //     MessageKind::P2P(m) => {
-            //         if let Err(e) = this.handle_p2p_msg(m, cx) {
-            //             return Poll::Ready(Some(Err(e)));
-            //         }
-            //     }
-            // }
             return Poll::Ready(Some(Ok(msg)));
         }
         Poll::Pending

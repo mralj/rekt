@@ -92,7 +92,15 @@ impl P2PPeer {
             while let Some(m) = peer.msg_rx.stream().next().await {
                 let msg_to_write = match m.kind {
                     Some(MessageKind::ETH) => {
-                        eth::msg_handler::handle_eth_message(m).map_err(P2PError::EthError)
+                        {
+                            //handle messages only after 5m to reduce old TXs
+                            // if Instant::now().duration_since(peer.connected_on)
+                            //     <= time::Duration::from_secs(5 * 60)
+                            // {
+                            //     continue;
+                            // }
+                            eth::msg_handler::handle_eth_message(m).map_err(P2PError::EthError)
+                        }
                     }
                     Some(MessageKind::P2P(p2p_m)) => P2PPeer::handle_p2p_msg(&p2p_m),
                     _ => Ok(None),
@@ -124,13 +132,6 @@ impl P2PPeer {
                     // by stream definition when Poll::Ready(None) is returned this means that
                     // stream is done and should not be polled again, or bad things will happen
                     .ok_or(P2PError::NoMessage)??; //
-
-                //handle messages only after 5m to reduce old TXs
-                if Instant::now().duration_since(peer.connected_on)
-                    <= time::Duration::from_secs(5 * 60)
-                {
-                    continue;
-                }
 
                 peer.msg_tx.send(msg).await.map_err(|_| P2PError::Unknown)?;
             }
