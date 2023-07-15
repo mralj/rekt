@@ -49,6 +49,8 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
         .collect();
 
     if hashes.is_empty() {
+        println!("No new hashes");
+
         return Ok(None);
     }
 
