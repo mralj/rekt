@@ -82,44 +82,44 @@ impl P2PWire {
         }
     }
 
-    fn handle_p2p_msg(
-        &mut self,
-        msg: &P2PMessage,
-        cx: &mut std::task::Context<'_>,
-    ) -> Result<(), P2PError> {
-        match msg {
-            P2PMessage::Ping => {
-                let no_need_to_send_ping_if_there_are_messages_queued =
-                    !self.writer_queue.is_empty();
-                if no_need_to_send_ping_if_there_are_messages_queued {
-                    return Ok(());
-                }
+    //     fn handle_p2p_msg(
+    //         &mut self,
+    //         msg: &P2PMessage,
+    //         cx: &mut std::task::Context<'_>,
+    //     ) -> Result<(), P2PError> {
+    //         match msg {
+    //             P2PMessage::Ping => {
+    //                 let no_need_to_send_ping_if_there_are_messages_queued =
+    //                     !self.writer_queue.is_empty();
+    //                 if no_need_to_send_ping_if_there_are_messages_queued {
+    //                     return Ok(());
+    //                 }
 
-                let mut buf = BytesMut::new();
-                P2PMessage::Pong.encode(&mut buf);
+    //                 let mut buf = BytesMut::new();
+    //                 P2PMessage::Pong.encode(&mut buf);
 
-                self.writer_queue.push_back(buf);
+    //                 self.writer_queue.push_back(buf);
 
-                // Flushes (writes) sink (maybe writes our Pong message)
-                // To explain "maybe writes" our Pong message:
-                // If inner sink is busy our Ping message won't be written at this time
-                // But this is ok, it just means that we were just "now" in process of sending
-                // "some" message to a peer. And as already mentioned we Really don't have to reply
-                // to Pings with Pong, we just need to keep connection alive by sending proper
-                // p2p/eth msgs.
-                // This is why it is ok to use poll_flush_unpin here and not poll again, because
-                // "we don't care"
-                let _ = self.poll_flush_unpin(cx);
+    //                 // Flushes (writes) sink (maybe writes our Pong message)
+    //                 // To explain "maybe writes" our Pong message:
+    //                 // If inner sink is busy our Ping message won't be written at this time
+    //                 // But this is ok, it just means that we were just "now" in process of sending
+    //                 // "some" message to a peer. And as already mentioned we Really don't have to reply
+    //                 // to Pings with Pong, we just need to keep connection alive by sending proper
+    //                 // p2p/eth msgs.
+    //                 // This is why it is ok to use poll_flush_unpin here and not poll again, because
+    //                 // "we don't care"
+    //                 let _ = self.poll_flush_unpin(cx);
 
-                Ok(())
-            }
-            P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
-            P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
-            // NOTE: this is no-op for us, technically we should never
-            // receive pong message as we don't send Pings, but we'll just ignore it
-            P2PMessage::Pong => Ok(()),
-        }
-    }
+    //                 Ok(())
+    //             }
+    //             P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
+    //             P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
+    //             // NOTE: this is no-op for us, technically we should never
+    //             // receive pong message as we don't send Pings, but we'll just ignore it
+    //             P2PMessage::Pong => Ok(()),
+    //         }
+    //     }
 }
 
 impl Stream for P2PWire {
@@ -157,14 +157,15 @@ impl Stream for P2PWire {
                 return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
             }
 
-            match msg.kind.as_ref().unwrap() {
-                MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
-                MessageKind::P2P(m) => {
-                    if let Err(e) = this.handle_p2p_msg(m, cx) {
-                        return Poll::Ready(Some(Err(e)));
-                    }
-                }
-            }
+            // match msg.kind.as_ref().unwrap() {
+            //     MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
+            //     MessageKind::P2P(m) => {
+            //         if let Err(e) = this.handle_p2p_msg(m, cx) {
+            //             return Poll::Ready(Some(Err(e)));
+            //         }
+            //     }
+            // }
+            return Poll::Ready(Some(Ok(msg)));
         }
         Poll::Pending
     }
@@ -192,51 +193,58 @@ fn msg_is_txs_msg(msg_id: u8) -> bool {
     }
 }
 
+macro_rules! ready_map_err {
+    ($e:expr) => {
+        match ready!($e) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(_e) => Poll::Ready(Err(P2PError::RlpxError)),
+        }
+    };
+}
+
 impl Sink<Message> for P2PWire {
     type Error = P2PError;
 
     fn poll_ready(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        let mut this = self.as_mut();
-
-        // this here checks if inner sink can send data
-        // if it can, we "force send" the data (by calling flush)
-        // if the inner sink is ready, then that implies that this sink is ready as well (as it can
-        // for sure send data to "inner")
-        match this.inner.poll_ready_unpin(cx) {
-            Poll::Pending => {}
-            Poll::Ready(Err(_)) => return Poll::Ready(Err(P2PError::RlpxError)),
-            Poll::Ready(Ok(())) => {
-                if this.poll_flush(cx).is_ready() {
-                    return Poll::Ready(Ok(()));
-                }
-            }
-        }
-
-        // on the other hand if inner sink is not ready to accept new values, we have to check if we
-        // are hitting the limit of the queue, if not, we just queue message and return that we are
-        // ready
-        // else we are in pending state
-        if self.writer_queue.len() < MAX_WRITER_QUEUE_SIZE {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
-        }
+        ready_map_err!(self.project().inner.poll_ready(cx))
     }
 
+    // fn start_send(mut self: std::pin::Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
+    //     // since the interacting with sink should work as follows:
+    //     // 1. call poll_ready, if it returns Ready(ok), call start_send,
+    //     // but if it returns anything other than that, start_send should not be called
+    //     // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
+    //     // we should not be in situation where this method was called and queue is full, so smth.
+    //     // bad happened, return err
+    //     if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
+    //         //TODO: add proper err here
+    //         return Err(P2PError::TooManyMessagesQueued);
+    //     }
+    //     let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
+    //     let compressed_size = self
+    //         .snappy_encoder
+    //         .compress(&item.data, &mut compressed[1..])
+    //         .map_err(|_err| P2PError::SnappyCompressError)?;
+
+    //     compressed[0] = item.id.unwrap();
+    //     compressed.truncate(compressed_size + 1);
+
+    //     self.writer_queue.push_back(compressed);
+    //     Ok(())
+    // }
+
     fn start_send(mut self: std::pin::Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
-        // since the interacting with sink should work as follows:
-        // 1. call poll_ready, if it returns Ready(ok), call start_send,
-        // but if it returns anything other than that, start_send should not be called
-        // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
-        // we should not be in situation where this method was called and queue is full, so smth.
-        // bad happened, return err
-        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            //TODO: add proper err here
-            return Err(P2PError::TooManyMessagesQueued);
+        if let Some(MessageKind::P2P(_)) = item.kind {
+            return self
+                .project()
+                .inner
+                .start_send(item.data)
+                .map_err(|_| P2PError::RlpxError);
         }
+
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
         let compressed_size = self
             .snappy_encoder
@@ -246,41 +254,23 @@ impl Sink<Message> for P2PWire {
         compressed[0] = item.id.unwrap();
         compressed.truncate(compressed_size + 1);
 
-        self.writer_queue.push_back(compressed);
-        Ok(())
+        self.project()
+            .inner
+            .start_send(compressed)
+            .map_err(|_| P2PError::RlpxError)
     }
 
     fn poll_flush(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        let mut this = self.project();
-        // while there are messages in the queue and inner sink is able to send them
-        // send the one by one
-        loop {
-            match ready!(this.inner.as_mut().poll_flush(cx)) {
-                Err(_) => return Poll::Ready(Err(P2PError::RlpxError)),
-                Ok(()) => {
-                    if let Some(message) = this.writer_queue.pop_front() {
-                        if this.inner.as_mut().start_send(message).is_err() {
-                            return Poll::Ready(Err(P2PError::RlpxError));
-                        }
-                    } else {
-                        // there are no messages on queue, we are done writing
-                        return Poll::Ready(Ok(()));
-                    }
-                }
-            }
-        }
+        ready_map_err!(self.project().inner.poll_flush(cx))
     }
 
     fn poll_close(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        // when closing sink, if possible write all items to inner sink
-        ready!(self.as_mut().poll_flush(cx))?;
-
-        Poll::Ready(Ok(()))
+        ready_map_err!(self.project().inner.poll_close(cx))
     }
 }

@@ -3,11 +3,12 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::time::Instant;
 
+use bytes::BytesMut;
 use futures::stream::{SplitSink, SplitStream};
 use futures::{pin_mut, SinkExt, StreamExt};
 
 use kanal::{AsyncReceiver, AsyncSender};
-use open_fastrlp::Decodable;
+use open_fastrlp::{Decodable, Encodable};
 use tokio::select;
 use tracing::{error, info};
 
@@ -17,10 +18,11 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
+use crate::p2p::P2PMessage;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 
-use crate::types::message::Message;
+use crate::types::message::{Message, MessageKind};
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
@@ -88,9 +90,15 @@ impl P2PPeer {
     ) -> Result<(), P2PError> {
         match tokio::spawn(async move {
             while let Some(m) = peer.msg_rx.stream().next().await {
-                let r = eth::msg_handler::handle_eth_message(m);
-                if let Ok(Some(r)) = r {
-                    writer.send(r).await?
+                let msg_to_write = match m.kind {
+                    Some(MessageKind::ETH) => {
+                        eth::msg_handler::handle_eth_message(m).map_err(P2PError::EthError)
+                    }
+                    Some(MessageKind::P2P(p2p_m)) => P2PPeer::handle_p2p_msg(&p2p_m),
+                    _ => Ok(None),
+                };
+                if let Ok(Some(m)) = msg_to_write {
+                    writer.send(m).await?
                 }
             }
 
@@ -134,7 +142,7 @@ impl P2PPeer {
             Err(_) => Err(P2PError::Unknown),
         }
     }
-    pub async fn handshake(peer: Arc<P2PPeer>, wire: &mut P2PWire) -> Result<(), P2PError> {
+    pub(crate) async fn handshake(peer: Arc<P2PPeer>, wire: &mut P2PWire) -> Result<(), P2PError> {
         if PEERS_BY_IP.contains(&peer.node_record.ip) {
             return Err(P2PError::AlreadyConnectedToSameIp);
         }
@@ -172,7 +180,7 @@ impl P2PPeer {
         Ok(())
     }
 
-    pub async fn handle_status_messages(
+    pub(crate) async fn handle_status_messages(
         peer: Arc<P2PPeer>,
         wire: &mut P2PWire,
     ) -> Result<(), P2PError> {
@@ -187,5 +195,25 @@ impl P2PPeer {
         }
 
         Ok(())
+    }
+
+    fn handle_p2p_msg(msg: &P2PMessage) -> Result<Option<Message>, P2PError> {
+        match msg {
+            P2PMessage::Ping => {
+                let mut buf = BytesMut::new();
+                P2PMessage::Pong.encode(&mut buf);
+
+                Ok(Some(Message {
+                    id: Some(2),
+                    kind: Some(MessageKind::P2P(P2PMessage::Pong)),
+                    data: buf,
+                }))
+            }
+            P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
+            P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
+            // NOTE: this is no-op for us, technically we should never
+            // receive pong message as we don't send Pings, but we'll just ignore it
+            P2PMessage::Pong => Ok(None),
+        }
     }
 }
