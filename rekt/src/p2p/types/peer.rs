@@ -94,11 +94,11 @@ impl P2PPeer {
                     Some(MessageKind::ETH) => {
                         {
                             //handle messages only after 5m to reduce old TXs
-                            // if Instant::now().duration_since(peer.connected_on)
-                            //     <= time::Duration::from_secs(5 * 60)
-                            // {
-                            //     continue;
-                            // }
+                            if Instant::now().duration_since(peer.connected_on)
+                                <= time::Duration::from_secs(5 * 60)
+                            {
+                                continue;
+                            }
                             eth::msg_handler::handle_eth_message(m).map_err(P2PError::EthError)
                         }
                     }
@@ -155,7 +155,6 @@ impl P2PPeer {
         let msg = wire.next().await.ok_or(P2PError::NoMessage)??;
 
         if msg.id != Some(16) {
-            error!("Expected status message, got {:?}", msg.id);
             return Err(P2PError::ExpectedStatusMessage);
         }
 

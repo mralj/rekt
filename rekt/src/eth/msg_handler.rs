@@ -9,8 +9,8 @@ use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(18) => handle_txs(msg, true),
-        Some(24) => handle_tx_hashes(msg),
         Some(26) => handle_txs(msg, false),
+        Some(24) => handle_tx_hashes(msg),
         _ => Ok(None),
     }
 }
@@ -42,10 +42,15 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    let hashes = anno_hashes
+    let hashes: Vec<&H256> = anno_hashes
         .iter()
         .filter(|h| !TX_HASHES.contains_key(h))
+        .take(3_000)
         .collect();
+
+    if hashes.is_empty() {
+        return Ok(None);
+    }
 
     Ok(Some(Message {
         id: Some(25),

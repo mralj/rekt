@@ -190,7 +190,7 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<(), DecodeError> {
     if is_direct {
         decode_txs_direct(buf)
     } else {
@@ -213,7 +213,7 @@ pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, 
     }
 }
 
-pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<(), DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -224,13 +224,9 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
         Transaction::decode(payload_view)?;
     }
 
-    // for h in hashes {
-    //     TX_HASHES.insert(h);
-    // }
-
     buf.advance(h.payload_length);
 
-    Ok(Vec::new())
+    Ok(())
 }
 
 fn eth_tx_hash(raw_tx: &[u8]) -> H256 {
