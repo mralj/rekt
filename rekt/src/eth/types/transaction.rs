@@ -120,7 +120,7 @@ impl Transaction {
             return Err(DecodeError::Custom("Already decoded"));
         }
 
-        println!("{},{:#x}", timestamp, hash);
+        println!("{},{:#x}", 0, hash);
         let payload_view = &mut &buf[..tx_header.payload_length];
 
         let nonce = match u64::decode(payload_view) {
