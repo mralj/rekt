@@ -115,10 +115,10 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        if TX_HASHES.insert(hash, ()).is_some() {
-            buf.advance(tx_header.payload_length);
-            return Err(DecodeError::Custom("Already decoded"));
-        }
+        // if TX_HASHES.insert(hash, ()).is_some() {
+        //     buf.advance(tx_header.payload_length);
+        //     return Err(DecodeError::Custom("Already decoded"));
+        // }
 
         println!("{},{:#x}", 0, hash);
         let payload_view = &mut &buf[..tx_header.payload_length];
