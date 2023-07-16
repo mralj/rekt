@@ -1,3 +1,5 @@
+use std::time;
+
 use open_fastrlp::Decodable;
 
 use crate::types::hash::H256;
@@ -6,7 +8,14 @@ use crate::types::message::Message;
 use super::types::errors::ETHError;
 use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 
-pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
+pub fn handle_eth_message(
+    msg: Message,
+    connected_on: time::Instant,
+) -> Result<Option<Message>, ETHError> {
+    if time::Instant::now().duration_since(connected_on) <= time::Duration::from_secs(5 * 60) {
+        return Ok(None);
+    }
+
     match msg.id {
         //     Some(18) => handle_txs(msg, true),
         Some(24) => handle_tx_hashes(msg),

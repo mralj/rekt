@@ -60,29 +60,6 @@ impl Display for P2PPeer {
 }
 
 impl P2PPeer {
-    pub async fn run(&mut self) -> Result<(), P2PError> {
-        loop {
-            let msg = self
-                .connection
-                .next()
-                .await
-                // by stream definition when Poll::Ready(None) is returned this means that
-                // stream is done and should not be polled again, or bad things will happen
-                .ok_or(P2PError::NoMessage)??; //
-
-            //handle messages only after 5m to reduce old TXs
-            if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
-            {
-                continue;
-            }
-
-            let r = eth::msg_handler::handle_eth_message(msg)?;
-            if let Some(r) = r {
-                self.connection.send(r).await?;
-            }
-        }
-    }
-
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
         if PEERS_BY_IP.contains(&self.node_record.ip) {
             return Err(P2PError::AlreadyConnectedToSameIp);
@@ -145,7 +122,9 @@ impl Future for P2PPeer {
                 Poll::Ready(None) => {
                     return Poll::Ready(Err(P2PError::NoMessage));
                 }
-                Poll::Ready(Some(Ok(msg))) => handle_eth_message(msg).map_err(P2PError::EthError),
+                Poll::Ready(Some(Ok(msg))) => {
+                    handle_eth_message(msg, self.connected_on).map_err(P2PError::EthError)
+                }
                 Poll::Ready(Some(Err(e))) => {
                     return Poll::Ready(Err(e));
                 }
@@ -184,6 +163,8 @@ impl Future for P2PPeer {
                     }
                     _ => continue,
                 }
+            } else {
+                return Poll::Pending;
             }
         }
     }
