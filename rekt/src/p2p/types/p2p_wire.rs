@@ -82,6 +82,10 @@ impl P2PWire {
         }
     }
 
+    pub fn has_messages_queued(&self) -> bool {
+        !self.writer_queue.is_empty()
+    }
+
     fn handle_p2p_msg(
         &mut self,
         msg: &P2PMessage,

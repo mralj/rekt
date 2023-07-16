@@ -11,6 +11,7 @@ use tracing::{error, info};
 
 use crate::p2p::errors::P2PError;
 use crate::p2p::types::p2p_wire::P2PWire;
+use crate::p2p::types::peer_info::PeerInfo;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
@@ -106,7 +107,13 @@ pub fn connect_to_node(
             P2PWire::new(TcpTransport::new(transport)),
         );
 
-        let task_result = p.run().await;
+        map_err!(p.handshake().await);
+
+        PEERS.insert(node.id, PeerInfo::from(&p as &P2PPeer));
+        PEERS_BY_IP.insert(node.ip.clone());
+
+        let task_result = p.await;
+
         PEERS.remove(&node.id);
 
         // In case we got already connected to same ip error we do not remove the IP from the set
