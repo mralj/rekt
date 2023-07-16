@@ -156,7 +156,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            tracing::info!("{},{:#x}", timestamp, hash);
+            println!("{},{:#x}", timestamp, hash);
         }
 
         // skip value

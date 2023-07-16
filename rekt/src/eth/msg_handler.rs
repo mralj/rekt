@@ -12,10 +12,6 @@ pub fn handle_eth_message(
     msg: Message,
     connected_on: time::Instant,
 ) -> Result<Option<Message>, ETHError> {
-    if time::Instant::now().duration_since(connected_on) <= time::Duration::from_secs(5 * 60) {
-        return Ok(None);
-    }
-
     match msg.id {
         //     Some(18) => handle_txs(msg, true),
         Some(24) => handle_tx_hashes(msg),
