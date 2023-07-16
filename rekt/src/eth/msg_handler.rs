@@ -49,7 +49,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let hashes: Vec<&H256> = anno_hashes
         .iter()
-        .filter(|h| !TX_HASHES.contains_key(h))
+        //.filter(|h| !TX_HASHES.contains_key(h))
         .take(1_000)
         .collect();
 
