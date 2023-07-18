@@ -48,6 +48,14 @@ pub static ANNO_TX_HASHES: Lazy<DashMap<H256, u8, IdentityBuildHasher>> = Lazy::
     )
 });
 
+pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|| {
+    DashMap::with_capacity_and_hasher_and_shard_amount(
+        4_000_000,
+        IdentityBuildHasher::default(),
+        256,
+    )
+});
+
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
 pub struct TransactionRequest {
     id: u64,
@@ -115,7 +123,7 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        if ANNO_TX_HASHES.insert(hash, 4).is_some() {
+        if TX_HASHES.insert(hash, ()).is_some() {
             buf.advance(tx_header.payload_length);
             return Err(DecodeError::Custom("Already decoded"));
         }

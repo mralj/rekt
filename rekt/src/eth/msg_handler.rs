@@ -4,7 +4,7 @@ use crate::types::hash::H256;
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
-use super::types::transaction::{decode_txs, TransactionRequest, ANNO_TX_HASHES};
+use super::types::transaction::{decode_txs, TransactionRequest, ANNO_TX_HASHES, TX_HASHES};
 
 pub struct TxCache {
     pub(crate) req_count: u8,
@@ -49,6 +49,9 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     let mut hashes: Vec<H256> = Vec::with_capacity(anno_hashes.len());
 
     for h in anno_hashes {
+        if TX_HASHES.contains_key(&h) {
+            continue;
+        }
         let cached_tx = ANNO_TX_HASHES.get_mut(&h);
         match cached_tx {
             None => {
