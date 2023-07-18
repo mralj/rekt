@@ -12,7 +12,6 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = get_config()?;
     Lazy::force(&rekt::eth::types::transaction::ANNO_TX_HASHES);
-    Lazy::force(&rekt::eth::types::transaction::TX_HASHES);
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
