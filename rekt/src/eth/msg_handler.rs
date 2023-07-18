@@ -9,7 +9,7 @@ use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(24) => handle_tx_hashes(msg),
-        //  Some(18) => handle_txs(msg, true),
+        Some(18) => handle_txs(msg, true),
         Some(26) => handle_txs(msg, false),
         _ => Ok(None),
     }
