@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
+use crate::eth::msg_handler::TxCache;
 use crate::types::hash::{H160, H256};
 
 #[derive(Default)]
@@ -40,22 +41,22 @@ impl BuildHasher for IdentityBuildHasher {
     }
 }
 
-pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|| {
+pub static TX_HASHES: Lazy<DashMap<H256, TxCache, IdentityBuildHasher>> = Lazy::new(|| {
     DashMap::with_capacity_and_hasher_and_shard_amount(
         4_000_000,
         IdentityBuildHasher::default(),
-        1024,
+        256,
     )
 });
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
-pub struct TransactionRequest<'a> {
+pub struct TransactionRequest {
     id: u64,
-    hashes: Vec<&'a H256>,
+    hashes: Vec<H256>,
 }
 
-impl<'a> TransactionRequest<'a> {
-    pub fn new(hashes: Vec<&'a H256>) -> Self {
+impl TransactionRequest {
+    pub fn new(hashes: Vec<H256>) -> Self {
         Self { id: 0, hashes }
     }
 
@@ -115,9 +116,20 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        if TX_HASHES.insert(hash, ()).is_some() {
-            buf.advance(tx_header.payload_length);
-            return Err(DecodeError::Custom("Already decoded"));
+        match TX_HASHES.get_mut(&hash) {
+            None => {
+                TX_HASHES.insert(hash, TxCache::new_from_direct());
+            }
+            Some(tx) => {
+                if tx.done {
+                    buf.advance(tx_header.payload_length);
+                    return Err(DecodeError::Custom("Already decoded"));
+                }
+                TX_HASHES.alter(&hash, |k, mut v| {
+                    v.done = true;
+                    v
+                });
+            }
         }
 
         let payload_view = &mut &buf[..tx_header.payload_length];
@@ -156,7 +168,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            tracing::info!("{},{:#x}", timestamp, hash);
+            println!("{},{:#x}", timestamp, hash);
         }
 
         // skip value

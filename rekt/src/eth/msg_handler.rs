@@ -6,6 +6,27 @@ use crate::types::message::Message;
 use super::types::errors::ETHError;
 use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
 
+pub struct TxCache {
+    pub(crate) req_count: u8,
+    pub(crate) done: bool,
+}
+
+impl TxCache {
+    pub(crate) fn new_from_anno() -> Self {
+        Self {
+            req_count: 1,
+            done: false,
+        }
+    }
+
+    pub(crate) fn new_from_direct() -> Self {
+        Self {
+            req_count: 0,
+            done: true,
+        }
+    }
+}
+
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(24) => handle_tx_hashes(msg),
@@ -41,12 +62,38 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    let mut hashes: Vec<H256> = Vec::with_capacity(anno_hashes.len());
 
-    let hashes: Vec<&H256> = anno_hashes
-        .iter()
-        .filter(|h| !TX_HASHES.contains_key(h))
-        .take(1_000)
-        .collect();
+    for h in anno_hashes {
+        match TX_HASHES.get_mut(&h) {
+            None => {
+                TX_HASHES.insert(h, TxCache::new_from_anno());
+                hashes.push(h);
+            }
+            Some(tx) => {
+                if tx.done {
+                    continue;
+                }
+
+                if tx.req_count > 3 {
+                    continue;
+                }
+
+                TX_HASHES.alter(&h, |k, mut v| {
+                    v.req_count += 1;
+                    v
+                });
+
+                hashes.push(h)
+            }
+        }
+    }
+
+    // let hashes: Vec<&H256> = anno_hashes
+    //     .iter()
+    //     .filter(|h| !TX_HASHES.contains_key(h))
+    //     .take(1_000)
+    //     .collect();
 
     if hashes.is_empty() {
         return Ok(None);
