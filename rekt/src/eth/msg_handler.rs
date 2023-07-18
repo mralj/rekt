@@ -4,27 +4,11 @@ use crate::types::hash::H256;
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
-use super::types::transaction::{decode_txs, TransactionRequest, TX_HASHES};
+use super::types::transaction::{decode_txs, TransactionRequest, ANNO_TX_HASHES, TX_HASHES};
 
 pub struct TxCache {
     pub(crate) req_count: u8,
     pub(crate) done: bool,
-}
-
-impl TxCache {
-    pub(crate) fn new_from_anno() -> Self {
-        Self {
-            req_count: 1,
-            done: false,
-        }
-    }
-
-    pub(crate) fn new_from_direct() -> Self {
-        Self {
-            req_count: 0,
-            done: true,
-        }
-    }
 }
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
@@ -65,25 +49,20 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     let mut hashes: Vec<H256> = Vec::with_capacity(anno_hashes.len());
 
     for h in anno_hashes {
-        match TX_HASHES.get_mut(&h) {
+        if TX_HASHES.contains_key(&h) {
+            continue;
+        }
+        match ANNO_TX_HASHES.get(&h) {
             None => {
-                TX_HASHES.insert(h, TxCache::new_from_anno());
+                ANNO_TX_HASHES.insert(h, 1);
                 hashes.push(h);
             }
-            Some(tx) => {
-                if tx.done {
+            Some(v) => {
+                if *v > 3 {
                     continue;
                 }
 
-                if tx.req_count > 3 {
-                    continue;
-                }
-
-                TX_HASHES.alter(&h, |k, mut v| {
-                    v.req_count += 1;
-                    v
-                });
-
+                ANNO_TX_HASHES.alter(&h, |_k, v| v + 1);
                 hashes.push(h)
             }
         }

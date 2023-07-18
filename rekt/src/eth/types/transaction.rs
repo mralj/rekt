@@ -41,7 +41,15 @@ impl BuildHasher for IdentityBuildHasher {
     }
 }
 
-pub static TX_HASHES: Lazy<DashMap<H256, TxCache, IdentityBuildHasher>> = Lazy::new(|| {
+pub static ANNO_TX_HASHES: Lazy<DashMap<H256, u8, IdentityBuildHasher>> = Lazy::new(|| {
+    DashMap::with_capacity_and_hasher_and_shard_amount(
+        4_000_000,
+        IdentityBuildHasher::default(),
+        256,
+    )
+});
+
+pub static TX_HASHES: Lazy<DashMap<H256, (), IdentityBuildHasher>> = Lazy::new(|| {
     DashMap::with_capacity_and_hasher_and_shard_amount(
         4_000_000,
         IdentityBuildHasher::default(),
@@ -116,20 +124,9 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        match TX_HASHES.get_mut(&hash) {
-            None => {
-                TX_HASHES.insert(hash, TxCache::new_from_direct());
-            }
-            Some(tx) => {
-                if tx.done {
-                    buf.advance(tx_header.payload_length);
-                    return Err(DecodeError::Custom("Already decoded"));
-                }
-                TX_HASHES.alter(&hash, |k, mut v| {
-                    v.done = true;
-                    v
-                });
-            }
+        if TX_HASHES.insert(hash, ()).is_some() {
+            buf.advance(tx_header.payload_length);
+            return Err(DecodeError::Custom("Already decoded"));
         }
 
         let payload_view = &mut &buf[..tx_header.payload_length];
