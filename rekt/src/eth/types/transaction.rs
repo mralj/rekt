@@ -9,7 +9,6 @@ use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
-use crate::eth::msg_handler::TxCache;
 use crate::types::hash::{H160, H256};
 
 #[derive(Default)]
@@ -165,7 +164,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            println!("{},{:#x}", timestamp, hash);
+            tracing::info!("{},{:#x}", timestamp, hash);
         }
 
         // skip value

@@ -60,7 +60,6 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
             }
             Some(mut v) => {
                 if *v > 2 {
-                    println!("tx already requested");
                     continue;
                 }
                 *v += 1;
