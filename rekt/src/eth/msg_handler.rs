@@ -52,17 +52,18 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
         if TX_HASHES.contains_key(&h) {
             continue;
         }
-        match ANNO_TX_HASHES.get(&h) {
+        let cached_tx = ANNO_TX_HASHES.get_mut(&h);
+        match cached_tx {
             None => {
                 ANNO_TX_HASHES.insert(h, 1);
                 hashes.push(h);
             }
-            Some(v) => {
-                if *v > 3 {
+            Some(mut v) => {
+                if *v > 2 {
+                    println!("tx already requested");
                     continue;
                 }
-
-                ANNO_TX_HASHES.alter(&h, |_k, v| v + 1);
+                *v += 1;
                 hashes.push(h)
             }
         }
