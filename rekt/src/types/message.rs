@@ -24,6 +24,7 @@ pub struct Message {
     pub kind: Option<MessageKind>,
     pub id: Option<u8>,
     pub data: BytesMut,
+    pub received_at: std::time::Instant,
 }
 
 impl Message {
@@ -31,6 +32,7 @@ impl Message {
         Message {
             id: None,
             kind: None,
+            received_at: std::time::Instant::now(),
             data,
         }
     }

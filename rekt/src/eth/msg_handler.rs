@@ -1,4 +1,7 @@
+use std::time::Instant;
+
 use open_fastrlp::Decodable;
+use tracing_subscriber::fmt::time;
 
 use crate::types::hash::H256;
 use crate::types::message::Message;
@@ -10,6 +13,9 @@ pub struct TxCache {
     pub(crate) req_count: u8,
     pub(crate) done: bool,
 }
+
+static mut SUM: u128 = 0;
+static mut CNT: u128 = 0;
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
@@ -75,10 +81,20 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
         return Ok(None);
     }
 
+    unsafe {
+        SUM += (Instant::now() - msg.received_at).as_micros();
+        CNT += 1;
+
+        let avg = SUM as f64 / CNT as f64;
+        let avg = (avg * 100.0).round() / 100.0;
+
+        println!("Avg {:.2}", avg);
+    }
     Ok(Some(Message {
         id: Some(25),
         kind: Some(crate::types::message::MessageKind::ETH),
         data: TransactionRequest::new(hashes).rlp_encode(),
+        received_at: std::time::Instant::now(),
     }))
 }
 

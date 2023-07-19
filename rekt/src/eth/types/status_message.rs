@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+use std::time::Instant;
 
 use bytes::BytesMut;
 use derive_more::Display;
@@ -115,6 +116,7 @@ impl Status {
                     kind: Some(MessageKind::ETH),
                     id: Some(16),
                     data: status_rlp,
+                    received_at: Instant::now(),
                 }
             }),
             ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
@@ -128,6 +130,7 @@ impl Status {
                     kind: Some(MessageKind::ETH),
                     id: Some(16),
                     data: status_rlp,
+                    received_at: Instant::now(),
                 }
             }),
         }
@@ -218,6 +221,7 @@ impl UpgradeStatus {
                 kind: Some(MessageKind::ETH),
                 id: Some(27),
                 data: UpgradeStatus::default().rlp_encode(),
+                received_at: Instant::now(),
             })
             .clone()
     }
