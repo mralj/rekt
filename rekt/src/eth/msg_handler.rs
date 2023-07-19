@@ -79,7 +79,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //     .take(1_000)
     //     .collect();
     unsafe {
-        let d = (Instant::now() - msg.received_at).as_micros();
+        let d = (Instant::now() - msg.received_at).as_nanos();
         SUM += d;
         CNT += 1;
         MIN = if d < MIN { d } else { MIN };
