@@ -6,6 +6,7 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
 use tokio::time::interval;
 
+use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, RLPXSessionError};
@@ -119,15 +120,24 @@ impl OutboundConnections {
     }
 
     async fn run_logger(&self) {
-        let mut count_interval = interval(Duration::from_secs(30));
+        let mut count_interval = interval(Duration::from_secs(60));
+        let mut stats_interval = interval(Duration::from_secs(10));
         //let mut info_interval = interval(Duration::from_secs(5 * 60));
 
         loop {
             select! {
-                _ = count_interval.tick() => {
-                    println!("{}", PEERS.len());
-                },
-            }
+                    _ = count_interval.tick() => {
+                        println!("{}", PEERS.len());
+                    },
+                    _ = stats_interval.tick() => {
+                       unsafe {
+                           let avg = SUM as f64 / CNT as f64;
+            let avg = (avg * 100.0).round() / 100.0;
+
+            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, MIN, MAX);
+
+                    }                    }
+                }
         }
     }
 }
