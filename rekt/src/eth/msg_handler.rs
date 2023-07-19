@@ -16,6 +16,8 @@ pub struct TxCache {
 
 static mut SUM: u128 = 0;
 static mut CNT: u128 = 0;
+static mut MIN: u128 = u128::MAX;
+static mut MAX: u128 = u128::MIN;
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
@@ -76,20 +78,23 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //     .filter(|h| !TX_HASHES.contains_key(h))
     //     .take(1_000)
     //     .collect();
+    unsafe {
+        let d = (Instant::now() - msg.received_at).as_micros();
+        SUM += d;
+        CNT += 1;
+        MIN = if d < MIN { d } else { MIN };
+        MAX = if d > MAX { d } else { MAX };
+
+        let avg = SUM as f64 / CNT as f64;
+        let avg = (avg * 100.0).round() / 100.0;
+
+        println!("Avg {:.2}, MIN: {}, MAX: {}", avg, MIN, MAX);
+    }
 
     if hashes.is_empty() {
         return Ok(None);
     }
 
-    unsafe {
-        SUM += (Instant::now() - msg.received_at).as_micros();
-        CNT += 1;
-
-        let avg = SUM as f64 / CNT as f64;
-        let avg = (avg * 100.0).round() / 100.0;
-
-        println!("Avg {:.2}", avg);
-    }
     Ok(Some(Message {
         id: Some(25),
         kind: Some(crate::types::message::MessageKind::ETH),
