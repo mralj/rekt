@@ -115,9 +115,11 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        if ANNO_TX_HASHES.insert(hash, 4).is_some() {
-            buf.advance(tx_header.payload_length);
-            return Err(DecodeError::Custom("Already decoded"));
+        if let Some(t_c) = ANNO_TX_HASHES.insert(hash, u8::MAX) {
+            if t_c == u8::MAX {
+                buf.advance(tx_header.payload_length);
+                return Err(DecodeError::Custom("Already decoded"));
+            }
         }
 
         let payload_view = &mut &buf[..tx_header.payload_length];
