@@ -1,6 +1,6 @@
 use std::hash::{BuildHasher, Hasher};
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use bytes::{Buf, Bytes, BytesMut};
 use dashmap::DashMap;
@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
+use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
 use crate::types::hash::{H160, H256};
 
 #[derive(Default)]
@@ -99,7 +100,7 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<H256, DecodeError> {
+    fn decode(buf: &mut &[u8], msg_received_at: Instant) -> Result<H256, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
@@ -153,32 +154,40 @@ impl Transaction {
 
         let recipient = H160::decode(payload_view)?;
 
-        if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_micros();
-            tracing::info!("{},{:#x}", timestamp, hash);
+        unsafe {
+            let d = (Instant::now() - msg_received_at).as_nanos();
+            SUM += d;
+            CNT += 1;
+            MIN = if d < MIN { d } else { MIN };
+            MAX = if d > MAX { d } else { MAX };
         }
 
+        // if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
+        //     let timestamp = SystemTime::now()
+        //         .duration_since(UNIX_EPOCH)
+        //         .unwrap()
+        //         .as_micros();
+        //     tracing::info!("{},{:#x}", timestamp, hash);
+        // }
+
         // skip value
-        let h = match HeaderInfo::decode(payload_view) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode value header: {:?}", e);
-                return Err(e);
-            }
-        };
+        // let h = match HeaderInfo::decode(payload_view) {
+        //     Ok(h) => h,
+        //     Err(e) => {
+        //         println!("Failed to decode value header: {:?}", e);
+        //         return Err(e);
+        //     }
+        // };
 
-        payload_view.advance(h.total_len);
+        // payload_view.advance(h.total_len);
 
-        let _data = match Bytes::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!("Failed to decode data: {:?}", e);
-                return Err(e);
-            }
-        };
+        // let _data = match Bytes::decode(payload_view) {
+        //     Ok(n) => n,
+        //     Err(e) => {
+        //         println!("Failed to decode data: {:?}", e);
+        //         return Err(e);
+        //     }
+        // };
 
         // println!(
         //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
@@ -192,9 +201,13 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs(
+    buf: &mut &[u8],
+    is_direct: bool,
+    msg_received_at: Instant,
+) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf)
+        decode_txs_direct(buf, msg_received_at)
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -211,11 +224,14 @@ pub fn decode_txs(buf: &mut &[u8], is_direct: bool) -> Result<Vec<Transaction>, 
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf)
+        decode_txs_direct(buf, msg_received_at)
     }
 }
 
-pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs_direct(
+    buf: &mut &[u8],
+    msg_received_at: Instant,
+) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -223,7 +239,7 @@ pub fn decode_txs_direct(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeErro
 
     let payload_view = &mut &buf[..h.payload_length];
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view)?;
+        Transaction::decode(payload_view, msg_received_at)?;
     }
 
     // for h in hashes {
