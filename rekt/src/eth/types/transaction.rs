@@ -155,7 +155,7 @@ impl Transaction {
         let recipient = H160::decode(payload_view)?;
 
         unsafe {
-            let d = (Instant::now() - msg_received_at).as_nanos();
+            let d = (Instant::now() - msg_received_at).as_micros();
             SUM += d;
             CNT += 1;
             MIN = if d < MIN { d } else { MIN };
