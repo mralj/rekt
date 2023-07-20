@@ -84,10 +84,10 @@ impl P2PPeer {
                 .ok_or(P2PError::NoMessage)??; //
 
             //handle messages only after 5m to reduce old TXs
-            // if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
-            // {
-            //     continue;
-            // }
+            if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
+            {
+                continue;
+            }
 
             if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
             {
@@ -104,13 +104,14 @@ impl P2PPeer {
     }
 
     pub async fn handshake(&mut self) -> Result<(), P2PError> {
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        let mut msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
         if msg.id != Some(16) {
             error!("Expected status message, got {:?}", msg.id);
             return Err(P2PError::ExpectedStatusMessage);
         }
 
+        msg.snappy_decompress(&mut self.snappy_decoder)?;
         let status_msg = Status::decode(&mut &msg.data[..])?;
 
         if Status::validate(&status_msg, &self.protocol_version).is_err() {

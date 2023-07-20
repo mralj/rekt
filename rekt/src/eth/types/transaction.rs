@@ -116,8 +116,6 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
-        println!("Decoding tx: {:?}", hash);
-
         if let Some(t_c) = ANNO_TX_HASHES.insert(hash, u8::MAX) {
             if t_c == u8::MAX {
                 buf.advance(tx_header.payload_length);
