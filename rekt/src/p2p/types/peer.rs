@@ -99,21 +99,7 @@ impl P2PPeer {
             //     continue;
             // }
 
-            if msg_is_txs_msg(msg.id.unwrap()) {
-                let start = Instant::now();
-                msg.snappy_decompress(&mut self.snappy_decoder)?;
-                let end = Instant::now();
-                let elapsed = end.duration_since(start).as_nanos();
-
-                unsafe {
-                    S_SUM += elapsed;
-                    S_CNT += 1;
-                    S_MIN = if elapsed < S_MIN { elapsed } else { S_MIN };
-                    S_MAX = if elapsed > S_MAX { elapsed } else { S_MAX };
-                }
-            } else {
-                msg.snappy_decompress(&mut self.snappy_decoder)?;
-            }
+            msg.snappy_decompress(&mut self.snappy_decoder)?;
 
             let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {

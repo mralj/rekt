@@ -132,10 +132,10 @@ impl OutboundConnections {
                     },
                     _ = stats_interval.tick() => {
                        unsafe {
-                           let avg = S_SUM as f64 / S_CNT as f64;
+                           let avg = SUM as f64 / CNT as f64;
             let avg = (avg * 100.0).round() / 100.0;
 
-            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, S_MIN, S_MAX);
+            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, MIN, MAX);
 
                     }                    }
                 }

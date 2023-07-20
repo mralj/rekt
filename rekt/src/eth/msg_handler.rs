@@ -91,6 +91,15 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 }
 
 fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
+    let start = Instant::now();
     decode_txs(&mut &msg.data[..], is_direct, msg.received_at);
+    let end = Instant::now();
+    unsafe {
+        let d = end.duration_since(start).as_micros();
+        SUM += d;
+        CNT += 1;
+        MIN = if d < MIN { d } else { MIN };
+        MAX = if d > MAX { d } else { MAX };
+    }
     Ok(None)
 }
