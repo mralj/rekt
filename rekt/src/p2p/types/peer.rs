@@ -142,7 +142,7 @@ fn msg_is_txs_msg(msg_id: u8) -> bool {
     match msg_id {
         18 => true, // ETH/Transactions
         26 => true, // ETH/PooledTransactions
-        24 => true, // ETH/NewPoolTransactionHashes
+        //24 => true, // ETH/NewPoolTransactionHashes
         _ => false,
     }
 }
