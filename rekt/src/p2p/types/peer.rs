@@ -8,7 +8,7 @@ use open_fastrlp::Decodable;
 use tracing::{error, info};
 
 use super::errors::P2PError;
-use super::p2p_wire::P2PWire;
+use super::p2p_wire::{P2PWire, MSG_CACHE};
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
@@ -26,6 +26,7 @@ pub struct P2PPeer {
     protocol_version: ProtocolVersion,
     connection: P2PWire,
     connected_on: Instant,
+    snappy_decoder: snap::raw::Decoder,
 }
 
 impl P2PPeer {
@@ -43,6 +44,7 @@ impl P2PPeer {
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
             connected_on: Instant::now(),
+            snappy_decoder: snap::raw::Decoder::default(),
         }
     }
 }
@@ -73,7 +75,7 @@ impl P2PPeer {
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
         loop {
-            let msg = self
+            let mut msg = self
                 .connection
                 .next()
                 .await
@@ -82,10 +84,18 @@ impl P2PPeer {
                 .ok_or(P2PError::NoMessage)??; //
 
             //handle messages only after 5m to reduce old TXs
-            if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
+            // if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
+            // {
+            //     continue;
+            // }
+
+            if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
             {
                 continue;
             }
+
+            msg.snappy_decompress(&mut self.snappy_decoder)?;
+
             let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {
                 self.connection.send(r).await?;
@@ -124,5 +134,14 @@ impl P2PPeer {
         }
 
         Ok(())
+    }
+}
+
+fn msg_is_txs_msg(msg_id: u8) -> bool {
+    match msg_id {
+        18 => true, // ETH/Transactions
+        26 => true, // ETH/PooledTransactions
+        24 => true, // ETH/NewPoolTransactionHashes
+        _ => false,
     }
 }

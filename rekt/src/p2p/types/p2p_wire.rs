@@ -84,11 +84,11 @@ impl P2PWire {
 
     fn handle_p2p_msg(
         &mut self,
-        msg: &P2PMessage,
+        msg: Message,
         cx: &mut std::task::Context<'_>,
     ) -> Result<(), P2PError> {
-        match msg {
-            P2PMessage::Ping => {
+        match msg.id.unwrap() {
+            0x02 => {
                 let no_need_to_send_ping_if_there_are_messages_queued =
                     !self.writer_queue.is_empty();
                 if no_need_to_send_ping_if_there_are_messages_queued {
@@ -113,11 +113,14 @@ impl P2PWire {
 
                 Ok(())
             }
-            P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
-            P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
+            0x01 => Err(P2PError::DisconnectRequested(
+                crate::p2p::DisconnectReason::DisconnectRequested,
+            )),
+            0x00 => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
             // NOTE: this is no-op for us, technically we should never
             // receive pong message as we don't send Pings, but we'll just ignore it
-            P2PMessage::Pong => Ok(()),
+            0x03 => Ok(()),
+            _ => Err(P2PError::UnexpectedHelloMessageReceived),
         }
     }
 }
@@ -146,25 +149,33 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            // if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
-            // {
-            //     continue;
-            // }
-
-            msg.snappy_decompress(&mut this.snappy_decoder)?;
-
-            if msg.decode_kind().is_err() {
-                return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
-            }
-
-            match msg.kind.as_ref().unwrap() {
-                MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
-                MessageKind::P2P(m) => {
-                    if let Err(e) = this.handle_p2p_msg(m, cx) {
+            match msg.id {
+                None => {
+                    return Poll::Ready(Some(Err(P2PError::MessageIdDecodeError)));
+                }
+                Some(0x0..=0x03) => {
+                    if let Err(e) = this.handle_p2p_msg(msg, cx) {
                         return Poll::Ready(Some(Err(e)));
                     }
+                    continue;
+                }
+                _ => {
+                    return Poll::Ready(Some(Ok(msg)));
                 }
             }
+
+            // if msg.decode_kind().is_err() {
+            //     return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
+            // }
+
+            // match msg.kind.as_ref().unwrap() {
+            //     MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
+            //     MessageKind::P2P(m) => {
+            //         if let Err(e) = this.handle_p2p_msg(m, cx) {
+            //             return Poll::Ready(Some(Err(e)));
+            //         }
+            //     }
+            // }
         }
         Poll::Pending
     }
@@ -176,15 +187,6 @@ fn message_is_of_interest(msg_id: u8) -> bool {
         2 => true,  // P2P/Ping
         16 => true, // ETH/Status
         27 => true, // ETH/UpgradeStatus
-        18 => true, // ETH/Transactions
-        26 => true, // ETH/PooledTransactions
-        24 => true, // ETH/NewPoolTransactionHashes
-        _ => false,
-    }
-}
-
-fn msg_is_txs_msg(msg_id: u8) -> bool {
-    match msg_id {
         18 => true, // ETH/Transactions
         26 => true, // ETH/PooledTransactions
         24 => true, // ETH/NewPoolTransactionHashes

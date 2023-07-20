@@ -116,6 +116,8 @@ impl Transaction {
             return Err(DecodeError::UnexpectedString);
         }
 
+        println!("Decoding tx: {:?}", hash);
+
         if let Some(t_c) = ANNO_TX_HASHES.insert(hash, u8::MAX) {
             if t_c == u8::MAX {
                 buf.advance(tx_header.payload_length);
@@ -205,7 +207,7 @@ pub fn decode_txs(
     buf: &mut &[u8],
     is_direct: bool,
     msg_received_at: Instant,
-) -> Result<Vec<Transaction>, DecodeError> {
+) -> Result<(), DecodeError> {
     if is_direct {
         decode_txs_direct(buf, msg_received_at)
     } else {
@@ -228,10 +230,7 @@ pub fn decode_txs(
     }
 }
 
-pub fn decode_txs_direct(
-    buf: &mut &[u8],
-    msg_received_at: Instant,
-) -> Result<Vec<Transaction>, DecodeError> {
+pub fn decode_txs_direct(buf: &mut &[u8], msg_received_at: Instant) -> Result<(), DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeError::UnexpectedString);
@@ -248,7 +247,7 @@ pub fn decode_txs_direct(
 
     buf.advance(h.payload_length);
 
-    Ok(Vec::new())
+    Ok(())
 }
 
 fn eth_tx_hash(raw_tx: &[u8]) -> H256 {
