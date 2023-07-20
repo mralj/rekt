@@ -8,6 +8,7 @@ use tokio::time::interval;
 
 use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
 use crate::p2p::errors::P2PError;
+use crate::p2p::types::peer::{S_CNT, S_MAX, S_MIN, S_SUM};
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, RLPXSessionError};
 
@@ -131,10 +132,10 @@ impl OutboundConnections {
                     },
                     _ = stats_interval.tick() => {
                        unsafe {
-                           let avg = SUM as f64 / CNT as f64;
+                           let avg = S_SUM as f64 / S_CNT as f64;
             let avg = (avg * 100.0).round() / 100.0;
 
-            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, MIN, MAX);
+            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, S_MIN, S_MAX);
 
                     }                    }
                 }

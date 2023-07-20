@@ -18,6 +18,11 @@ use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
 
+pub static mut S_SUM: u128 = 0;
+pub static mut S_CNT: u128 = 0;
+pub static mut S_MIN: u128 = u128::MAX;
+pub static mut S_MAX: u128 = u128::MIN;
+
 #[derive(Debug)]
 pub struct P2PPeer {
     pub id: H512,
@@ -84,17 +89,31 @@ impl P2PPeer {
                 .ok_or(P2PError::NoMessage)??; //
 
             //handle messages only after 5m to reduce old TXs
-            if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
-            {
-                continue;
-            }
+            // if Instant::now().duration_since(self.connected_on) <= time::Duration::from_secs(5 * 60)
+            // {
+            //     continue;
+            // }
 
-            if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
-            {
-                continue;
-            }
+            // if msg_is_txs_msg(msg.id.unwrap()) && MSG_CACHE.insert(msg.data.to_vec(), ()).is_some()
+            // {
+            //     continue;
+            // }
 
-            msg.snappy_decompress(&mut self.snappy_decoder)?;
+            if msg_is_txs_msg(msg.id.unwrap()) {
+                let start = Instant::now();
+                msg.snappy_decompress(&mut self.snappy_decoder)?;
+                let end = Instant::now();
+                let elapsed = end.duration_since(start).as_nanos();
+
+                unsafe {
+                    S_SUM += elapsed;
+                    S_CNT += 1;
+                    S_MIN = if elapsed < S_MIN { elapsed } else { S_MIN };
+                    S_MAX = if elapsed > S_MAX { elapsed } else { S_MAX };
+                }
+            } else {
+                msg.snappy_decompress(&mut self.snappy_decoder)?;
+            }
 
             let r = eth::msg_handler::handle_eth_message(msg)?;
             if let Some(r) = r {
