@@ -12,7 +12,6 @@ use super::p2p_wire::P2PWire;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
-use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
@@ -87,17 +86,8 @@ impl P2PPeer {
             {
                 continue;
             }
-            let msg_rec = msg.received_at;
             let r = eth::msg_handler::handle_eth_message(msg)?;
-
             if let Some(r) = r {
-                unsafe {
-                    let d = (Instant::now().duration_since(msg_rec)).as_micros();
-                    SUM += d;
-                    CNT += 1;
-                    MIN = if d < MIN { d } else { MIN };
-                    MAX = if d > MAX { d } else { MAX };
-                }
                 self.connection.send(r).await?;
             }
         }
