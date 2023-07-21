@@ -88,10 +88,11 @@ impl P2PPeer {
                 continue;
             }
             let msg_rec = msg.received_at;
-            let id = msg.id.unwrap();
             let r = eth::msg_handler::handle_eth_message(msg)?;
 
-            if id == 26 || id == 18 {
+            if let Some(r) = r {
+                self.connection.send(r).await?;
+            } else {
                 unsafe {
                     let d = (Instant::now().duration_since(msg_rec)).as_micros();
                     SUM += d;
@@ -99,10 +100,6 @@ impl P2PPeer {
                     MIN = if d < MIN { d } else { MIN };
                     MAX = if d > MAX { d } else { MAX };
                 }
-            }
-
-            if let Some(r) = r {
-                self.connection.send(r).await?;
             }
         }
     }
