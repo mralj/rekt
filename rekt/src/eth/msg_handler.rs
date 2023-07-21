@@ -42,7 +42,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     //     let mut to = alloc::vec::Vec::new();
     //     while !payload_view.is_empty() {
     //         to.push(E::decode(payload_view)?);
-   //     }
+    //     }
 
     //     buf.advance(h.payload_length);
 
@@ -91,15 +91,6 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 }
 
 fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
-    let s = Instant::now();
     decode_txs(&mut &msg.data[..], is_direct, msg.received_at);
-    let e = Instant::now();
-     unsafe {
-            let d = e.duration_since(s).as_micros();
-            SUM += d;
-            CNT += 1;
-            MIN = if d < MIN { d } else { MIN };
-            MAX = if d > MAX { d } else { MAX };
-        }
     Ok(None)
 }
