@@ -6,7 +6,7 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
 use tokio::time::interval;
 
-use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
+use crate::eth::msg_handler::{CNT, MAX, MAX_BYTE, MAX_CNT, MIN, SUM};
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::{connect_to_node, RLPXSessionError};
@@ -134,7 +134,7 @@ impl OutboundConnections {
                            let avg = SUM as f64 / CNT as f64;
             let avg = (avg * 100.0).round() / 100.0;
 
-            println!("Avg {:.2}, MIN: {}, MAX: {}", avg, MIN, MAX);
+            println!("Avg {:.2}, MIN: {}, MAX: {}, MAX CNT: {}, MAX BYTE: {}", avg, MIN, MAX, MAX_CNT, MAX_BYTE);
 
                     }                    }
                 }

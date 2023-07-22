@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
-use crate::eth::msg_handler::{CNT, MAX, MIN, SUM};
+use crate::eth::msg_handler::{CNT, MAX, MAX_BYTE, MAX_CNT, MIN, SUM};
 use crate::types::hash::{H160, H256};
 
 #[derive(Default)]
@@ -238,8 +238,19 @@ pub fn decode_txs_direct(
     }
 
     let payload_view = &mut &buf[..h.payload_length];
+    let mut cnt = 0;
     while !payload_view.is_empty() {
         Transaction::decode(payload_view, msg_received_at)?;
+        cnt += 1;
+    }
+
+    unsafe {
+        MAX_CNT = if cnt > MAX_CNT { cnt } else { MAX_CNT };
+        MAX_BYTE = if buf.len() > MAX_BYTE {
+            buf.len()
+        } else {
+            MAX_BYTE
+        };
     }
 
     // for h in hashes {

@@ -18,6 +18,8 @@ pub static mut SUM: u128 = 0;
 pub static mut CNT: u128 = 0;
 pub static mut MIN: u128 = u128::MAX;
 pub static mut MAX: u128 = u128::MIN;
+pub static mut MAX_CNT: usize = usize::MIN;
+pub static mut MAX_BYTE: usize = usize::MIN;
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
