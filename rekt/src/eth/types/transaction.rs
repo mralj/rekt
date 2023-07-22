@@ -10,7 +10,8 @@ use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEnc
 use sha3::{Digest, Keccak256};
 
 use crate::eth::msg_handler::{
-    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM,
+    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM, SUM_BYTE,
+    SUM_CNT,
 };
 use crate::types::hash::{H160, H256};
 
@@ -260,12 +261,14 @@ pub fn decode_txs_direct(
     }
 
     unsafe {
+        SUM_CNT += cnt;
         MAX_CNT = if cnt > MAX_CNT {
             MAX_CNT_ID = id;
             cnt
         } else {
             MAX_CNT
         };
+        SUM_BYTE += buf.len() as u128;
         MAX_BYTE = if buf.len() > MAX_BYTE {
             MAX_BYTE_ID = id;
             IS_DIRECT = is_direct;

@@ -137,6 +137,10 @@ impl Stream for P2PWire {
                 Some(Err(_)) => return Poll::Ready(Some(Err(P2PError::RlpxError))),
                 Some(Ok(bytes)) => bytes,
             };
+            //NOTE move this to TCP layer
+            if bytes.len() > 1024 * 1024 {
+                continue;
+            }
             let mut msg = Message::new(bytes);
             if msg.decode_id().is_err() {
                 return Poll::Ready(Some(Err(P2PError::MessageIdDecodeError)));

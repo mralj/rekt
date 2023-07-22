@@ -7,7 +7,8 @@ use tokio::select;
 use tokio::time::interval;
 
 use crate::eth::msg_handler::{
-    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM,
+    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM, SUM_BYTE,
+    SUM_CNT,
 };
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
@@ -134,10 +135,17 @@ impl OutboundConnections {
                     _ = stats_interval.tick() => {
                        unsafe {
                            let avg = SUM as f64 / CNT as f64;
-            let avg = (avg * 100.0).round() / 100.0;
+                           let avg = (avg * 100.0).round() / 100.0;
 
-            println!("Avg {:.2}, MIN: {}, MAX: {}, ID {}, MAX CNT: {} ID: {} , MAX BYTE: {}, ID: {}, DIRECT? {}",
-                avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,MAX_BYTE,MAX_BYTE_ID, IS_DIRECT);
+                           let avg_cnt = SUM_CNT as f64 / CNT as f64;
+                           let avg_cnt = (avg_cnt * 100.0).round() / 100.0;
+
+                           let avg_byte = SUM_BYTE as f64 / CNT as f64;
+                           let avg_byte = (avg_byte * 100.0).round() / 100.0;
+
+
+            println!("Avg {:.2}, MIN: {}, MAX: {}, ID: {}, MAX CNT: {}, ID: {} , AVG CNT: {}, MAX BYTE: {}, ID: {}, AVG. BYTE {}, DIRECT? {}",
+                avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,avg_cnt, MAX_BYTE,MAX_BYTE_ID,avg_byte, IS_DIRECT);
 
                     }                    }
                 }

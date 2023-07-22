@@ -15,11 +15,14 @@ pub struct TxCache {
 }
 
 pub static mut SUM: u128 = 0;
+pub static mut SUM_CNT: u128 = 0;
+pub static mut SUM_BYTE: u128 = 0;
+
 pub static mut CNT: u128 = 0;
 pub static mut MIN: u128 = u128::MAX;
 pub static mut MAX: u128 = u128::MIN;
 pub static mut MAX_ID: u64 = 0;
-pub static mut MAX_CNT: usize = usize::MIN;
+pub static mut MAX_CNT: u128 = u128::MIN;
 pub static mut MAX_CNT_ID: u64 = 0;
 pub static mut MAX_BYTE: usize = usize::MIN;
 pub static mut MAX_BYTE_ID: u64 = 0;
@@ -60,9 +63,12 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    let mut hashes: Vec<H256> = Vec::with_capacity(anno_hashes.len());
+    let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
 
     for h in anno_hashes {
+        if hashes.len() >= 1_000 {
+            break;
+        }
         let cached_tx = ANNO_TX_HASHES.get_mut(&h);
         match cached_tx {
             None => {
