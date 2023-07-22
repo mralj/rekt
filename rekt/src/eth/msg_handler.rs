@@ -63,12 +63,10 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    let anno_len = anno_hashes.len();
     let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
 
     for h in anno_hashes {
-        if hashes.len() >= 1_000 {
-            break;
-        }
         let cached_tx = ANNO_TX_HASHES.get_mut(&h);
         match cached_tx {
             None => {
@@ -84,6 +82,12 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
             }
         }
     }
+
+    println!(
+        "hashes.len() {}, anno_hashes.len() {}",
+        hashes.len(),
+        anno_len
+    );
 
     // let hashes: Vec<&H256> = anno_hashes
     //     .iter()

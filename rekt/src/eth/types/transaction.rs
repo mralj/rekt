@@ -180,7 +180,7 @@ impl Transaction {
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_micros();
-            tracing::info!("{},{:#x}", timestamp, hash);
+            //  tracing::info!("{},{:#x}", timestamp, hash);
         }
 
         // skip value
