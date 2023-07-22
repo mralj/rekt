@@ -7,8 +7,9 @@ use tokio::select;
 use tokio::time::interval;
 
 use crate::eth::msg_handler::{
-    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM, SUM_BYTE,
-    SUM_CNT,
+    CNT, IS_DIRECT, L_1, L_1000_1500, L_100_300, L_10_20, L_1500_2000, L_1_10, L_2000, L_20_50,
+    L_300_500, L_500_1000, L_50_100, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN,
+    SUM, SUM_BYTE, SUM_CNT,
 };
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
@@ -124,31 +125,47 @@ impl OutboundConnections {
 
     async fn run_logger(&self) {
         let mut count_interval = interval(Duration::from_secs(60));
-        //let mut stats_interval = interval(Duration::from_secs(10));
+        let mut stats_interval = interval(Duration::from_secs(10));
         //let mut info_interval = interval(Duration::from_secs(5 * 60));
 
         loop {
             select! {
-                    _ = count_interval.tick() => {
-                        println!("{}", PEERS.len());
-                    },
-            //         _ = stats_interval.tick() => {
-            //            unsafe {
-            //                let avg = SUM as f64 / CNT as f64;
-            //                let avg = (avg * 100.0).round() / 100.0;
+                     _ = count_interval.tick() => {
+                         println!("{}", PEERS.len());
+                     },
+                     _ = stats_interval.tick() => {
+                          unsafe{
+                              println!("1 {}", L_1);
+                              println!("2-10 {}", L_1_10);
+                              println!("11-20 {}", L_10_20);
+                              println!("21-50 {}", L_20_50);
+                              println!("51-100{}", L_50_100);
+                              println!("101-300 {}", L_100_300);
+                              println!("301-500 {}", L_300_500);
+                              println!("501-1000 {}", L_500_1000);
+                              println!("1001-1500 {}", L_1000_1500);
+                              println!("1501-2000 {}", L_1500_2000);
+                              println!("2000+ {}", L_2000);
+                        }
 
-            //                let avg_cnt = SUM_CNT as f64 / CNT as f64;
-            //                let avg_cnt = (avg_cnt * 100.0).round() / 100.0;
 
-            //                let avg_byte = SUM_BYTE as f64 / CNT as f64;
-            //                let avg_byte = (avg_byte * 100.0).round() / 100.0;
+             //            unsafe {
+             //                let avg = SUM as f64 / CNT as f64;
+             //                let avg = (avg * 100.0).round() / 100.0;
+
+             //                let avg_cnt = SUM_CNT as f64 / CNT as f64;
+             //                let avg_cnt = (avg_cnt * 100.0).round() / 100.0;
+
+             //                let avg_byte = SUM_BYTE as f64 / CNT as f64;
+             //                let avg_byte = (avg_byte * 100.0).round() / 100.0;
 
 
-            // println!("Avg {:.2}, MIN: {}, MAX: {}, ID: {}, MAX CNT: {}, ID: {} , AVG CNT: {}, MAX BYTE: {}, ID: {}, AVG. BYTE {}, DIRECT? {}",
-            //     avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,avg_cnt, MAX_BYTE,MAX_BYTE_ID,avg_byte, IS_DIRECT);
+             // println!("Avg {:.2}, MIN: {}, MAX: {}, ID: {}, MAX CNT: {}, ID: {} , AVG CNT: {}, MAX BYTE: {}, ID: {}, AVG. BYTE {}, DIRECT? {}",
+             //     avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,avg_cnt, MAX_BYTE,MAX_BYTE_ID,avg_byte, IS_DIRECT);
 
-            //         }                    }
-                }
+            //         }
+             }
+                 }
         }
     }
 }

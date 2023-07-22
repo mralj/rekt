@@ -28,6 +28,18 @@ pub static mut MAX_BYTE: usize = usize::MIN;
 pub static mut MAX_BYTE_ID: u64 = 0;
 pub static mut IS_DIRECT: bool = false;
 
+pub static mut L_1: usize = 0;
+pub static mut L_1_10: usize = 0;
+pub static mut L_10_20: usize = 0;
+pub static mut L_20_50: usize = 0;
+pub static mut L_50_100: usize = 0;
+pub static mut L_100_300: usize = 0;
+pub static mut L_300_500: usize = 0;
+pub static mut L_500_1000: usize = 0;
+pub static mut L_1000_1500: usize = 0;
+pub static mut L_1500_2000: usize = 0;
+pub static mut L_2000: usize = 0;
+
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(24) => handle_tx_hashes(msg),
@@ -64,6 +76,23 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
     let anno_len = anno_hashes.len();
+
+    unsafe {
+        match anno_len {
+            1 => L_1 += 1,
+            2..=10 => L_1_10 += 1,
+            11..=20 => L_10_20 += 1,
+            21..=50 => L_20_50 += 1,
+            51..=100 => L_50_100 += 1,
+            101..=300 => L_100_300 += 1,
+            301..=500 => L_300_500 += 1,
+            501..=1000 => L_500_1000 += 1,
+            1001..=1500 => L_1000_1500 += 1,
+            1501..=2000 => L_1500_2000 += 1,
+            _ => L_2000 += 1,
+        }
+    }
+
     let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
 
     for h in anno_hashes {
