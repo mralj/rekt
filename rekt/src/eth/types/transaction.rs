@@ -9,7 +9,9 @@ use once_cell::sync::Lazy;
 use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 
-use crate::eth::msg_handler::{CNT, MAX, MAX_BYTE, MAX_CNT, MIN, SUM};
+use crate::eth::msg_handler::{
+    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM,
+};
 use crate::types::hash::{H160, H256};
 
 #[derive(Default)]
@@ -100,7 +102,12 @@ impl Default for Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8], msg_received_at: Instant) -> Result<H256, DecodeError> {
+    fn decode(
+        buf: &mut &[u8],
+        msg_received_at: Instant,
+        id: u64,
+        is_direct: bool,
+    ) -> Result<H256, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
@@ -159,7 +166,12 @@ impl Transaction {
             SUM += d;
             CNT += 1;
             MIN = if d < MIN { d } else { MIN };
-            MAX = if d > MAX { d } else { MAX };
+            MAX = if d > MAX {
+                MAX_ID = id;
+                d
+            } else {
+                MAX
+            };
         }
 
         // if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
@@ -205,9 +217,10 @@ pub fn decode_txs(
     buf: &mut &[u8],
     is_direct: bool,
     msg_received_at: Instant,
+    id: u64,
 ) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf, msg_received_at)
+        decode_txs_direct(buf, msg_received_at, id, is_direct)
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -224,13 +237,15 @@ pub fn decode_txs(
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf, msg_received_at)
+        decode_txs_direct(buf, msg_received_at, id, is_direct)
     }
 }
 
 pub fn decode_txs_direct(
     buf: &mut &[u8],
     msg_received_at: Instant,
+    id: u64,
+    is_direct: bool,
 ) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
@@ -240,13 +255,20 @@ pub fn decode_txs_direct(
     let payload_view = &mut &buf[..h.payload_length];
     let mut cnt = 0;
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view, msg_received_at)?;
+        Transaction::decode(payload_view, msg_received_at, id, is_direct)?;
         cnt += 1;
     }
 
     unsafe {
-        MAX_CNT = if cnt > MAX_CNT { cnt } else { MAX_CNT };
+        MAX_CNT = if cnt > MAX_CNT {
+            MAX_CNT_ID = id;
+            cnt
+        } else {
+            MAX_CNT
+        };
         MAX_BYTE = if buf.len() > MAX_BYTE {
+            MAX_BYTE_ID = id;
+            IS_DIRECT = is_direct;
             buf.len()
         } else {
             MAX_BYTE

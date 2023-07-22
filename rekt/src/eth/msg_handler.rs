@@ -18,8 +18,12 @@ pub static mut SUM: u128 = 0;
 pub static mut CNT: u128 = 0;
 pub static mut MIN: u128 = u128::MAX;
 pub static mut MAX: u128 = u128::MIN;
+pub static mut MAX_ID: u64 = 0;
 pub static mut MAX_CNT: usize = usize::MIN;
+pub static mut MAX_CNT_ID: u64 = 0;
 pub static mut MAX_BYTE: usize = usize::MIN;
+pub static mut MAX_BYTE_ID: u64 = 0;
+pub static mut IS_DIRECT: bool = false;
 
 pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
     match msg.id {
@@ -85,6 +89,7 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
     }
 
     Ok(Some(Message {
+        req_id: 0,
         id: Some(25),
         kind: Some(crate::types::message::MessageKind::ETH),
         data: TransactionRequest::new(hashes).rlp_encode(),
@@ -93,6 +98,6 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 }
 
 fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..], is_direct, msg.received_at);
+    decode_txs(&mut &msg.data[..], is_direct, msg.received_at, msg.req_id);
     Ok(None)
 }

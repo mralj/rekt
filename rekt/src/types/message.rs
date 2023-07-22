@@ -25,11 +25,15 @@ pub struct Message {
     pub id: Option<u8>,
     pub data: BytesMut,
     pub received_at: std::time::Instant,
+    pub req_id: u64,
 }
 
 impl Message {
     pub fn new(data: BytesMut) -> Self {
+        let rnd = rand::random::<u64>();
+
         Message {
+            req_id: rnd,
             id: None,
             kind: None,
             received_at: std::time::Instant::now(),

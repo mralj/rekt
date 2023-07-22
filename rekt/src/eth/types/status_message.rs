@@ -113,6 +113,7 @@ impl Status {
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
                 Message {
+                    req_id: 0,
                     kind: Some(MessageKind::ETH),
                     id: Some(16),
                     data: status_rlp,
@@ -127,6 +128,7 @@ impl Status {
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
                 Message {
+                    req_id: 0,
                     kind: Some(MessageKind::ETH),
                     id: Some(16),
                     data: status_rlp,
@@ -218,6 +220,7 @@ impl UpgradeStatus {
     pub fn get() -> Message {
         OUR_UPGRADE_STATUS_MESSAGE
             .get_or_init(|| Message {
+                req_id: 0,
                 kind: Some(MessageKind::ETH),
                 id: Some(27),
                 data: UpgradeStatus::default().rlp_encode(),
