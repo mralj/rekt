@@ -112,12 +112,6 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
         }
     }
 
-    println!(
-        "hashes.len() {}, anno_hashes.len() {}",
-        hashes.len(),
-        anno_len
-    );
-
     // let hashes: Vec<&H256> = anno_hashes
     //     .iter()
     //     .filter(|h| !TX_HASHES.contains_key(h))
