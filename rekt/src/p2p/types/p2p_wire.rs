@@ -138,7 +138,7 @@ impl Stream for P2PWire {
                 Some(Ok(bytes)) => bytes,
             };
             //NOTE move this to TCP layer
-            if bytes.len() > 1024 * 1024 {
+            if bytes.len() > 2 * 1024 * 1024 {
                 continue;
             }
             let mut msg = Message::new(bytes);
@@ -156,6 +156,10 @@ impl Stream for P2PWire {
             // }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
+
+            if msg.data.len() > 2 * 1024 * 1024 {
+                continue;
+            }
 
             if msg.decode_kind().is_err() {
                 return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));

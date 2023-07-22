@@ -11,7 +11,7 @@ const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
 // for the time being the explanation is as follows:
 // first 16 message ids ([0,15]) are reserved for P2P
 // ETH message have IDs 16 onward, and ATM there is 16 message types
-const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
+const MAX_SUPPORTED_MESSAGE_ID: u8 = 34;
 
 #[derive(Debug, Display, Clone, Eq, PartialEq)]
 pub enum MessageKind {

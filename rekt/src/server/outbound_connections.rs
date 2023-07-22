@@ -124,7 +124,7 @@ impl OutboundConnections {
 
     async fn run_logger(&self) {
         let mut count_interval = interval(Duration::from_secs(60));
-        let mut stats_interval = interval(Duration::from_secs(10));
+        //let mut stats_interval = interval(Duration::from_secs(10));
         //let mut info_interval = interval(Duration::from_secs(5 * 60));
 
         loop {
@@ -132,22 +132,22 @@ impl OutboundConnections {
                     _ = count_interval.tick() => {
                         println!("{}", PEERS.len());
                     },
-                    _ = stats_interval.tick() => {
-                       unsafe {
-                           let avg = SUM as f64 / CNT as f64;
-                           let avg = (avg * 100.0).round() / 100.0;
+            //         _ = stats_interval.tick() => {
+            //            unsafe {
+            //                let avg = SUM as f64 / CNT as f64;
+            //                let avg = (avg * 100.0).round() / 100.0;
 
-                           let avg_cnt = SUM_CNT as f64 / CNT as f64;
-                           let avg_cnt = (avg_cnt * 100.0).round() / 100.0;
+            //                let avg_cnt = SUM_CNT as f64 / CNT as f64;
+            //                let avg_cnt = (avg_cnt * 100.0).round() / 100.0;
 
-                           let avg_byte = SUM_BYTE as f64 / CNT as f64;
-                           let avg_byte = (avg_byte * 100.0).round() / 100.0;
+            //                let avg_byte = SUM_BYTE as f64 / CNT as f64;
+            //                let avg_byte = (avg_byte * 100.0).round() / 100.0;
 
 
-            println!("Avg {:.2}, MIN: {}, MAX: {}, ID: {}, MAX CNT: {}, ID: {} , AVG CNT: {}, MAX BYTE: {}, ID: {}, AVG. BYTE {}, DIRECT? {}",
-                avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,avg_cnt, MAX_BYTE,MAX_BYTE_ID,avg_byte, IS_DIRECT);
+            // println!("Avg {:.2}, MIN: {}, MAX: {}, ID: {}, MAX CNT: {}, ID: {} , AVG CNT: {}, MAX BYTE: {}, ID: {}, AVG. BYTE {}, DIRECT? {}",
+            //     avg, MIN, MAX, MAX_ID ,MAX_CNT, MAX_CNT_ID,avg_cnt, MAX_BYTE,MAX_BYTE_ID,avg_byte, IS_DIRECT);
 
-                    }                    }
+            //         }                    }
                 }
         }
     }

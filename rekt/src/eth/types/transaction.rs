@@ -162,26 +162,26 @@ impl Transaction {
 
         let recipient = H160::decode(payload_view)?;
 
-        unsafe {
-            let d = (Instant::now().duration_since(msg_received_at)).as_micros();
-            SUM += d;
-            CNT += 1;
-            MIN = if d < MIN { d } else { MIN };
-            MAX = if d > MAX {
-                MAX_ID = id;
-                d
-            } else {
-                MAX
-            };
-        }
-
-        // if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
-        //     let timestamp = SystemTime::now()
-        //         .duration_since(UNIX_EPOCH)
-        //         .unwrap()
-        //         .as_micros();
-        //     tracing::info!("{},{:#x}", timestamp, hash);
+        // unsafe {
+        //     let d = (Instant::now().duration_since(msg_received_at)).as_micros();
+        //     SUM += d;
+        //     CNT += 1;
+        //     MIN = if d < MIN { d } else { MIN };
+        //     MAX = if d > MAX {
+        //         MAX_ID = id;
+        //         d
+        //     } else {
+        //         MAX
+        //     };
         // }
+
+        if recipient == H160::from_str("0x13f4EA83D0bd40E75C8222255bc855a974568Dd4").unwrap() {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_micros();
+            tracing::info!("{},{:#x}", timestamp, hash);
+        }
 
         // skip value
         // let h = match HeaderInfo::decode(payload_view) {
@@ -260,23 +260,23 @@ pub fn decode_txs_direct(
         cnt += 1;
     }
 
-    unsafe {
-        SUM_CNT += cnt;
-        MAX_CNT = if cnt > MAX_CNT {
-            MAX_CNT_ID = id;
-            cnt
-        } else {
-            MAX_CNT
-        };
-        SUM_BYTE += buf.len() as u128;
-        MAX_BYTE = if buf.len() > MAX_BYTE {
-            MAX_BYTE_ID = id;
-            IS_DIRECT = is_direct;
-            buf.len()
-        } else {
-            MAX_BYTE
-        };
-    }
+    // unsafe {
+    //     SUM_CNT += cnt;
+    //     MAX_CNT = if cnt > MAX_CNT {
+    //         MAX_CNT_ID = id;
+    //         cnt
+    //     } else {
+    //         MAX_CNT
+    //     };
+    //     SUM_BYTE += buf.len() as u128;
+    //     MAX_BYTE = if buf.len() > MAX_BYTE {
+    //         MAX_BYTE_ID = id;
+    //         IS_DIRECT = is_direct;
+    //         buf.len()
+    //     } else {
+    //         MAX_BYTE
+    //     };
+    // }
 
     // for h in hashes {
     //     TX_HASHES.insert(h);
