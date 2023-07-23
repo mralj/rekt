@@ -87,8 +87,9 @@ fn handle_tx_hashes(
 
     if anno_len >= 1_000 {
         tracing::info!(
-            "LEN: {}, connected for: {}, ID: {}",
+            "LEN: {}, BYTE LEN: {}, connected for: {}, ID: {}",
             anno_len,
+            msg.data.len(),
             Instant::now()
                 .duration_since(connected_to_peer_since)
                 .as_secs(),
