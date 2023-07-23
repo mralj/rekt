@@ -86,7 +86,7 @@ impl P2PPeer {
             {
                 continue;
             }
-            let r = eth::msg_handler::handle_eth_message(msg)?;
+            let r = eth::msg_handler::handle_eth_message(msg, self.connected_on, self.id)?;
             if let Some(r) = r {
                 self.connection.send(r).await?;
             }

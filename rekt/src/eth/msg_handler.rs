@@ -3,7 +3,7 @@ use std::time::Instant;
 use open_fastrlp::Decodable;
 use tracing_subscriber::fmt::time;
 
-use crate::types::hash::H256;
+use crate::types::hash::{H256, H512};
 use crate::types::message::Message;
 
 use super::types::errors::ETHError;
@@ -40,16 +40,24 @@ pub static mut L_1000_1500: usize = 0;
 pub static mut L_1500_2000: usize = 0;
 pub static mut L_2000: usize = 0;
 
-pub fn handle_eth_message(msg: Message) -> Result<Option<Message>, ETHError> {
+pub fn handle_eth_message(
+    msg: Message,
+    connected_to_peer_since: Instant,
+    peer_id: H512,
+) -> Result<Option<Message>, ETHError> {
     match msg.id {
-        Some(24) => handle_tx_hashes(msg),
+        Some(24) => handle_tx_hashes(msg, connected_to_peer_since, peer_id),
         Some(18) => handle_txs(msg, true),
         Some(26) => handle_txs(msg, false),
         _ => Ok(None),
     }
 }
 
-fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
+fn handle_tx_hashes(
+    msg: Message,
+    connected_to_peer_since: Instant,
+    peer_id: H512,
+) -> Result<Option<Message>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -76,6 +84,17 @@ fn handle_tx_hashes(msg: Message) -> Result<Option<Message>, ETHError> {
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
     let anno_len = anno_hashes.len();
+
+    if anno_len >= 1_000 {
+        tracing::info!(
+            "LEN: {}, connected for: {}, ID: {}",
+            anno_len,
+            Instant::now()
+                .duration_since(connected_to_peer_since)
+                .as_secs(),
+            peer_id
+        );
+    }
 
     unsafe {
         match anno_len {
