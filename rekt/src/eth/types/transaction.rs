@@ -10,10 +10,11 @@ use open_fastrlp::{Decodable, DecodeError, Encodable, Header, HeaderInfo, RlpEnc
 use sha3::{Digest, Keccak256};
 
 use crate::eth::msg_handler::{
-    CNT, IS_DIRECT, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN, SUM, SUM_BYTE,
-    SUM_CNT,
+    CNT, IS_DIRECT, L_1, L_1000_1500, L_100_300, L_10_20, L_1500_2000, L_1_10, L_2000, L_20_50,
+    L_300_500, L_500_1000, L_50_100, MAX, MAX_BYTE, MAX_BYTE_ID, MAX_CNT, MAX_CNT_ID, MAX_ID, MIN,
+    SUM, SUM_BYTE, SUM_CNT,
 };
-use crate::types::hash::{H160, H256};
+use crate::types::hash::{H160, H256, H512};
 
 #[derive(Default)]
 pub struct IdentityHasher(u64);
@@ -219,9 +220,18 @@ pub fn decode_txs(
     is_direct: bool,
     msg_received_at: Instant,
     id: u64,
+    peer_id: H512,
+    connected_to_peer_since: Instant,
 ) -> Result<Vec<Transaction>, DecodeError> {
     if is_direct {
-        decode_txs_direct(buf, msg_received_at, id, is_direct)
+        decode_txs_direct(
+            buf,
+            msg_received_at,
+            id,
+            is_direct,
+            peer_id,
+            connected_to_peer_since,
+        )
     } else {
         let h = Header::decode(buf)?;
         if !h.list {
@@ -238,7 +248,14 @@ pub fn decode_txs(
 
         buf.advance(h.total_len);
 
-        decode_txs_direct(buf, msg_received_at, id, is_direct)
+        decode_txs_direct(
+            buf,
+            msg_received_at,
+            id,
+            is_direct,
+            peer_id,
+            connected_to_peer_since,
+        )
     }
 }
 
@@ -247,6 +264,8 @@ pub fn decode_txs_direct(
     msg_received_at: Instant,
     id: u64,
     is_direct: bool,
+    peer_id: H512,
+    connected_to_peer_since: Instant,
 ) -> Result<Vec<Transaction>, DecodeError> {
     let h = Header::decode(buf)?;
     if !h.list {
@@ -258,6 +277,36 @@ pub fn decode_txs_direct(
     while !payload_view.is_empty() {
         Transaction::decode(payload_view, msg_received_at, id, is_direct)?;
         cnt += 1;
+    }
+
+    if is_direct {
+        if cnt >= 1_000 {
+            tracing::info!(
+                "LEN: {}, BYTE LEN: {}, connected for: {}, ID: {}",
+                cnt,
+                buf.len(),
+                Instant::now()
+                    .duration_since(connected_to_peer_since)
+                    .as_secs(),
+                peer_id
+            );
+        }
+
+        unsafe {
+            match cnt {
+                1 => L_1 += 1,
+                2..=10 => L_1_10 += 1,
+                11..=20 => L_10_20 += 1,
+                21..=50 => L_20_50 += 1,
+                51..=100 => L_50_100 += 1,
+                101..=300 => L_100_300 += 1,
+                301..=500 => L_300_500 += 1,
+                501..=1000 => L_500_1000 += 1,
+                1001..=1500 => L_1000_1500 += 1,
+                1501..=2000 => L_1500_2000 += 1,
+                _ => L_2000 += 1,
+            }
+        }
     }
 
     // unsafe {

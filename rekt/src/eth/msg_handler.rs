@@ -47,8 +47,8 @@ pub fn handle_eth_message(
 ) -> Result<Option<Message>, ETHError> {
     match msg.id {
         Some(24) => handle_tx_hashes(msg, connected_to_peer_since, peer_id),
-        Some(18) => handle_txs(msg, true),
-        Some(26) => handle_txs(msg, false),
+        Some(18) => handle_txs(msg, true, peer_id, connected_to_peer_since),
+        Some(26) => handle_txs(msg, false, peer_id, connected_to_peer_since),
         _ => Ok(None),
     }
 }
@@ -84,34 +84,6 @@ fn handle_tx_hashes(
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
     let anno_len = anno_hashes.len();
-
-    if anno_len >= 1_000 {
-        tracing::info!(
-            "LEN: {}, BYTE LEN: {}, connected for: {}, ID: {}",
-            anno_len,
-            msg.data.len(),
-            Instant::now()
-                .duration_since(connected_to_peer_since)
-                .as_secs(),
-            peer_id
-        );
-    }
-
-    unsafe {
-        match anno_len {
-            1 => L_1 += 1,
-            2..=10 => L_1_10 += 1,
-            11..=20 => L_10_20 += 1,
-            21..=50 => L_20_50 += 1,
-            51..=100 => L_50_100 += 1,
-            101..=300 => L_100_300 += 1,
-            301..=500 => L_300_500 += 1,
-            501..=1000 => L_500_1000 += 1,
-            1001..=1500 => L_1000_1500 += 1,
-            1501..=2000 => L_1500_2000 += 1,
-            _ => L_2000 += 1,
-        }
-    }
 
     let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
 
@@ -150,7 +122,19 @@ fn handle_tx_hashes(
     }))
 }
 
-fn handle_txs(msg: Message, is_direct: bool) -> Result<Option<Message>, ETHError> {
-    decode_txs(&mut &msg.data[..], is_direct, msg.received_at, msg.req_id);
+fn handle_txs(
+    msg: Message,
+    is_direct: bool,
+    peer_id: H512,
+    connected_to_peer_since: Instant,
+) -> Result<Option<Message>, ETHError> {
+    decode_txs(
+        &mut &msg.data[..],
+        is_direct,
+        msg.received_at,
+        msg.req_id,
+        peer_id,
+        connected_to_peer_since,
+    );
     Ok(None)
 }
