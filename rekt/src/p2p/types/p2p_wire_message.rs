@@ -25,17 +25,12 @@ pub struct P2pWireMessage {
 
 impl P2pWireMessage {
     pub fn new(mut data: BytesMut) -> Result<P2pWireMessage, DecodeError> {
-        let mut id = Self::decode_id(&mut &data[..])?;
+        let id = Self::decode_id(&mut &data[..])?;
         let kind = Self::decode_kind(id)?;
 
         // after we decoded id, the byte buffer has to move forwards for 1
         // because id was decoded, and we'll have to decode the rest of the message
         data.advance(POSITION_OF_MSG_ID_IN_BYTE_BUFFER);
-
-        if kind == MessageKind::ETH {
-            id -= BASE_PROTOCOL_OFFSET;
-        }
-
         Ok(P2pWireMessage { kind, id, data })
     }
 
