@@ -3,13 +3,14 @@ use open_fastrlp::Decodable;
 use crate::types::hash::H256;
 use crate::types::message::Message;
 
+use super::protocol::EthMessages;
 use super::types::errors::ETHError;
 use super::types::transaction::decode_txs;
 
 pub fn handle_eth_message(msg: Message) -> Result<(), ETHError> {
-    match msg.id {
-        Some(18) => handle_txs(msg),
-        Some(24) => handle_tx_hashes(msg),
+    match EthMessages::from(msg.id.unwrap()) {
+        EthMessages::TransactionsMsg => handle_txs(msg),
+        EthMessages::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(()),
     }
 }
