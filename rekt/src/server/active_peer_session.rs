@@ -7,7 +7,7 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
-use tracing::{error, info};
+use tracing::error;
 
 use crate::p2p::errors::P2PError;
 use crate::p2p::types::p2p_wire::P2PWire;
@@ -85,7 +85,6 @@ pub fn connect_to_node(
 
         let (hello_msg, protocol_v) = map_err!(match handle_hello_msg(&mut transport).await {
             Ok(mut hello_msg) => {
-                info!("Received Hello: {:?}", hello_msg);
                 let matched_protocol =
                     map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
                         .ok_or(RLPXSessionError::NoMatchingProtocols));
@@ -138,12 +137,12 @@ async fn handle_ack_msg(
 async fn handle_hello_msg(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<HelloMessage, RLPXSessionError> {
-    let maybe_rlpx_msg = transport
+    let rlpx_msg = transport
         .try_next()
         .await?
         .ok_or(RLPXError::InvalidMsgData)?;
 
-    if let RLPXMsg::Message(rlpx_msg) = maybe_rlpx_msg {
+    if let RLPXMsg::Message(rlpx_msg) = rlpx_msg {
         let mut msg = Message::new(rlpx_msg);
         let msg_id = msg.decode_id()?;
 
@@ -167,6 +166,6 @@ async fn handle_hello_msg(
         });
     }
 
-    error!("Not RLPX: Got unexpected message: {:?}", maybe_rlpx_msg);
+    error!("Not RLPX: Got unexpected message: {:?}", rlpx_msg);
     Err(RLPXSessionError::ExpectedRLPXMessage)
 }
