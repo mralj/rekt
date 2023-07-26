@@ -8,8 +8,9 @@ use tokio::time::interval;
 
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
-use crate::rlpx::{connect_to_node, RLPXSessionError};
+use crate::rlpx::RLPXSessionError;
 
+use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
 use super::errors::ConnectionTaskError;
 use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS};
