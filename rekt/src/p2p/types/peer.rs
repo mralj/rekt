@@ -19,7 +19,7 @@ use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
-pub struct P2PPeer {
+pub struct Peer {
     pub id: H512,
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
@@ -27,7 +27,7 @@ pub struct P2PPeer {
     connection: P2PWire,
 }
 
-impl P2PPeer {
+impl Peer {
     pub fn new(
         enode: NodeRecord,
         id: H512,
@@ -45,7 +45,7 @@ impl P2PPeer {
     }
 }
 
-impl Display for P2PPeer {
+impl Display for Peer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -55,13 +55,13 @@ impl Display for P2PPeer {
     }
 }
 
-impl P2PPeer {
+impl Peer {
     pub async fn run(&mut self) -> Result<(), P2PError> {
         check_if_already_connected_to_peer(&self.node_record)?;
         self.handshake().await?;
         check_if_already_connected_to_peer(&self.node_record)?;
 
-        PEERS.insert(self.node_record.id, PeerInfo::from(self as &P2PPeer));
+        PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
         loop {
@@ -74,14 +74,6 @@ impl P2PPeer {
                 .ok_or(P2PError::NoMessage)??; //
             let _ = eth::msg_handler::handle_eth_message(msg);
         }
-    }
-
-    pub async fn send_our_status_msg(&mut self) -> Result<(), P2PError> {
-        self.connection
-            .send(Status::get(&self.protocol_version))
-            .await?;
-
-        self.connection.send(UpgradeStatus::get()).await
     }
 
     async fn handshake(&mut self) -> Result<(), P2PError> {

@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::types::hash::H512;
 
-use super::P2PPeer;
+use super::Peer;
 
 #[derive(Debug)]
 pub struct PeerInfo {
@@ -12,8 +12,8 @@ pub struct PeerInfo {
     pub ip: String,
 }
 
-impl From<&P2PPeer> for PeerInfo {
-    fn from(p: &P2PPeer) -> Self {
+impl From<&Peer> for PeerInfo {
+    fn from(p: &Peer) -> Self {
         Self {
             id: p.id,
             info: p.info.clone(),
