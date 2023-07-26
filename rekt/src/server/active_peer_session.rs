@@ -10,7 +10,6 @@ use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::p2p::errors::P2PError;
-use crate::p2p::types::p2p_wire::P2PWire;
 use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
@@ -99,7 +98,7 @@ pub fn connect_to_node(
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
-            P2PWire::new(TcpTransport::new(transport)),
+            TcpTransport::new(transport),
         );
 
         let task_result = p.run().await;

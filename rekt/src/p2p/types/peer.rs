@@ -3,26 +3,28 @@ use std::fmt::{Display, Formatter};
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
-use tracing::{error, info};
+use tracing::error;
 
 use super::errors::P2PError;
-use super::p2p_wire::P2PWire;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
+use crate::eth::protocol::EthMessages;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
-use crate::server::peers::{PEERS, PEERS_BY_IP};
+use crate::p2p::p2p_wire::P2PWire;
+use crate::rlpx::TcpTransport;
+use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug)]
 pub struct P2PPeer {
-    pub(crate) node_record: NodeRecord,
     pub id: H512,
+    pub(crate) node_record: NodeRecord,
+    pub(crate) info: String,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
-    pub(crate) info: String,
 }
 
 impl P2PPeer {
@@ -31,11 +33,11 @@ impl P2PPeer {
         id: H512,
         protocol: usize,
         info: String,
-        connection: P2PWire,
+        connection: TcpTransport,
     ) -> Self {
         Self {
             id,
-            connection,
+            connection: P2PWire::new(connection),
             info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
@@ -55,15 +57,9 @@ impl Display for P2PPeer {
 
 impl P2PPeer {
     pub async fn run(&mut self) -> Result<(), P2PError> {
+        check_if_already_connected_to_peer(&self.node_record)?;
         self.handshake().await?;
-
-        if PEERS_BY_IP.contains(&self.node_record.ip) {
-            return Err(P2PError::AlreadyConnectedToSameIp);
-        }
-
-        if PEERS.contains_key(&self.node_record.id) {
-            return Err(P2PError::AlreadyConnected);
-        }
+        check_if_already_connected_to_peer(&self.node_record)?;
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &P2PPeer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
@@ -76,7 +72,7 @@ impl P2PPeer {
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
-            eth::msg_handler::handle_eth_message(msg);
+            let _ = eth::msg_handler::handle_eth_message(msg);
         }
     }
 
@@ -88,10 +84,10 @@ impl P2PPeer {
         self.connection.send(UpgradeStatus::get()).await
     }
 
-    pub async fn handshake(&mut self) -> Result<(), P2PError> {
+    async fn handshake(&mut self) -> Result<(), P2PError> {
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
-        if msg.id != Some(16) {
+        if EthMessages::from(msg.id.unwrap()) != EthMessages::StatusMsg {
             error!("Expected status message, got {:?}", msg.id);
             return Err(P2PError::ExpectedStatusMessage);
         }
@@ -100,13 +96,23 @@ impl P2PPeer {
 
         if Status::validate(&status_msg, &self.protocol_version).is_err() {
             return Err(P2PError::CouldNotValidateStatusMessage);
-        } else {
-            info!("Validated status MSG OK");
         }
 
-        self.send_our_status_msg().await?;
+        self.connection
+            .send(Status::get(&self.protocol_version))
+            .await?;
+
+        self.handle_upgrade_status_messages().await
+    }
+
+    async fn handle_upgrade_status_messages(&mut self) -> Result<(), P2PError> {
+        if self.protocol_version == ProtocolVersion::Eth66 {
+            return Ok(());
+        }
+
+        self.connection.send(UpgradeStatus::get()).await?;
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        if msg.id != Some(27) {
+        if EthMessages::from(msg.id.unwrap()) != EthMessages::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
         }
 

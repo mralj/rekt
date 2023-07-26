@@ -2,6 +2,7 @@ use bytes::{Buf, BytesMut};
 use derive_more::Display;
 use open_fastrlp::{Decodable, DecodeError};
 
+use crate::eth::protocol::MAX_ETH_PROTOCOL_LEN;
 use crate::p2p::P2PMessage;
 
 // when we receive message data, the first byte will be the message id
@@ -11,7 +12,8 @@ const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
 // for the time being the explanation is as follows:
 // first 16 message ids ([0,15]) are reserved for P2P
 // ETH message have IDs 16 onward, and ATM there is 16 message types
-const MAX_SUPPORTED_MESSAGE_ID: u8 = 32;
+const BASE_PROTOCOL_OFFSET: u8 = 16;
+const MAX_SUPPORTED_MESSAGE_ID: u8 = BASE_PROTOCOL_OFFSET + MAX_ETH_PROTOCOL_LEN;
 
 #[derive(Debug, Display, Clone, Eq, PartialEq)]
 pub enum MessageKind {
@@ -80,7 +82,10 @@ impl Message {
                 let p2p_msg = P2PMessage::decode(id, &mut &self.data[..])?;
                 self.kind = Some(MessageKind::P2P(p2p_msg));
             }
-            0x10..=MAX_SUPPORTED_MESSAGE_ID => self.kind = Some(MessageKind::ETH),
+            BASE_PROTOCOL_OFFSET..=MAX_SUPPORTED_MESSAGE_ID => {
+                self.kind = Some(MessageKind::ETH);
+                self.id = Some(self.id.unwrap() - BASE_PROTOCOL_OFFSET)
+            }
             _ => return Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
 
