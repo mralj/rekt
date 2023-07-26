@@ -13,7 +13,7 @@ pub(super) fn ecdh_x(public_key: &PublicKey, secret_key: &SecretKey) -> H256 {
 
 /// Converts a [secp256k1::PublicKey] to a [PeerId] by stripping the
 /// SECP256K1_TAG_PUBKEY_UNCOMPRESSED tag and storing the rest of the slice in the [PeerId].
-pub(super) fn pk2id(pk: &PublicKey) -> H512 {
+pub fn pk2id(pk: &PublicKey) -> H512 {
     H512::from_slice(&pk.serialize_uncompressed()[1..])
 }
 

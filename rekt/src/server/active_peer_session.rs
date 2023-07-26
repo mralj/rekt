@@ -15,17 +15,14 @@ use crate::p2p::types::{P2PPeer, Protocol};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
-use crate::rlpx::errors::RLPXError;
-use crate::rlpx::utils::pk2id;
-use crate::rlpx::Connection;
+use crate::rlpx::errors::{RLPXError, RLPXSessionError};
+use crate::rlpx::TcpTransport;
+use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{PEERS, PEERS_BY_IP};
 
 use crate::types::message::{Message, MessageKind};
-
-use super::errors::RLPXSessionError;
-use super::tcp_transport::TcpTransport;
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
