@@ -10,6 +10,7 @@ use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::p2p::errors::P2PError;
+use crate::p2p::types::p2p_wire_message::P2pWireMessage;
 use crate::p2p::types::{Peer, Protocol};
 use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
@@ -19,9 +20,7 @@ use crate::rlpx::TcpTransport;
 use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
-use crate::server::peers::{PEERS, PEERS_BY_IP};
-
-use crate::types::message::{Message, MessageKind};
+use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
@@ -46,13 +45,7 @@ pub fn connect_to_node(
                 }
             };
         }
-        if PEERS.contains_key(&conn_task.node.id) {
-            map_err!(Err(P2PError::AlreadyConnected))
-        }
-
-        if PEERS_BY_IP.contains(&conn_task.node.ip) {
-            map_err!(Err(P2PError::AlreadyConnectedToSameIp))
-        }
+        map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
@@ -142,27 +135,23 @@ async fn handle_hello_msg(
         .ok_or(RLPXError::InvalidMsgData)?;
 
     if let RLPXMsg::Message(rlpx_msg) = rlpx_msg {
-        let mut msg = Message::new(rlpx_msg);
-        let msg_id = msg.decode_id()?;
+        let msg = P2pWireMessage::new(rlpx_msg)?;
+        let p2p_msg = P2PMessage::decode(msg.id, &mut &msg.data[..])?;
 
-        if msg_id == P2PMessageID::Hello as u8 {
-            msg.decode_kind()?;
-            if let Some(MessageKind::P2P(P2PMessage::Hello(node_info))) = msg.kind {
+        match p2p_msg {
+            P2PMessage::Hello(node_info) => {
                 return Ok(node_info);
             }
-        }
-
-        if msg_id == P2PMessageID::Disconnect as u8 {
-            let msg_kind = msg.decode_kind()?;
-            if let MessageKind::P2P(P2PMessage::Disconnect(reason)) = msg_kind {
-                return Err(RLPXSessionError::DisconnectRequested(reason.to_owned()));
+            P2PMessage::Disconnect(reason) => {
+                return Err(RLPXSessionError::DisconnectRequested(reason));
             }
-        }
-
-        return Err(RLPXSessionError::UnexpectedP2PMessage {
-            received: msg_id,
-            expected: P2PMessageID::Hello as u8,
-        });
+            _ => {
+                return Err(RLPXSessionError::UnexpectedP2PMessage {
+                    received: msg.id,
+                    expected: P2PMessageID::Hello as u8,
+                });
+            }
+        };
     }
 
     error!("Not RLPX: Got unexpected message: {:?}", rlpx_msg);

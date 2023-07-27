@@ -1,7 +1,6 @@
 use open_fastrlp::Decodable;
 
 use crate::types::hash::H256;
-use crate::types::message::Message;
 
 use super::protocol::EthMessages;
 use super::types::errors::ETHError;
@@ -47,6 +46,6 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<(), ETHError> {
 }
 
 fn handle_txs(msg: EthMessage) -> Result<(), ETHError> {
-    decode_txs(&mut &msg.data[..]);
+    let _ = decode_txs(&mut &msg.data[..]);
     Ok(())
 }

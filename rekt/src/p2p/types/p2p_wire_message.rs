@@ -3,11 +3,11 @@ use derive_more::Display;
 use open_fastrlp::{Decodable, DecodeError};
 
 use crate::eth::protocol::MAX_ETH_PROTOCOL_LEN;
+use crate::eth::types::eth_message::BASE_PROTOCOL_OFFSET;
 
 // when we receive message data, the first byte will be the message id
 // and the rest will be actual data
 const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
-const BASE_PROTOCOL_OFFSET: u8 = 16;
 const MAX_SUPPORTED_MESSAGE_ID: u8 = BASE_PROTOCOL_OFFSET + MAX_ETH_PROTOCOL_LEN;
 
 #[derive(Debug, Display, Clone, Eq, PartialEq)]
