@@ -43,7 +43,6 @@ impl P2pWireMessage {
     }
 
     fn decode_id(data: &mut &[u8]) -> Result<u8, DecodeError> {
-        // Just in case this was unintentionally called twice
         let message_id = u8::decode(&mut &data[..POSITION_OF_MSG_ID_IN_BYTE_BUFFER])
             .map_err(|_| DecodeError::Custom("Invalid message id"))?;
 
