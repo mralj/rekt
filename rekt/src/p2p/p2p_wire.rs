@@ -3,13 +3,17 @@ use std::task::{ready, Poll};
 
 use bytes::BytesMut;
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use open_fastrlp::Encodable;
+use num_traits::FromPrimitive;
+use open_fastrlp::{Decodable, DecodeError, Encodable};
 
+use crate::eth::types::eth_message::EthMessage;
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpTransport;
-use crate::types::message::{Message, MessageKind};
+use crate::types::message::Message;
 
 use super::errors::P2PError;
+use super::types::p2p_wire_message::{MessageKind, P2pWireMessage};
+use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
 
@@ -71,11 +75,19 @@ impl P2PWire {
 
     fn handle_p2p_msg(
         &mut self,
-        msg: &P2PMessage,
+        msg: P2pWireMessage,
         cx: &mut std::task::Context<'_>,
     ) -> Result<(), P2PError> {
-        match msg {
-            P2PMessage::Ping => {
+        let p2p_msg_id =
+            P2PMessageID::from_u8(msg.id).ok_or(DecodeError::Custom("Invalid P2P Message ID"))?;
+
+        match p2p_msg_id {
+            P2PMessageID::Hello => Ok(()),
+            P2PMessageID::Pong => Ok(()),
+            P2PMessageID::Disconnect => Err(P2PError::DisconnectRequested(
+                DisconnectReason::decode(&mut &msg.data[..])?,
+            )),
+            P2PMessageID::Ping => {
                 let no_need_to_send_ping_if_there_are_messages_queued =
                     !self.writer_queue.is_empty();
                 if no_need_to_send_ping_if_there_are_messages_queued {
@@ -97,20 +109,14 @@ impl P2PWire {
                 // This is why it is ok to use poll_flush_unpin here and not poll again, because
                 // "we don't care"
                 let _ = self.poll_flush_unpin(cx);
-
                 Ok(())
             }
-            P2PMessage::Disconnect(r) => Err(P2PError::DisconnectRequested(*r)),
-            P2PMessage::Hello(_) => Err(P2PError::UnexpectedHelloMessageReceived), // TODO: proper err here
-            // NOTE: this is no-op for us, technically we should never
-            // receive pong message as we don't send Pings, but we'll just ignore it
-            P2PMessage::Pong => Ok(()),
         }
     }
 }
 
 impl Stream for P2PWire {
-    type Item = Result<Message, P2PError>;
+    type Item = Result<EthMessage, P2PError>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -124,46 +130,22 @@ impl Stream for P2PWire {
                 Some(Err(_)) => return Poll::Ready(Some(Err(P2PError::RlpxError))),
                 Some(Ok(bytes)) => bytes,
             };
-            let mut msg = Message::new(bytes);
-            if msg.decode_id().is_err() {
-                return Poll::Ready(Some(Err(P2PError::MessageIdDecodeError)));
-            }
-
-            if !message_is_of_interest(msg.id.unwrap()) {
+            let mut msg = P2pWireMessage::new(bytes)?;
+            if !P2pWireMessage::message_is_of_interest(msg.id) {
                 continue;
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
-
-            if msg.decode_kind().is_err() {
-                return Poll::Ready(Some(Err(P2PError::MessageKindDecodeError)));
-            }
-
-            match msg.kind.as_ref().unwrap() {
-                MessageKind::ETH => return Poll::Ready(Some(Ok(msg))),
-                MessageKind::P2P(m) => {
-                    if let Err(e) = this.handle_p2p_msg(m, cx) {
-                        return Poll::Ready(Some(Err(e)));
-                    }
+            if msg.kind == MessageKind::P2P {
+                if let Err(e) = this.handle_p2p_msg(msg, cx) {
+                    return Poll::Ready(Some(Err(e)));
                 }
+                continue;
             }
+
+            return Poll::Ready(Some(Ok(EthMessage::from(msg))));
         }
         Poll::Pending
-    }
-}
-
-fn message_is_of_interest(msg_id: u8) -> bool {
-    match msg_id {
-        1 => true,  // P2P/Disconnect
-        2 => true,  // P2P/Ping
-        16 => true, // ETH/Status
-        27 => true, // ETH/UpgradeStatus
-        18 => true, // ETH/Transactions
-        26 => true, // ETH/PooledTransactions
-        24 => true, // ETH/NewPoolTransactionHashes
-        19 => true, // ETH/GetBlockHeaders
-        21 => true, // ETH/GetBlockBodies
-        _ => false,
     }
 }
 
@@ -209,7 +191,6 @@ impl Sink<Message> for P2PWire {
         // we should not be in situation where this method was called and queue is full, so smth.
         // bad happened, return err
         if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            //TODO: add proper err here
             return Err(P2PError::TooManyMessagesQueued);
         }
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));

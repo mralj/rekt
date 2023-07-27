@@ -5,17 +5,18 @@ use crate::types::message::Message;
 
 use super::protocol::EthMessages;
 use super::types::errors::ETHError;
+use super::types::eth_message::EthMessage;
 use super::types::transaction::decode_txs;
 
-pub fn handle_eth_message(msg: Message) -> Result<(), ETHError> {
-    match EthMessages::from(msg.id.unwrap()) {
+pub fn handle_eth_message(msg: EthMessage) -> Result<(), ETHError> {
+    match msg.id {
         EthMessages::TransactionsMsg => handle_txs(msg),
         EthMessages::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(()),
     }
 }
 
-fn handle_tx_hashes(msg: Message) -> Result<(), ETHError> {
+fn handle_tx_hashes(msg: EthMessage) -> Result<(), ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -45,7 +46,7 @@ fn handle_tx_hashes(msg: Message) -> Result<(), ETHError> {
     Ok(())
 }
 
-fn handle_txs(msg: Message) -> Result<(), ETHError> {
+fn handle_txs(msg: EthMessage) -> Result<(), ETHError> {
     decode_txs(&mut &msg.data[..]);
     Ok(())
 }

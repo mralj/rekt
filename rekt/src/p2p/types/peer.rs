@@ -79,7 +79,7 @@ impl Peer {
     async fn handshake(&mut self) -> Result<(), P2PError> {
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
-        if EthMessages::from(msg.id.unwrap()) != EthMessages::StatusMsg {
+        if msg.id != EthMessages::StatusMsg {
             error!("Expected status message, got {:?}", msg.id);
             return Err(P2PError::ExpectedStatusMessage);
         }
@@ -104,7 +104,7 @@ impl Peer {
 
         self.connection.send(UpgradeStatus::get()).await?;
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        if EthMessages::from(msg.id.unwrap()) != EthMessages::UpgradeStatusMsg {
+        if msg.id != EthMessages::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
         }
 
