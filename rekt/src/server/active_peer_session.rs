@@ -20,7 +20,7 @@ use crate::rlpx::TcpTransport;
 use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
-use crate::server::peers::{PEERS, PEERS_BY_IP};
+use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
@@ -45,13 +45,7 @@ pub fn connect_to_node(
                 }
             };
         }
-        if PEERS.contains_key(&conn_task.node.id) {
-            map_err!(Err(P2PError::AlreadyConnected))
-        }
-
-        if PEERS_BY_IP.contains(&conn_task.node.ip) {
-            map_err!(Err(P2PError::AlreadyConnectedToSameIp))
-        }
+        map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
