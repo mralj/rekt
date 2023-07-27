@@ -5,7 +5,8 @@ use once_cell::sync::OnceCell;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
-use crate::{p2p::types::Protocol, types::hash::H512};
+use crate::p2p::protocol::Protocol;
+use crate::types::hash::H512;
 
 const DEFAULT_P2P_PROTOCOL_VERSION: usize = 5;
 const DEFAULT_PORT: usize = 30311;

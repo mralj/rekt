@@ -10,9 +10,8 @@ use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::p2p::errors::P2PError;
-use crate::p2p::types::p2p_wire_message::P2pWireMessage;
-use crate::p2p::types::{Peer, Protocol};
-use crate::p2p::{self, HelloMessage};
+use crate::p2p::p2p_wire_message::P2pWireMessage;
+use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::{RLPXError, RLPXSessionError};
