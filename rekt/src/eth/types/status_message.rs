@@ -11,13 +11,15 @@ use tracing::error;
 use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
+use crate::eth::protocol::EthMessages;
 use crate::p2p::types::protocol::ProtocolVersion;
 use crate::types::hash::H256;
-use crate::types::message::{Message, MessageKind};
 
-static OUR_STATUS_MESSAGE_ETH_66: OnceCell<Message> = OnceCell::new();
-static OUR_STATUS_MESSAGE_ETH_67: OnceCell<Message> = OnceCell::new();
-static OUR_UPGRADE_STATUS_MESSAGE: OnceCell<Message> = OnceCell::new();
+use super::eth_message::EthMessage;
+
+static OUR_STATUS_MESSAGE_ETH_66: OnceCell<EthMessage> = OnceCell::new();
+static OUR_STATUS_MESSAGE_ETH_67: OnceCell<EthMessage> = OnceCell::new();
+static OUR_UPGRADE_STATUS_MESSAGE: OnceCell<EthMessage> = OnceCell::new();
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Status {
@@ -102,7 +104,7 @@ impl Status {
         }
     }
 
-    pub fn get(proto_v_negotiated: &ProtocolVersion) -> Message {
+    pub fn get(proto_v_negotiated: &ProtocolVersion) -> EthMessage {
         match proto_v_negotiated {
             ProtocolVersion::Eth66 => OUR_STATUS_MESSAGE_ETH_66.get_or_init(|| {
                 let status = Self {
@@ -111,11 +113,7 @@ impl Status {
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                Message {
-                    kind: Some(MessageKind::ETH),
-                    id: Some(16),
-                    data: status_rlp,
-                }
+                EthMessage::new(EthMessages::StatusMsg, status_rlp)
             }),
             ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
                 let status = Self {
@@ -124,14 +122,10 @@ impl Status {
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                Message {
-                    kind: Some(MessageKind::ETH),
-                    id: Some(16),
-                    data: status_rlp,
-                }
+                EthMessage::new(EthMessages::StatusMsg, status_rlp)
             }),
         }
-        .to_owned()
+        .clone()
     }
 
     pub fn rlp_encode(&self) -> BytesMut {
@@ -212,12 +206,13 @@ pub struct UpgradeStatus {
 }
 
 impl UpgradeStatus {
-    pub fn get() -> Message {
+    pub fn get() -> EthMessage {
         OUR_UPGRADE_STATUS_MESSAGE
-            .get_or_init(|| Message {
-                kind: Some(MessageKind::ETH),
-                id: Some(27),
-                data: UpgradeStatus::default().rlp_encode(),
+            .get_or_init(|| {
+                EthMessage::new(
+                    EthMessages::UpgradeStatusMsg,
+                    UpgradeStatus::default().rlp_encode(),
+                )
             })
             .clone()
     }

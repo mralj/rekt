@@ -6,10 +6,9 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
-use crate::eth::types::eth_message::EthMessage;
+use crate::eth::types::eth_message::{EthMessage, BASE_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpTransport;
-use crate::types::message::Message;
 
 use super::errors::P2PError;
 use super::types::p2p_wire_message::{MessageKind, P2pWireMessage};
@@ -149,7 +148,7 @@ impl Stream for P2PWire {
     }
 }
 
-impl Sink<Message> for P2PWire {
+impl Sink<EthMessage> for P2PWire {
     type Error = P2PError;
 
     fn poll_ready(
@@ -183,7 +182,7 @@ impl Sink<Message> for P2PWire {
         }
     }
 
-    fn start_send(mut self: std::pin::Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
+    fn start_send(mut self: std::pin::Pin<&mut Self>, item: EthMessage) -> Result<(), Self::Error> {
         // since the interacting with sink should work as follows:
         // 1. call poll_ready, if it returns Ready(ok), call start_send,
         // but if it returns anything other than that, start_send should not be called
@@ -199,7 +198,7 @@ impl Sink<Message> for P2PWire {
             .compress(&item.data, &mut compressed[1..])
             .map_err(|_err| P2PError::SnappyCompressError)?;
 
-        compressed[0] = item.id.unwrap();
+        compressed[0] = item.id as u8 + BASE_PROTOCOL_OFFSET;
         compressed.truncate(compressed_size + 1);
 
         self.writer_queue.push_back(compressed);

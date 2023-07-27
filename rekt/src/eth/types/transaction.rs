@@ -56,7 +56,7 @@ impl Transaction {
 
         let payload_view = &mut &buf[..tx_header.payload_length];
 
-        let nonce = match u64::decode(payload_view) {
+        let _nonce = match u64::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode nonce: {:?}", e);
@@ -64,7 +64,7 @@ impl Transaction {
             }
         };
 
-        let gas_price = match u64::decode(payload_view) {
+        let _gas_price = match u64::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!("Failed to decode gas price: {:?}", e);
@@ -83,7 +83,7 @@ impl Transaction {
 
         payload_view.advance(h.total_len);
 
-        let recipient = match H160::decode(payload_view) {
+        let _recipient = match H160::decode(payload_view) {
             Ok(n) => n,
             Err(e) => {
                 println!(
