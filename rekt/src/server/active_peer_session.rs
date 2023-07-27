@@ -16,7 +16,7 @@ use crate::p2p::{self, HelloMessage};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
 use crate::rlpx::errors::{RLPXError, RLPXSessionError};
-use crate::rlpx::TcpTransport;
+use crate::rlpx::TcpWire;
 use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
@@ -91,7 +91,7 @@ pub fn connect_to_node(
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
-            TcpTransport::new(transport),
+            TcpWire::new(transport),
         );
 
         let task_result = p.run().await;

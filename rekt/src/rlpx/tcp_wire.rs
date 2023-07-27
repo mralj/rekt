@@ -10,18 +10,18 @@ use super::{Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
 #[derive(Debug)]
-pub struct TcpTransport {
+pub struct TcpWire {
     #[pin]
     inner: Framed<TcpStream, Connection>,
 }
 
-impl TcpTransport {
-    pub fn new(transport: Framed<TcpStream, Connection>) -> Self {
-        Self { inner: transport }
+impl TcpWire {
+    pub fn new(wire: Framed<TcpStream, Connection>) -> Self {
+        Self { inner: wire }
     }
 }
 
-impl Stream for TcpTransport {
+impl Stream for TcpWire {
     type Item = Result<BytesMut, RLPXSessionError>;
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -47,7 +47,7 @@ macro_rules! ready_map_err {
     };
 }
 
-impl Sink<BytesMut> for TcpTransport {
+impl Sink<BytesMut> for TcpWire {
     type Error = RLPXSessionError;
 
     fn poll_ready(
