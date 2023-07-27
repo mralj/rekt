@@ -77,4 +77,19 @@ impl P2pWireMessage {
 
         Ok(())
     }
+
+    pub fn message_is_of_interest(msg_id: u8) -> bool {
+        match msg_id {
+            1 => true,  // P2P/Disconnect
+            2 => true,  // P2P/Ping
+            16 => true, // ETH/Status
+            27 => true, // ETH/UpgradeStatus
+            18 => true, // ETH/Transactions
+            26 => true, // ETH/PooledTransactions
+            24 => true, // ETH/NewPoolTransactionHashes
+            19 => true, // ETH/GetBlockHeaders
+            21 => true, // ETH/GetBlockBodies
+            _ => false,
+        }
+    }
 }

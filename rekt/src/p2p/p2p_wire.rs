@@ -131,8 +131,11 @@ impl Stream for P2PWire {
                 Some(Ok(bytes)) => bytes,
             };
             let mut msg = P2pWireMessage::new(bytes)?;
-            msg.snappy_decompress(&mut this.snappy_decoder)?;
+            if !P2pWireMessage::message_is_of_interest(msg.id) {
+                continue;
+            }
 
+            msg.snappy_decompress(&mut this.snappy_decoder)?;
             if msg.kind == MessageKind::P2P {
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
@@ -140,28 +143,9 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            if !message_is_of_interest(msg.id) {
-                continue;
-            }
-
             return Poll::Ready(Some(Ok(EthMessage::from(msg))));
         }
         Poll::Pending
-    }
-}
-
-fn message_is_of_interest(msg_id: u8) -> bool {
-    match msg_id {
-        1 => true,  // P2P/Disconnect
-        2 => true,  // P2P/Ping
-        16 => true, // ETH/Status
-        27 => true, // ETH/UpgradeStatus
-        18 => true, // ETH/Transactions
-        26 => true, // ETH/PooledTransactions
-        24 => true, // ETH/NewPoolTransactionHashes
-        19 => true, // ETH/GetBlockHeaders
-        21 => true, // ETH/GetBlockBodies
-        _ => false,
     }
 }
 
@@ -207,7 +191,6 @@ impl Sink<Message> for P2PWire {
         // we should not be in situation where this method was called and queue is full, so smth.
         // bad happened, return err
         if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            //TODO: add proper err here
             return Err(P2PError::TooManyMessagesQueued);
         }
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
