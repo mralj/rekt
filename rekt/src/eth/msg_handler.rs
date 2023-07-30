@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use open_fastrlp::Decodable;
+use smallvec::SmallVec;
 use tracing_subscriber::fmt::time;
 
 use crate::types::hash::{H256, H512};
@@ -84,6 +85,15 @@ fn handle_tx_hashes(
 
     let anno_hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
     let anno_len = anno_hashes.len();
+    let mut small_hashes: SmallVec<[H256; 1_024]> = SmallVec::with_capacity(anno_len);
+
+    for h in anno_hashes.iter() {
+        small_hashes.push(h.to_owned())
+    }
+
+    if small_hashes.spilled() {
+        println!("=====  spilled for len {}", anno_len);
+    }
 
     let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
 
