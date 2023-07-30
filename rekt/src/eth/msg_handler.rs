@@ -92,7 +92,7 @@ fn handle_tx_hashes(
     }
 
     if small_hashes.spilled() {
-        println!("=====  spilled for len {}", anno_len);
+        tracing::info!("spilled for len {}", anno_len);
     }
 
     let mut hashes: Vec<H256> = Vec::with_capacity(std::cmp::min(anno_hashes.len(), 1_001));
