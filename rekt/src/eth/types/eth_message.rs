@@ -1,7 +1,7 @@
 use bytes::BytesMut;
 
 use crate::eth::protocol::EthMessages;
-use crate::p2p::types::p2p_wire_message::P2pWireMessage;
+use crate::p2p::p2p_wire_message::P2pWireMessage;
 
 pub const BASE_PROTOCOL_OFFSET: u8 = 16;
 

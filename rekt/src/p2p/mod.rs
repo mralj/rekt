@@ -1,6 +1,11 @@
+pub mod errors;
 pub mod messages;
 pub mod p2p_wire;
-pub mod types;
+pub mod p2p_wire_message;
+pub mod peer;
+pub mod peer_info;
+pub mod protocol;
 
 pub use messages::*;
-pub use types::errors;
+pub use peer::Peer;
+pub use protocol::Protocol;

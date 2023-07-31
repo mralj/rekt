@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::p2p::DisconnectReason;
+use super::DisconnectReason;
 
 #[derive(Debug, Error, Copy, Clone)]
 pub enum P2PError {

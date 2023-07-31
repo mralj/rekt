@@ -8,10 +8,10 @@ use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::types::eth_message::{EthMessage, BASE_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
-use crate::rlpx::TcpTransport;
+use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
-use super::types::p2p_wire_message::{MessageKind, P2pWireMessage};
+use super::p2p_wire_message::{MessageKind, P2pWireMessage};
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
@@ -20,7 +20,7 @@ const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for
 #[derive(Debug)]
 pub struct P2PWire {
     #[pin]
-    inner: TcpTransport,
+    inner: TcpWire,
     writer_queue: VecDeque<BytesMut>,
     snappy_decoder: snap::raw::Decoder,
     snappy_encoder: snap::raw::Encoder,
@@ -63,7 +63,7 @@ pub struct P2PWire {
 * */
 
 impl P2PWire {
-    pub fn new(rlpx_wire: TcpTransport) -> Self {
+    pub fn new(rlpx_wire: TcpWire) -> Self {
         Self {
             inner: rlpx_wire,
             writer_queue: VecDeque::with_capacity(MAX_WRITER_QUEUE_SIZE + 1),

@@ -12,7 +12,7 @@ use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FOR
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
 use crate::eth::protocol::EthMessages;
-use crate::p2p::types::protocol::ProtocolVersion;
+use crate::p2p::protocol::ProtocolVersion;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;

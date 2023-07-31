@@ -2,7 +2,7 @@ use dashmap::{DashMap, DashSet};
 use once_cell::sync::Lazy;
 
 use crate::p2p::errors::P2PError;
-use crate::p2p::types::peer_info::PeerInfo;
+use crate::p2p::peer_info::PeerInfo;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 

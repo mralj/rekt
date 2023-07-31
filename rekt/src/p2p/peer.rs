@@ -12,7 +12,7 @@ use crate::eth;
 use crate::eth::protocol::EthMessages;
 use crate::eth::types::status_message::{Status, UpgradeStatus};
 use crate::p2p::p2p_wire::P2PWire;
-use crate::rlpx::TcpTransport;
+use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 use crate::types::hash::H512;
 
@@ -33,7 +33,7 @@ impl Peer {
         id: H512,
         protocol: usize,
         info: String,
-        connection: TcpTransport,
+        connection: TcpWire,
     ) -> Self {
         Self {
             id,

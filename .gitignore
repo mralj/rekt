@@ -10,3 +10,4 @@ Cargo.lock
 **/*.rs.bk
 /cspell.json
 log.txt
+.DS_Store
