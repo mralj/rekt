@@ -68,6 +68,8 @@ pub enum Hardfork {
     Luban,
     /// Plato.
     Plato,
+    /// Hertz
+    Hertz,
 }
 
 impl Hardfork {
