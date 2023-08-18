@@ -14,7 +14,7 @@ use crate::types::hash::H160;
 // v
 // r
 // s
-#[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
+#[derive(Debug, Clone, PartialEq, Eq, RlpEncodable, Default)]
 pub struct Transaction {
     pub nonce: U256,
     pub gas_price: U128,
@@ -24,132 +24,67 @@ pub struct Transaction {
     pub data: Bytes,
 }
 
-impl Default for Transaction {
-    fn default() -> Self {
-        Self {
-            nonce: U256::zero(),
-            gas_price: U128::zero(),
-            gas_limit: U256::zero(),
-            to: H160::zero(),
-            value: U256::zero(),
-            data: Bytes::new(),
-        }
-    }
-}
-
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+    fn decode(buf: &mut &[u8]) -> Result<(), DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
-        let tx_header = match Header::decode_from_info(buf, tx_header_info) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode header: {:?}", e);
-                return Err(e);
-            }
-        };
-
-        if !tx_header.list {
+        let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
+        if !tx_metadata.list {
             return Err(DecodeError::UnexpectedString);
         }
 
-        let payload_view = &mut &buf[..tx_header.payload_length];
+        let payload_view = &mut &buf[..tx_metadata.payload_length];
 
-        let _nonce = match u64::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!("Failed to decode nonce: {:?}", e);
-                return Err(e);
-            }
-        };
-
-        let _gas_price = match u64::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!("Failed to decode gas price: {:?}", e);
-                return Err(e);
-            }
-        };
+        let nonce = u64::decode(payload_view)?;
+        let gas_price = u64::decode(payload_view)?;
 
         // skip gas limit
-        let h = match HeaderInfo::decode(payload_view) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode gas price header: {:?}", e);
-                return Err(e);
-            }
-        };
+        HeaderInfo::skip_next_item(payload_view)?;
 
-        payload_view.advance(h.total_len);
-
-        let _recipient = match H160::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!(
-                    "Failed to decode recipient: {:?}, for hash tx: https://bscscan.com/tx/0x{}",
-                    e, hash
-                );
-                return Err(e);
-            }
-        };
+        let recipient = H160::decode(payload_view)?;
 
         // skip value
-        let h = match HeaderInfo::decode(payload_view) {
-            Ok(h) => h,
-            Err(e) => {
-                println!("Failed to decode value header: {:?}", e);
-                return Err(e);
-            }
-        };
+        HeaderInfo::skip_next_item(payload_view)?;
 
-        payload_view.advance(h.total_len);
+        let _data = Bytes::decode(payload_view)?;
 
-        let _data = match Bytes::decode(payload_view) {
-            Ok(n) => n,
-            Err(e) => {
-                println!("Failed to decode data: {:?}", e);
-                return Err(e);
-            }
-        };
+        println!(
+            "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, hash
+        );
 
-        // println!(
-        //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-        //     nonce, gas_price, recipient, hash
-        // );
+        //  we skip v, r, s
+        buf.advance(tx_metadata.payload_length);
 
-        // we skip v, r, s
-        buf.advance(tx_header.payload_length);
-
-        Ok(Transaction::default())
+        Ok(())
     }
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<Vec<Transaction>, DecodeError> {
-    let h = Header::decode(buf)?;
-    if !h.list {
+pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
+    let metadata = Header::decode(buf)?;
+    if !metadata.list {
         return Err(DecodeError::UnexpectedString);
     }
 
-    let payload_view = &mut &buf[..h.payload_length];
+    // note that for processing we are just "viewing" into the data
+    // original buffer remains the same
+    // the data for processing is of length specified in the RLP header a.k.a metadata
+    let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
         Transaction::decode(payload_view)?;
     }
 
-    buf.advance(h.payload_length);
-
-    Ok(Vec::new())
+    // I don't think this is actually needed, we can skip it and do nano-optimization
+    buf.advance(metadata.payload_length);
+    Ok(())
 }
 
 fn eth_tx_hash(raw_tx: &[u8]) -> String {
     let mut hasher = Keccak256::new();
     hasher.update(raw_tx);
-    let result = hasher.finalize();
-    to_hex_string(&result)
-}
-
-fn to_hex_string(bytes: &[u8]) -> String {
-    bytes
+    hasher
+        .finalize()
         .iter()
         .map(|byte| format!("{:02x}", byte))
         .collect::<Vec<String>>()
