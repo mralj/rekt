@@ -2,16 +2,16 @@ use open_fastrlp::Decodable;
 
 use crate::types::hash::H256;
 
-use super::protocol::EthMessages;
+use super::eth_message::EthMessage;
 use super::types::errors::ETHError;
-use super::types::eth_message::EthMessage;
+use super::types::protocol::EthProtocol;
 use super::types::transaction::decode_txs;
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<(), ETHError> {
     match msg.id {
-        EthMessages::TransactionsMsg => handle_txs(msg),
-        EthMessages::PooledTransactionsMsg => handle_txs(msg),
-        EthMessages::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
+        EthProtocol::TransactionsMsg => handle_txs(msg),
+        EthProtocol::PooledTransactionsMsg => handle_txs(msg),
+        EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(()),
     }
 }

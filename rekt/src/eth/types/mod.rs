@@ -1,4 +1,3 @@
 pub mod errors;
-pub mod eth_message;
-pub mod status_message;
+pub mod protocol;
 pub mod transaction;

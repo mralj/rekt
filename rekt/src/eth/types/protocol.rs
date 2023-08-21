@@ -1,9 +1,10 @@
 use derive_more::Display;
 
+pub const ETH_PROTOCOL_OFFSET: u8 = 16;
 pub const MAX_ETH_PROTOCOL_LEN: u8 = 18;
 
 #[derive(Debug, Display, Copy, Clone, Eq, PartialEq)]
-pub enum EthMessages {
+pub enum EthProtocol {
     StatusMsg = 0x00,
     NewBlockHashesMsg = 0x01,
     TransactionsMsg = 0x02,
@@ -24,7 +25,7 @@ pub enum EthMessages {
     Unknown = 0xff,
 }
 
-impl From<u8> for EthMessages {
+impl From<u8> for EthProtocol {
     fn from(value: u8) -> Self {
         match value {
             0x00 => Self::StatusMsg,

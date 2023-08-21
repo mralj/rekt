@@ -25,7 +25,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<(), DecodeError> {
+    fn decode(buf: &mut &[u8]) -> Result<usize, DecodeError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
 
@@ -47,7 +47,7 @@ impl Transaction {
         // skip value
         HeaderInfo::skip_next_item(payload_view)?;
 
-        let _data = Bytes::decode(payload_view)?;
+        let data = Bytes::decode(payload_view)?;
 
         // println!(
         //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
@@ -55,9 +55,7 @@ impl Transaction {
         // );
 
         //  we skip v, r, s
-        buf.advance(tx_metadata.payload_length);
-
-        Ok(())
+        Ok(tx_metadata.payload_length)
     }
 }
 
@@ -72,11 +70,10 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
-        Transaction::decode(payload_view)?;
+        let tx_byte_size = Transaction::decode(payload_view)?;
+        payload_view.advance(tx_byte_size);
     }
 
-    // I don't think this is actually needed, we can skip it and do nano-optimization
-    buf.advance(metadata.payload_length);
     Ok(())
 }
 
