@@ -2,13 +2,12 @@ use bytes::{Buf, BytesMut};
 use derive_more::Display;
 use open_fastrlp::{Decodable, DecodeError};
 
-use crate::eth::eth_message::BASE_PROTOCOL_OFFSET;
-use crate::eth::types::protocol::MAX_ETH_PROTOCOL_LEN;
+use crate::eth::types::protocol::{ETH_PROTOCOL_OFFSET, MAX_ETH_PROTOCOL_LEN};
 
 // when we receive message data, the first byte will be the message id
 // and the rest will be actual data
 const POSITION_OF_MSG_ID_IN_BYTE_BUFFER: usize = 1;
-const MAX_SUPPORTED_MESSAGE_ID: u8 = BASE_PROTOCOL_OFFSET + MAX_ETH_PROTOCOL_LEN;
+const MAX_SUPPORTED_MESSAGE_ID: u8 = ETH_PROTOCOL_OFFSET + MAX_ETH_PROTOCOL_LEN;
 
 #[derive(Debug, Display, Clone, Eq, PartialEq)]
 pub enum MessageKind {
@@ -37,7 +36,7 @@ impl P2pWireMessage {
     fn decode_kind(id: u8) -> Result<MessageKind, DecodeError> {
         match id {
             0x0..=0x03 => Ok(MessageKind::P2P),
-            BASE_PROTOCOL_OFFSET..=MAX_SUPPORTED_MESSAGE_ID => Ok(MessageKind::ETH),
+            ETH_PROTOCOL_OFFSET..=MAX_SUPPORTED_MESSAGE_ID => Ok(MessageKind::ETH),
             _ => Err(DecodeError::Custom("Decoded message id out of bounds")),
         }
     }

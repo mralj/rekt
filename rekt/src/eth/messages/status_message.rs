@@ -11,7 +11,7 @@ use tracing::error;
 use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
-use crate::eth::types::protocol::EthMessages;
+use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::protocol::ProtocolVersion;
 use crate::types::hash::H256;
 
@@ -113,16 +113,16 @@ impl StatusMessage {
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                EthMessage::new(EthMessages::StatusMsg, status_rlp)
+                EthMessage::new(EthProtocol::StatusMsg, status_rlp)
             }),
-            ProtocolVersion::Eth68 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
+            ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
                 let status = Self {
                     version: 67,
                     ..Self::default()
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                EthMessage::new(EthMessages::StatusMsg, status_rlp)
+                EthMessage::new(EthProtocol::StatusMsg, status_rlp)
             }),
         }
         .clone()
@@ -210,7 +210,7 @@ impl UpgradeStatusMessage {
         OUR_UPGRADE_STATUS_MESSAGE
             .get_or_init(|| {
                 EthMessage::new(
-                    EthMessages::UpgradeStatusMsg,
+                    EthProtocol::UpgradeStatusMsg,
                     UpgradeStatusMessage::default().rlp_encode(),
                 )
             })

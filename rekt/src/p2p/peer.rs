@@ -10,7 +10,7 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
-use crate::eth::types::protocol::EthMessages;
+use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
@@ -79,7 +79,7 @@ impl Peer {
     async fn handshake(&mut self) -> Result<(), P2PError> {
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
 
-        if msg.id != EthMessages::StatusMsg {
+        if msg.id != EthProtocol::StatusMsg {
             error!("Expected status message, got {:?}", msg.id);
             return Err(P2PError::ExpectedStatusMessage);
         }
@@ -104,7 +104,7 @@ impl Peer {
 
         self.connection.send(UpgradeStatusMessage::get()).await?;
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        if msg.id != EthMessages::UpgradeStatusMsg {
+        if msg.id != EthProtocol::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
         }
 

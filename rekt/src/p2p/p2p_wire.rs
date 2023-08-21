@@ -6,7 +6,8 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
-use crate::eth::eth_message::{EthMessage, BASE_PROTOCOL_OFFSET};
+use crate::eth::eth_message::EthMessage;
+use crate::eth::types::protocol::ETH_PROTOCOL_OFFSET;
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
@@ -198,7 +199,7 @@ impl Sink<EthMessage> for P2PWire {
             .compress(&item.data, &mut compressed[1..])
             .map_err(|_err| P2PError::SnappyCompressError)?;
 
-        compressed[0] = item.id as u8 + BASE_PROTOCOL_OFFSET;
+        compressed[0] = item.id as u8 + ETH_PROTOCOL_OFFSET;
         compressed.truncate(compressed_size + 1);
 
         self.writer_queue.push_back(compressed);
