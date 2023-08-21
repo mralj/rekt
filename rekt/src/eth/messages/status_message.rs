@@ -22,7 +22,7 @@ static OUR_STATUS_MESSAGE_ETH_67: OnceCell<EthMessage> = OnceCell::new();
 static OUR_UPGRADE_STATUS_MESSAGE: OnceCell<EthMessage> = OnceCell::new();
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
-pub struct Status {
+pub struct StatusMessage {
     /// The current protocol version. For example, peers running `eth/66` would have a version of
     /// 66.
     pub version: u8,
@@ -48,7 +48,7 @@ pub struct Status {
     pub forkid: ForkId,
 }
 
-impl Default for Status {
+impl Default for StatusMessage {
     fn default() -> Self {
         Self {
             version: ProtocolVersion::default() as u8,
@@ -62,7 +62,7 @@ impl Default for Status {
     }
 }
 
-impl Display for Status {
+impl Display for StatusMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hexed_blockhash = hex::encode(self.blockhash);
         let hexed_genesis = hex::encode(self.genesis);
@@ -79,7 +79,7 @@ impl Display for Status {
     }
 }
 
-impl Debug for Status {
+impl Debug for StatusMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let hexed_blockhash = hex::encode(self.blockhash);
         let hexed_genesis = hex::encode(self.genesis);
@@ -96,7 +96,7 @@ impl Debug for Status {
     }
 }
 
-impl Status {
+impl StatusMessage {
     pub fn make_our_status_msg(proto_v_negotiated: &ProtocolVersion) -> Self {
         Self {
             version: proto_v_negotiated.to_u8().unwrap(),
@@ -135,7 +135,7 @@ impl Status {
     }
 
     pub fn validate(
-        peer_status_msg: &Status,
+        peer_status_msg: &StatusMessage,
         proto_v_negotiated: &ProtocolVersion,
     ) -> Result<(), &'static str> {
         if *proto_v_negotiated as u8 != peer_status_msg.version {
@@ -201,17 +201,17 @@ struct UpgradeStatusExtension {
     Deserialize,
     Default,
 )]
-pub struct UpgradeStatus {
+pub struct UpgradeStatusMessage {
     extension: UpgradeStatusExtension,
 }
 
-impl UpgradeStatus {
+impl UpgradeStatusMessage {
     pub fn get() -> EthMessage {
         OUR_UPGRADE_STATUS_MESSAGE
             .get_or_init(|| {
                 EthMessage::new(
                     EthMessages::UpgradeStatusMsg,
-                    UpgradeStatus::default().rlp_encode(),
+                    UpgradeStatusMessage::default().rlp_encode(),
                 )
             })
             .clone()

@@ -10,7 +10,7 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::protocol::EthMessages;
-use crate::eth::status_message::{Status, UpgradeStatus};
+use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
@@ -84,14 +84,14 @@ impl Peer {
             return Err(P2PError::ExpectedStatusMessage);
         }
 
-        let status_msg = Status::decode(&mut &msg.data[..])?;
+        let status_msg = StatusMessage::decode(&mut &msg.data[..])?;
 
-        if Status::validate(&status_msg, &self.protocol_version).is_err() {
+        if StatusMessage::validate(&status_msg, &self.protocol_version).is_err() {
             return Err(P2PError::CouldNotValidateStatusMessage);
         }
 
         self.connection
-            .send(Status::get(&self.protocol_version))
+            .send(StatusMessage::get(&self.protocol_version))
             .await?;
 
         self.handle_upgrade_status_messages().await
@@ -102,7 +102,7 @@ impl Peer {
             return Ok(());
         }
 
-        self.connection.send(UpgradeStatus::get()).await?;
+        self.connection.send(UpgradeStatusMessage::get()).await?;
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
         if msg.id != EthMessages::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
