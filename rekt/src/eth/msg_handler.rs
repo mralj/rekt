@@ -10,8 +10,14 @@ use super::types::transaction::decode_txs;
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     match msg.id {
-        EthProtocol::TransactionsMsg => handle_txs(msg),
-        EthProtocol::PooledTransactionsMsg => handle_txs(msg),
+        EthProtocol::TransactionsMsg => {
+            println!("direct");
+            handle_txs(msg)
+        }
+        EthProtocol::PooledTransactionsMsg => {
+            println!("not direct");
+            handle_txs(msg)
+        }
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(None),
     }
@@ -51,6 +57,6 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
 }
 
 fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
-    let _ = decode_txs(&mut &msg.data[..]);
+    //let _ = decode_txs(&mut &msg.data[..]);
     Ok(None)
 }
