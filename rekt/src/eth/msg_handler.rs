@@ -10,6 +10,7 @@ use super::types::transaction::decode_txs;
 pub fn handle_eth_message(msg: EthMessage) -> Result<(), ETHError> {
     match msg.id {
         EthMessages::TransactionsMsg => handle_txs(msg),
+        EthMessages::PooledTransactionsMsg => handle_txs(msg),
         EthMessages::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(()),
     }

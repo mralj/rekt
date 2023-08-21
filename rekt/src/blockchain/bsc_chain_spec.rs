@@ -45,7 +45,13 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| {
             (Hardfork::Gibbs, ForkCondition::Block(23846001)),
             (Hardfork::Planck, ForkCondition::Block(27281024)),
             (Hardfork::Luban, ForkCondition::Block(29020050)),
-            (Hardfork::Plato, ForkCondition::Never),
+            (Hardfork::Plato, ForkCondition::Block(30720096)),
+            // These 3 being the same is not a bug
+            // From official repo:
+            // TODO modify blockNumber, make sure HertzBlock=BerlinBlock=LondonBlock to enable Berlin and London EIPs
+            (Hardfork::Berlin, ForkCondition::Block(31302048)),
+            (Hardfork::London, ForkCondition::Block(31302048)),
+            (Hardfork::Hertz, ForkCondition::Block(31302048)),
         ]),
     }
 });

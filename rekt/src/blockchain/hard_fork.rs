@@ -34,10 +34,6 @@ pub enum Hardfork {
     Istanbul,
     /// Muir Glacier.
     MuirGlacier,
-    /// Berlin.
-    Berlin,
-    /// London.
-    London,
     /// Arrow Glacier.
     ArrowGlacier,
     /// Gray Glacier.
@@ -68,6 +64,12 @@ pub enum Hardfork {
     Luban,
     /// Plato.
     Plato,
+    /// Berlin.
+    Berlin,
+    /// London.
+    London,
+    /// Hertz
+    Hertz,
 }
 
 impl Hardfork {

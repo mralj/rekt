@@ -160,6 +160,13 @@ impl HeaderInfo {
 
         Ok(h)
     }
+
+    pub fn skip_next_item(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        let h = HeaderInfo::decode(buf)?;
+        buf.advance(h.total_len);
+
+        Ok(h)
+    }
 }
 
 fn static_left_pad<const LEN: usize>(data: &[u8]) -> Option<[u8; LEN]> {
