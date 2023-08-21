@@ -10,7 +10,7 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::protocol::EthMessages;
-use crate::eth::types::status_message::{Status, UpgradeStatus};
+use crate::eth::status_message::{Status, UpgradeStatus};
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};

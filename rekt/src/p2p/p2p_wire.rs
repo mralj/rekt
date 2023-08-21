@@ -6,7 +6,7 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
-use crate::eth::types::eth_message::{EthMessage, BASE_PROTOCOL_OFFSET};
+use crate::eth::eth_message::{EthMessage, BASE_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 

@@ -2,8 +2,8 @@ use bytes::{Buf, BytesMut};
 use derive_more::Display;
 use open_fastrlp::{Decodable, DecodeError};
 
+use crate::eth::eth_message::BASE_PROTOCOL_OFFSET;
 use crate::eth::protocol::MAX_ETH_PROTOCOL_LEN;
-use crate::eth::types::eth_message::BASE_PROTOCOL_OFFSET;
 
 // when we receive message data, the first byte will be the message id
 // and the rest will be actual data
