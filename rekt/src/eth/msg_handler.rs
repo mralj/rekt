@@ -52,7 +52,7 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
 
 fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     let _ = match msg.id {
-        //EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
+        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
         EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
         _ => Ok(()),
     };
