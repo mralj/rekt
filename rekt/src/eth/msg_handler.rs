@@ -3,8 +3,8 @@ use open_fastrlp::Decodable;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
-use super::protocol::EthMessages;
 use super::types::errors::ETHError;
+use super::types::protocol::EthMessages;
 use super::types::transaction::decode_txs;
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<(), ETHError> {

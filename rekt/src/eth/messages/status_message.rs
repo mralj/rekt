@@ -11,7 +11,7 @@ use tracing::error;
 use crate::blockchain::bsc_chain_spec::{BSC_MAINNET_FORK_FILTER, BSC_MAINNET_FORK_ID};
 use crate::blockchain::fork::ForkId;
 use crate::blockchain::BSC_MAINNET;
-use crate::eth::protocol::EthMessages;
+use crate::eth::types::protocol::EthMessages;
 use crate::p2p::protocol::ProtocolVersion;
 use crate::types::hash::H256;
 
@@ -115,7 +115,7 @@ impl StatusMessage {
                 status.encode(&mut status_rlp);
                 EthMessage::new(EthMessages::StatusMsg, status_rlp)
             }),
-            ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
+            ProtocolVersion::Eth68 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
                 let status = Self {
                     version: 67,
                     ..Self::default()
