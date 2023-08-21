@@ -3,20 +3,21 @@ use open_fastrlp::Decodable;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
+use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 use super::types::transaction::decode_txs;
 
-pub fn handle_eth_message(msg: EthMessage) -> Result<(), ETHError> {
+pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
-        _ => Ok(()),
+        _ => Ok(None),
     }
 }
 
-fn handle_tx_hashes(msg: EthMessage) -> Result<(), ETHError> {
+fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -41,12 +42,15 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<(), ETHError> {
     // vector to allocate on stack
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
-    let _hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    Ok(())
+    Ok(Some(EthMessage {
+        id: EthProtocol::GetPooledTransactionsMsg,
+        data: TransactionsRequest::new(hashes).rlp_encode(),
+    }))
 }
 
-fn handle_txs(msg: EthMessage) -> Result<(), ETHError> {
+fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     let _ = decode_txs(&mut &msg.data[..]);
-    Ok(())
+    Ok(None)
 }
