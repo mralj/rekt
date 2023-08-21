@@ -59,6 +59,16 @@ impl Transaction {
     }
 }
 
+pub fn decode_txs_request(buf: &mut &[u8]) -> Result<(), DecodeError> {
+    let h = Header::decode(buf)?;
+    if !h.list {
+        return Err(DecodeError::UnexpectedString);
+    }
+    // skip decoding request id
+    HeaderInfo::skip_next_item(buf)?;
+    decode_txs(buf)
+}
+
 pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {

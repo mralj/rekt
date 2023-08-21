@@ -72,7 +72,10 @@ impl Peer {
                 // by stream definition when Poll::Ready(None) is returned this means that
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
-            let _ = eth::msg_handler::handle_eth_message(msg);
+
+            if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(msg) {
+                self.connection.send(msg).await?;
+            }
         }
     }
 
