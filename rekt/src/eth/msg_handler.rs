@@ -6,7 +6,7 @@ use super::eth_message::EthMessage;
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
-use super::types::transaction::decode_txs;
+use super::types::transaction::{decode_txs, decode_txs_request};
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     match msg.id {
@@ -51,6 +51,11 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
 }
 
 fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
-    let _ = decode_txs(&mut &msg.data[..]);
+    let _ = match msg.id {
+        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
+        EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
+        _ => Ok(()),
+    };
+
     Ok(None)
 }
