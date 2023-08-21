@@ -49,10 +49,10 @@ impl Transaction {
 
         let _data = Bytes::decode(payload_view)?;
 
-        println!(
-            "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-            nonce, gas_price, recipient, hash
-        );
+        // println!(
+        //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+        //     nonce, gas_price, recipient, hash
+        // );
 
         //  we skip v, r, s
         buf.advance(tx_metadata.payload_length);
