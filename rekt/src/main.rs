@@ -26,19 +26,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let our_node_pk =
         secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_node_sk);
 
-    tokio::spawn(async move {
-        let inbound_connections = InboundConnections::new(our_node_sk, our_node_pk);
-        let _ = inbound_connections.run().await;
-    });
+    let inbound_connections = InboundConnections::new(our_node_sk, our_node_pk);
+    let _ = inbound_connections.start();
 
-    tokio::spawn(async move {
-        let outbound_connections = Arc::new(OutboundConnections::new(
-            config.nodes,
-            our_node_sk,
-            our_node_pk,
-        ));
-        OutboundConnections::start(outbound_connections).await;
-    });
+    let outbound_connections = Arc::new(OutboundConnections::new(
+        config.nodes,
+        our_node_sk,
+        our_node_pk,
+    ));
+    OutboundConnections::start(outbound_connections).await;
 
     let _ = tokio::signal::ctrl_c().await;
 

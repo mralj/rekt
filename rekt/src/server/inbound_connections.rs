@@ -21,9 +21,17 @@ impl InboundConnections {
         }
     }
 
-    pub async fn run(&self) -> Result<(), io::Error> {
+    pub fn start(&self) {
+        let this = self.clone();
+        tokio::task::spawn(async move { this.run_udp().await });
+
+        let this = self.clone();
+        tokio::task::spawn(async move { this.run_tcp().await });
+    }
+
+    async fn run_udp(&self) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
-        println!("Server listening on 0.0.0.0:{}", DEFAULT_PORT);
+        println!("UDP listening on 0.0.0.0:{}", DEFAULT_PORT);
 
         let mut buf = vec![0u8; 1280];
         loop {
@@ -39,6 +47,39 @@ impl InboundConnections {
                     println!("failed to receive from socket; err = {:?}", e);
                 }
             }
+        }
+    }
+
+    async fn run_tcp(&self) -> Result<(), io::Error> {
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
+        println!("TCP Server listening on 0.0.0.0:{}", DEFAULT_PORT);
+
+        loop {
+            let (mut socket, addr) = listener.accept().await?;
+
+            println!("Accepted connection from {}", addr);
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 1024];
+
+                loop {
+                    match socket.read(&mut buf).await {
+                        // Return or break depending on your application's needs
+                        Ok(n) if n == 0 => return, // EOF
+                        Ok(n) => {
+                            // Echo back to the client
+                            if let Err(e) = socket.write_all(&buf[..n]).await {
+                                eprintln!("Failed to write to socket: {}", e);
+                                return;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to read from socket: {}", e);
+                            return;
+                        }
+                    }
+                }
+            });
         }
     }
 }
