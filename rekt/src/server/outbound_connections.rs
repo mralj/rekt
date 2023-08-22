@@ -57,9 +57,9 @@ impl OutboundConnections {
             retry_runner.run_retirer().await;
         });
 
-        tokio::task::spawn(async move {
-            log_runner.run_logger().await;
-        });
+        // tokio::task::spawn(async move {
+        //     log_runner.run_logger().await;
+        // });
 
         for node in self.nodes.iter() {
             let task = ConnectionTask::new(node);
