@@ -31,22 +31,18 @@ pub struct OutboundConnections {
 }
 
 impl OutboundConnections {
-    pub fn new(nodes: Vec<String>) -> Self {
-        let our_private_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-        let our_pub_key =
-            secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_private_key);
-
+    pub fn new(nodes: Vec<String>, our_node_sk: SecretKey, our_node_pk: PublicKey) -> Self {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
         Self {
             nodes,
-            our_pub_key,
-            our_private_key,
             conn_rx,
             conn_tx,
             retry_rx,
             retry_tx,
+            our_pub_key: our_node_pk,
+            our_private_key: our_node_sk,
         }
     }
 

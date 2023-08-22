@@ -5,11 +5,11 @@ use once_cell::sync::OnceCell;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
+use crate::constants::DEFAULT_PORT;
 use crate::p2p::protocol::Protocol;
 use crate::types::hash::H512;
 
 const DEFAULT_P2P_PROTOCOL_VERSION: usize = 5;
-const DEFAULT_PORT: usize = 30311;
 static OUR_HELLO_MESSAGE_RLP_ENCODED: OnceCell<BytesMut> = OnceCell::new();
 
 /// Message used in the `p2p` handshake, containing information about the supported RLPx protocol
