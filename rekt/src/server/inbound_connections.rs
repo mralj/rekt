@@ -22,8 +22,8 @@ impl InboundConnections {
     }
 
     pub async fn run(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(format!("127.0.0.1:{}", DEFAULT_PORT)).await?;
-        println!("Server listening on 127.0.0.1:{}", DEFAULT_PORT);
+        let socket = UdpSocket::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
+        println!("Server listening on 0.0.0.0:{}", DEFAULT_PORT);
 
         let mut buf = vec![0u8; 1280];
         loop {
