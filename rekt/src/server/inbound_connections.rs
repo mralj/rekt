@@ -1,7 +1,7 @@
 use secp256k1::{PublicKey, SecretKey};
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, UdpSocket};
 
 use crate::constants::DEFAULT_PORT;
 
@@ -22,35 +22,16 @@ impl InboundConnections {
     }
 
     pub async fn run(&self) -> Result<(), io::Error> {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", DEFAULT_PORT)).await?;
+        let socket = UdpSocket::bind(format!("127.0.0.1:{}", DEFAULT_PORT)).await?;
         println!("Server listening on 127.0.0.1:{}", DEFAULT_PORT);
 
+        let mut buf = vec![0u8; 1280];
         loop {
-            let (mut socket, addr) = listener.accept().await?;
-
-            println!("Accepted connection from {}", addr);
-
-            tokio::spawn(async move {
-                let mut buf = vec![0u8; 1024];
-
-                loop {
-                    match socket.read(&mut buf).await {
-                        // Return or break depending on your application's needs
-                        Ok(n) if n == 0 => return, // EOF
-                        Ok(n) => {
-                            // Echo back to the client
-                            if let Err(e) = socket.write_all(&buf[..n]).await {
-                                eprintln!("Failed to write to socket: {}", e);
-                                return;
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to read from socket: {}", e);
-                            return;
-                        }
-                    }
-                }
-            });
+            // Receive data into the buffer. This will wait until data is sent to the specified address.
+            let (size, src) = socket.recv_from(&mut buf).await?;
+            println!("Received from {}, data: {:?}", src, &buf[..size]);
+            // Echo the data back to the sender
+            socket.send_to(&buf[..size], &src).await?;
         }
     }
 }
