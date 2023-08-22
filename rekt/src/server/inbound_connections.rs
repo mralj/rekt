@@ -22,16 +22,23 @@ impl InboundConnections {
     }
 
     pub async fn run(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind("0.0.0.0:0").await?;
-        println!("Server listening on 0.0.0.0:0");
+        let socket = UdpSocket::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
+        println!("Server listening on 0.0.0.0:{}", DEFAULT_PORT);
 
         let mut buf = vec![0u8; 1280];
         loop {
             // Receive data into the buffer. This will wait until data is sent to the specified address.
-            let (size, src) = socket.recv_from(&mut buf).await?;
-            println!("Received from {}, data: {:?}", src, &buf[..size]);
-            // Echo the data back to the sender
-            socket.send_to(&buf[..size], &src).await?;
+            let req = socket.recv_from(&mut buf).await;
+            match req {
+                Ok((size, src)) => {
+                    println!("Received from {}, data: {:?}", src, &buf[..size]);
+                    // Echo the data back to the sender
+                    socket.send_to(&buf[..size], &src).await?;
+                }
+                Err(e) => {
+                    println!("failed to receive from socket; err = {:?}", e);
+                }
+            }
         }
     }
 }
