@@ -1,14 +1,16 @@
 use std::io;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
+use crate::constants::DEFAULT_PORT;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
@@ -48,9 +50,16 @@ pub fn connect_to_node(
 
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
+
+        let socket = map_err!(TcpSocket::new_v4());
+        map_err!(socket.bind(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_PORT,
+        ))));
+
         let stream = map_err!(match timeout(
             Duration::from_secs(5),
-            TcpStream::connect(node.get_socket_addr()),
+            socket.connect(node.get_socket_addr()),
         )
         .await
         {
