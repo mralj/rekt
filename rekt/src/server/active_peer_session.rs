@@ -59,8 +59,20 @@ pub fn connect_to_node(
             }
         };
 
-        socket.set_reuseport(true);
-        socket.set_reuseaddr(true);
+        match socket.set_reuseport(true) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to set reuseport: {:?}", e);
+                return;
+            }
+        }
+        match socket.set_reuseaddr(true) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to set reuse addr: {:?}", e);
+                return;
+            }
+        }
 
         match socket.bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
