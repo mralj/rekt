@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
 use secp256k1::{PublicKey, SecretKey};
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -30,8 +32,12 @@ impl InboundConnections {
     }
 
     async fn run_udp(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
-        println!("UDP listening on 0.0.0.0:{}", DEFAULT_PORT);
+        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_PORT,
+        )))
+        .await?;
+        println!("UDP listening on {}", socket.local_addr()?);
 
         let mut buf = vec![0u8; 1280];
         loop {
@@ -51,8 +57,12 @@ impl InboundConnections {
     }
 
     async fn run_tcp(&self) -> Result<(), io::Error> {
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", DEFAULT_PORT)).await?;
-        println!("TCP Server listening on 0.0.0.0:{}", DEFAULT_PORT);
+        let listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_PORT,
+        )))
+        .await?;
+        println!("TCP Server listening on {}", listener.local_addr()?);
 
         loop {
             let (mut socket, addr) = listener.accept().await?;

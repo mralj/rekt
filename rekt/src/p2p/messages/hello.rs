@@ -29,7 +29,7 @@ pub struct HelloMessage {
     // But! GETH node also prints for the majority of nodes this field as 0
     // What's more, in the GETH code I don't see that when we are sending hello message this field
     // is even set
-    pub port: usize,
+    pub port: u16,
     /// The secp256k1 public key corresponding to the node's private key.
     pub id: H512,
 }

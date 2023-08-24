@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_node_sk);
 
     let inbound_connections = InboundConnections::new(our_node_sk, our_node_pk);
-    let _ = inbound_connections.start();
+    inbound_connections.start();
 
     let outbound_connections = Arc::new(OutboundConnections::new(
         config.nodes,
