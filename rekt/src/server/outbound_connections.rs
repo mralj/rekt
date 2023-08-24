@@ -6,6 +6,7 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::select;
 use tokio::time::interval;
 
+use crate::constants::OUR_NODE;
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::RLPXSessionError;
@@ -34,6 +35,9 @@ impl OutboundConnections {
     pub fn new(nodes: Vec<String>, our_node_sk: SecretKey, our_node_pk: PublicKey) -> Self {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
+
+        let mut nodes = nodes.clone();
+        nodes.push(OUR_NODE[0].to_string());
 
         Self {
             nodes,
