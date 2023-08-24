@@ -45,7 +45,7 @@ impl InboundConnections {
             let req = socket.recv_from(&mut buf).await;
             match req {
                 Ok((size, src)) => {
-                    println!("Received from {}, data: {:?}", src, &buf[..size]);
+                    //  println!("Received from {}, data: {:?}", src, &buf[..size]);
                     // Echo the data back to the sender
                     socket.send_to(&buf[..size], &src).await?;
                 }
@@ -92,7 +92,6 @@ impl InboundConnections {
         }
         println!("TCP Server listening on {}", socket.local_addr()?);
 
-        let listener = socket.listen(1024)?;
         loop {
             let (mut socket, addr) = listener.accept().await?;
 
