@@ -3,7 +3,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use secp256k1::{PublicKey, SecretKey};
 use tokio::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, UdpSocket};
+use tokio::net::{TcpListener, TcpSocket, UdpSocket};
 
 use crate::constants::DEFAULT_PORT;
 
@@ -27,8 +27,8 @@ impl InboundConnections {
         let this = self.clone();
         tokio::task::spawn(async move { this.run_udp().await });
 
-        // let this = self.clone();
-        // tokio::task::spawn(async move { this.run_tcp().await });
+        let this = self.clone();
+        tokio::task::spawn(async move { this.run_tcp().await });
     }
 
     async fn run_udp(&self) -> Result<(), io::Error> {
@@ -57,13 +57,42 @@ impl InboundConnections {
     }
 
     async fn run_tcp(&self) -> Result<(), io::Error> {
-        let listener = TcpListener::bind(SocketAddr::V4(SocketAddrV4::new(
+        let socket = match TcpSocket::new_v4() {
+            Ok(socket) => socket,
+            Err(e) => {
+                println!("Failed to create socket: {:?}", e);
+                return Err(e);
+            }
+        };
+
+        match socket.set_reuseport(true) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to set reuseport: {:?}", e);
+                return Err(e);
+            }
+        }
+        match socket.set_reuseaddr(true) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to set reuse addr: {:?}", e);
+                return Err(e);
+            }
+        }
+
+        match socket.bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
-        )))
-        .await?;
-        println!("TCP Server listening on {}", listener.local_addr()?);
+        ))) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to bind socket: {:?}", e);
+                return Err(e);
+            }
+        }
+        println!("TCP Server listening on {}", socket.local_addr()?);
 
+        let listener = socket.listen(1024)?;
         loop {
             let (mut socket, addr) = listener.accept().await?;
 
