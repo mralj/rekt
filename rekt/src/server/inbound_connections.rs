@@ -27,8 +27,8 @@ impl InboundConnections {
         let this = self.clone();
         tokio::task::spawn(async move { this.run_udp().await });
 
-        let this = self.clone();
-        tokio::task::spawn(async move { this.run_tcp().await });
+        // let this = self.clone();
+        // tokio::task::spawn(async move { this.run_tcp().await });
     }
 
     async fn run_udp(&self) -> Result<(), io::Error> {
