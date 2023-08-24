@@ -51,11 +51,27 @@ pub fn connect_to_node(
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
 
-        let socket = map_err!(TcpSocket::new_v4());
-        map_err!(socket.bind(SocketAddr::V4(SocketAddrV4::new(
+        let socket = match TcpSocket::new_v4() {
+            Ok(socket) => socket,
+            Err(e) => {
+                println!("Failed to create socket: {:?}", e);
+                return;
+            }
+        };
+
+        socket.set_reuseport(true);
+        socket.set_reuseaddr(true);
+
+        match socket.bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
-        ))));
+        ))) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Failed to bind socket: {:?}", e);
+                return;
+            }
+        }
 
         let stream = map_err!(match timeout(
             Duration::from_secs(5),
