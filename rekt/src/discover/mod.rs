@@ -1,9 +1,12 @@
+pub mod decoder;
+
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 use tokio::net::UdpSocket;
 
 use crate::constants::DEFAULT_PORT;
+use crate::discover::decoder::{decode_msg, packet_size_is_valid};
 
 pub async fn run_udp() -> Result<(), io::Error> {
     let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
@@ -18,10 +21,12 @@ pub async fn run_udp() -> Result<(), io::Error> {
         // Receive data into the buffer. This will wait until data is sent to the specified address.
         let req = socket.recv_from(&mut buf).await;
         match req {
-            Ok((size, src)) => {
-                println!("Received from {:?}, data: {:?}", src, &buf[..size]);
-                // Echo the data back to the sender
-                socket.send_to(&buf[..size], &src).await?;
+            Ok((size, _src)) => {
+                if !packet_size_is_valid(size) {
+                    continue;
+                }
+
+                decode_msg(&buf[..size]);
             }
             Err(e) => {
                 println!("failed to receive from socket; err = {:?}", e);
