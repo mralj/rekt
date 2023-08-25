@@ -2,6 +2,7 @@ use std::fs::File;
 use std::sync::Arc;
 
 use rekt::config::get_config;
+use rekt::discover::run_udp;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use tracing::Level;
@@ -22,6 +23,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let outbound_connections = Arc::new(OutboundConnections::new(config.nodes));
     OutboundConnections::start(outbound_connections).await;
+
+    tokio::task::spawn(async move {
+        let _ = run_udp().await;
+    });
 
     let _ = tokio::signal::ctrl_c().await;
 
