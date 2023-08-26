@@ -2,15 +2,15 @@
 // https://github.com/ethereum/devp2p/blob/master/discv4.md
 const HASH_SIZE: usize = 32;
 const SIGNATURE_SIZE: usize = 65;
-const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE;
+const TYPE_SIZE: usize = 1;
+const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE + TYPE_SIZE;
 // Discovery packets are defined to be no larger than 1280 bytes.
 // Packets larger than this size will be cut at the end and treated
 // as invalid because their hash won't match.
 const MAX_PACKET_SIZE: usize = 1280;
-const MESSAGE_TYPE_POSITION: usize = HEADER_SIZE + 1;
 
 pub fn packet_size_is_valid(size: usize) -> bool {
-    if size <= HEADER_SIZE {
+    if size < HEADER_SIZE {
         return false;
     }
 
@@ -22,7 +22,11 @@ pub fn packet_size_is_valid(size: usize) -> bool {
 }
 
 pub fn decode_msg_type(buf: &[u8]) {
-    let msg_type = buf[MESSAGE_TYPE_POSITION];
+    //hash, sig, sigdata := input[:macSize], input[macSize:headSize], input[headSize:]
+    let hash = &buf[..HASH_SIZE];
+    let signature = &buf[HASH_SIZE..HEADER_SIZE];
+    let msg_type = &buf[HEADER_SIZE..][0];
+    let msg_data = &buf[HEADER_SIZE + TYPE_SIZE..];
 
     match msg_type {
         1 => println!("Ping"),
