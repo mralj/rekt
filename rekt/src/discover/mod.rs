@@ -6,7 +6,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tokio::net::UdpSocket;
 
 use crate::constants::DEFAULT_PORT;
-use crate::discover::decoder::{decode_msg, packet_size_is_valid};
+use crate::discover::decoder::{decode_msg_type, packet_size_is_valid};
 
 pub async fn run_udp() -> Result<(), io::Error> {
     let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
@@ -26,7 +26,7 @@ pub async fn run_udp() -> Result<(), io::Error> {
                     continue;
                 }
 
-                decode_msg(&buf[..size]);
+                decode_msg_type(&buf[..size]);
             }
             Err(e) => {
                 println!("failed to receive from socket; err = {:?}", e);
