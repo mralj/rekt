@@ -7,7 +7,7 @@ const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE;
 // Discovery packets are defined to be no larger than 1280 bytes.
 // Packets larger than this size will be cut at the end and treated
 // as invalid because their hash won't match.
-const MAX_PACKET_SIZE: usize = 1280;
+pub const MAX_PACKET_SIZE: usize = 1280;
 
 pub fn packet_size_is_valid(size: usize) -> bool {
     if size <= HEADER_SIZE {
@@ -22,7 +22,6 @@ pub fn packet_size_is_valid(size: usize) -> bool {
 }
 
 pub fn decode_msg_type(buf: &[u8]) {
-    //hash, sig, sigdata := input[:macSize], input[macSize:headSize], input[headSize:]
     let hash = &buf[..HASH_SIZE];
     let signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
