@@ -16,5 +16,5 @@ pub struct PingMessage {
     pub(super) from: Endpoint,
     pub(super) to: Endpoint,
     pub(super) expiration: u64,
-    //pub(super) rest: Option<u8>,
+    pub(super) enr_seq: u64,
 }
