@@ -40,7 +40,9 @@ pub fn decode_msg(buf: &[u8]) {
     match msg_type {
         1 => {
             let ping_msg = PingMessage::decode(msg_data);
-            println!("PingMessage: {:?}", ping_msg);
+            if ping_msg.is_err() {
+                println!("PingMessage decode error: {:?}", ping_msg);
+            }
         }
         5 => println!("ENRRequestPacket"),
         _ => {}
