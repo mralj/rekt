@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Endpoint {
-    pub(super) ip: String,
+    pub(super) ip: Vec<u8>,
     pub(super) udp: u16,
     pub(super) tcp: u16,
 }
 
 impl Endpoint {
-    pub fn new(ip: String, udp: u16, tcp: u16) -> Self {
+    pub fn new(ip: Vec<u8>, udp: u16, tcp: u16) -> Self {
         Self { ip, udp, tcp }
     }
 }
