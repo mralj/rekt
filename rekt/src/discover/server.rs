@@ -4,7 +4,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tokio::net::UdpSocket;
 
 use crate::constants::DEFAULT_PORT;
-use crate::discover::decoder::{decode_msg_type, packet_size_is_valid};
+use crate::discover::decoder::{decode_msg, packet_size_is_valid};
 
 use super::decoder::MAX_PACKET_SIZE;
 
@@ -23,7 +23,7 @@ pub async fn run_discovery_server() -> Result<(), io::Error> {
                 continue;
             }
 
-            decode_msg_type(&buf[..size]);
+            decode_msg(&buf[..size]);
         }
     }
 }
