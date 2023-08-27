@@ -20,4 +20,5 @@ pub struct PingMessage {
     pub(super) from: Endpoint,
     pub(super) to: Endpoint,
     pub(super) expiration: u64,
+    pub(super) rest: Vec<u8>,
 }
