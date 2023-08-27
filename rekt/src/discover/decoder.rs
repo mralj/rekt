@@ -44,7 +44,7 @@ pub fn decode_msg(buf: &[u8]) {
                 println!("PingMessage decode error: {:?}", ping_msg);
             }
         }
-        5 => println!("ENRRequestPacket"),
+        //5 => println!("ENRRequestPacket"),
         _ => {}
     }
 }
