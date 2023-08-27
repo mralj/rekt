@@ -343,6 +343,15 @@ pub fn encode_fixed_size<E: MaxEncodedLen<LEN>, const LEN: usize>(v: &E) -> Arra
     out
 }
 
+impl Encodable for std::net::IpAddr {
+    fn encode(&self, out: &mut dyn BufMut) {
+        match self {
+            std::net::IpAddr::V4(ref o) => (&o.octets()[..]).encode(out),
+            std::net::IpAddr::V6(ref o) => (&o.octets()[..]).encode(out),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate alloc;
