@@ -2,7 +2,7 @@ use std::fs::File;
 use std::sync::Arc;
 
 use rekt::config::get_config;
-use rekt::discover::server::run_discovery_server;
+use rekt::discover::server::{run_discovery_server, run_tcp};
 use rekt::server::outbound_connections::OutboundConnections;
 
 use rekt::types::node_record::NodeRecord;
@@ -38,6 +38,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::task::spawn(async move {
         let _ = run_discovery_server(&our_private_key).await;
+    });
+
+    tokio::task::spawn(async move {
+        let _ = run_tcp().await;
     });
 
     let _ = tokio::signal::ctrl_c().await;
