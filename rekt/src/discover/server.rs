@@ -30,6 +30,10 @@ pub async fn run_discovery_server() -> Result<(), io::Error> {
 
             let response = decode_msg(&buf[..size], test);
             if response.is_some() {
+                if test {
+                    println!("Sending pong to {:?}", src);
+                }
+
                 if let Err(e) = socket.send_to(&response.unwrap()[..], src).await {
                     println!("Error sending pong {:?}", e);
                 }
