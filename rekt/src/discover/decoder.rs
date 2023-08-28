@@ -30,7 +30,7 @@ pub fn packet_size_is_valid(size: usize) -> bool {
     true
 }
 
-pub fn decode_msg(buf: &[u8]) -> Option<Bytes> {
+pub fn decode_msg(buf: &[u8], is_test: bool) -> Option<Bytes> {
     let hash = &buf[..HASH_SIZE];
     let _signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
@@ -46,6 +46,10 @@ pub fn decode_msg(buf: &[u8]) -> Option<Bytes> {
             if ping_msg.is_err() {
                 println!("PingMessage decode error: {:?}", ping_msg);
                 return None;
+            }
+
+            if is_test {
+                println!("PingMessage: {:?}", ping_msg);
             }
 
             let pong_msg = PongMessage::new(ping_msg.unwrap(), H256::from_slice(hash));
