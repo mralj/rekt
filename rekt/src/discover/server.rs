@@ -18,12 +18,20 @@ pub async fn run_discovery_server() -> Result<(), io::Error> {
     let mut buf = vec![0u8; MAX_PACKET_SIZE];
     loop {
         let packet = socket.recv_from(&mut buf).await;
-        if let Ok((size, _src)) = packet {
+        if let Ok((size, src)) = packet {
             if !packet_size_is_valid(size) {
                 continue;
             }
 
-            decode_msg(&buf[..size]);
+            let response = decode_msg(&buf[..size]);
+            if response.is_some() {
+                match socket.send_to(&response.unwrap()[..], src).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Error sending pong {:?}", e);
+                    }
+                }
+            }
         }
     }
 }
