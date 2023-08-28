@@ -1,14 +1,15 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 
+use secp256k1::SecretKey;
 use tokio::net::UdpSocket;
 
 use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::{decode_msg, packet_size_is_valid};
 
-use super::decoder::MAX_PACKET_SIZE;
+use super::decoder::{create_disc_v4_packet, MAX_PACKET_SIZE};
 
-pub async fn run_discovery_server() -> Result<(), io::Error> {
+pub async fn run_discovery_server(secret_key: &SecretKey) -> Result<(), io::Error> {
     let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
         Ipv4Addr::UNSPECIFIED,
         DEFAULT_PORT,
@@ -33,10 +34,12 @@ pub async fn run_discovery_server() -> Result<(), io::Error> {
                 if test {
                     println!("Sending pong to {:?}", src);
                 }
-
-                if let Err(e) = socket.send_to(&response.unwrap()[..], src).await {
-                    println!("Error sending pong {:?}", e);
-                }
+                let _ = socket
+                    .send_to(
+                        &create_disc_v4_packet(response.unwrap(), secret_key)[..],
+                        src,
+                    )
+                    .await;
             }
         }
     }

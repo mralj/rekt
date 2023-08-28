@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     OutboundConnections::start(outbound_connections).await;
 
     tokio::task::spawn(async move {
-        let _ = run_discovery_server().await;
+        let _ = run_discovery_server(&our_private_key).await;
     });
 
     let _ = tokio::signal::ctrl_c().await;
