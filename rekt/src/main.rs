@@ -3,10 +3,9 @@ use std::sync::Arc;
 
 use rekt::config::get_config;
 use rekt::discover::server::run_discovery_server;
+use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
-use rekt::types::node_record::NodeRecord;
-use secp256k1::SecretKey;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -23,22 +22,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
-    let our_private_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-    let our_pub_key =
-        secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_private_key);
+    let our_node = LocalNode::new(public_ip::addr().await);
 
-    println!("{:?}", NodeRecord::get_local_node(our_pub_key).str);
+    println!("{:?}", our_node.node_record.str);
 
     let outbound_connections = Arc::new(OutboundConnections::new(
-        our_private_key,
-        our_pub_key,
+        our_node.private_key,
+        our_node.public_key,
         config.nodes,
     ));
     OutboundConnections::start(outbound_connections).await;
 
-    tokio::task::spawn(async move {
-        let _ = run_discovery_server(&our_private_key).await;
-    });
+    if our_node.public_ip_retrieved {
+        tokio::task::spawn(async move {
+            let _ = run_discovery_server(&our_node.private_key).await;
+        });
+    } else {
+        println!("Failed to retrieve public ip, discovery server not started");
+    }
 
     let _ = tokio::signal::ctrl_c().await;
 

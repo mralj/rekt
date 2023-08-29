@@ -1,14 +1,10 @@
-use local_ip_address::local_ip;
 use secp256k1::PublicKey;
 use std::{
-    fmt::format,
     net::{IpAddr, Ipv4Addr},
     num::ParseIntError,
     str::FromStr,
 };
 use url::{Host, Url};
-
-use crate::constants::DEFAULT_PORT;
 
 use super::hash::H512;
 
@@ -63,11 +59,6 @@ impl NodeRecord {
             ip: address.to_string(),
             str: format!("enode://{:02x}@{}:{}", id, address, tcp_port),
         }
-    }
-
-    pub fn get_local_node(pub_key: PublicKey) -> Self {
-        let local_ip = local_ip().unwrap();
-        NodeRecord::new(local_ip, DEFAULT_PORT, DEFAULT_PORT, pub_key)
     }
 }
 
