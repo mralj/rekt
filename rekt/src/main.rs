@@ -37,9 +37,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::task::spawn(async move {
             let _ = run_discovery_server(&our_node).await;
         });
-        tokio::task::spawn(async move {
-            let _ = run_tcp().await;
-        });
+        // tokio::task::spawn(async move {
+        //     let _ = run_tcp().await;
+        // });
     } else {
         println!("Failed to retrieve public ip, discovery server not started");
     }

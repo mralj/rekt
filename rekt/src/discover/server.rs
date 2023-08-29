@@ -32,7 +32,7 @@ pub async fn run_discovery_server(local_node: &LocalNode) -> Result<(), io::Erro
                 continue;
             }
 
-            let _ = socket
+            match socket
                 .send_to(
                     &DiscoverMessage::create_disc_v4_packet(
                         response.unwrap(),
@@ -40,7 +40,11 @@ pub async fn run_discovery_server(local_node: &LocalNode) -> Result<(), io::Erro
                     )[..],
                     src,
                 )
-                .await;
+                .await
+            {
+                Ok(size) => println!("Sent {} bytes to {}", size, src),
+                Err(e) => println!("Error sending response: {:?}", e),
+            }
         }
     }
 }
