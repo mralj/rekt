@@ -3,10 +3,9 @@ use std::sync::Arc;
 
 use rekt::config::get_config;
 use rekt::discover::server::run_discovery_server;
-use rekt::local_node::local_node::LocalNode;
+use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
-use rekt::types::node_record::NodeRecord;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
