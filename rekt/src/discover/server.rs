@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 use secp256k1::SecretKey;
 use tokio::net::UdpSocket;
@@ -24,16 +24,8 @@ pub async fn run_discovery_server(secret_key: &SecretKey) -> Result<(), io::Erro
                 continue;
             }
 
-            let mut test = false;
-            if src.ip() == IpAddr::V4(Ipv4Addr::new(109, 60, 95, 182)) {
-                test = true;
-            }
-
-            let response = decode_msg(&buf[..size], test);
+            let response = decode_msg(&buf[..size]);
             if response.is_some() {
-                if test {
-                    println!("Sending pong to {:?}", src);
-                }
                 let _ = socket
                     .send_to(
                         &create_disc_v4_packet(response.unwrap(), secret_key)[..],

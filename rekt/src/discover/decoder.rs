@@ -1,5 +1,3 @@
-use std::ops::RangeInclusive;
-
 use bytes::{BufMut, Bytes, BytesMut};
 use ethers::utils::keccak256;
 use open_fastrlp::{Decodable, Encodable};
@@ -32,7 +30,7 @@ pub fn packet_size_is_valid(size: usize) -> bool {
     true
 }
 
-pub fn decode_msg(buf: &[u8], is_test: bool) -> Option<PongMessage> {
+pub fn decode_msg(buf: &[u8]) -> Option<PongMessage> {
     let hash = &buf[..HASH_SIZE];
     let _signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
@@ -48,10 +46,6 @@ pub fn decode_msg(buf: &[u8], is_test: bool) -> Option<PongMessage> {
             if ping_msg.is_err() {
                 println!("PingMessage decode error: {:?}", ping_msg);
                 return None;
-            }
-
-            if is_test {
-                println!("PingMessage: {:?}", ping_msg);
             }
 
             let pong_msg = PongMessage::new(ping_msg.unwrap(), H256::from_slice(hash));
@@ -92,15 +86,5 @@ pub fn create_disc_v4_packet(pong_msg: PongMessage, secret_key: &SecretKey) -> B
 }
 
 fn msg_type_is_valid(msg_type: &u8) -> bool {
-    // match msg_type {
-    //     1 => println!("Ping"),
-    //     2 => println!("Pong"),
-    //     3 => println!("Find NodePacket"),
-    //     4 => println!("NeighborsPacket"),
-    //     5 => println!("ENRRequestPacket"),
-    //     6 => println!("ENRResponsePacket"),
-    //     _ => println!("Unknown"),
-    // }
-
     (1u8..=6u8).contains(msg_type)
 }
