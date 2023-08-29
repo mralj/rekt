@@ -31,11 +31,7 @@ pub struct OutboundConnections {
 }
 
 impl OutboundConnections {
-    pub fn new(nodes: Vec<String>) -> Self {
-        let our_private_key = SecretKey::new(&mut secp256k1::rand::thread_rng());
-        let our_pub_key =
-            secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &our_private_key);
-
+    pub fn new(our_private_key: SecretKey, our_pub_key: PublicKey, nodes: Vec<String>) -> Self {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
@@ -61,9 +57,9 @@ impl OutboundConnections {
             retry_runner.run_retirer().await;
         });
 
-        tokio::task::spawn(async move {
-            log_runner.run_logger().await;
-        });
+        // tokio::task::spawn(async move {
+        //     log_runner.run_logger().await;
+        // });
 
         for node in self.nodes.iter() {
             let task = ConnectionTask::new(node);

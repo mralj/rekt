@@ -1,10 +1,14 @@
+use local_ip_address::local_ip;
 use secp256k1::PublicKey;
 use std::{
+    fmt::format,
     net::{IpAddr, Ipv4Addr},
     num::ParseIntError,
     str::FromStr,
 };
 use url::{Host, Url};
+
+use crate::constants::DEFAULT_PORT;
 
 use super::hash::H512;
 
@@ -45,6 +49,25 @@ pub struct NodeRecord {
 impl NodeRecord {
     pub fn get_socket_addr(&self) -> std::net::SocketAddr {
         std::net::SocketAddr::new(self.address, self.tcp_port)
+    }
+
+    pub fn new(address: IpAddr, tcp_port: u16, udp_port: u16, pub_key: PublicKey) -> Self {
+        let id = pk2id(&pub_key);
+
+        Self {
+            tcp_port,
+            udp_port,
+            pub_key,
+            id,
+            address,
+            ip: address.to_string(),
+            str: format!("enode://{:02x}@{}:{}", id, address, tcp_port),
+        }
+    }
+
+    pub fn get_local_node(pub_key: PublicKey) -> Self {
+        let local_ip = local_ip().unwrap();
+        NodeRecord::new(local_ip, DEFAULT_PORT, DEFAULT_PORT, pub_key)
     }
 }
 
@@ -105,6 +128,10 @@ pub fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
     s[0] = SECP256K1_TAG_PUBKEY_UNCOMPRESSED;
     s[1..].copy_from_slice(id.as_bytes());
     PublicKey::from_slice(&s)
+}
+
+pub fn pk2id(pk: &PublicKey) -> H512 {
+    H512::from_slice(&pk.serialize_uncompressed()[1..])
 }
 
 #[cfg(test)]
