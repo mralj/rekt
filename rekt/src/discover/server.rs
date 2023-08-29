@@ -7,7 +7,8 @@ use tokio::net::UdpSocket;
 use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::{decode_msg, packet_size_is_valid};
 
-use super::decoder::{create_disc_v4_packet, MAX_PACKET_SIZE};
+use super::decoder::MAX_PACKET_SIZE;
+use super::messages::discover_message::DiscoverMessage;
 
 pub async fn run_discovery_server(secret_key: &SecretKey) -> Result<(), io::Error> {
     let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
@@ -28,7 +29,7 @@ pub async fn run_discovery_server(secret_key: &SecretKey) -> Result<(), io::Erro
             if response.is_some() {
                 let _ = socket
                     .send_to(
-                        &create_disc_v4_packet(response.unwrap(), secret_key)[..],
+                        &DiscoverMessage::create_disc_v4_packet(response.unwrap(), secret_key)[..],
                         src,
                     )
                     .await;

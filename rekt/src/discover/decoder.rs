@@ -1,11 +1,9 @@
-use bytes::{BufMut, Bytes, BytesMut};
-use ethers::utils::keccak256;
-use open_fastrlp::{Decodable, Encodable};
+use open_fastrlp::Decodable;
 
 use crate::types::hash::H256;
-use secp256k1::{ecdsa::RecoverableSignature, SecretKey, SECP256K1};
 
-use super::messages::{PingMessage, PongMessage};
+use super::messages::discover_message::DiscoverMessage;
+use super::messages::ping_pong_messages::{PingMessage, PongMessage};
 
 // The following constants are defined in the "docs"
 // https://github.com/ethereum/devp2p/blob/master/discv4.md
@@ -30,7 +28,7 @@ pub fn packet_size_is_valid(size: usize) -> bool {
     true
 }
 
-pub fn decode_msg(buf: &[u8]) -> Option<PongMessage> {
+pub fn decode_msg(buf: &[u8]) -> Option<DiscoverMessage> {
     let hash = &buf[..HASH_SIZE];
     let _signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
@@ -48,38 +46,14 @@ pub fn decode_msg(buf: &[u8]) -> Option<PongMessage> {
                 return None;
             }
 
-            let pong_msg = PongMessage::new(ping_msg.unwrap(), H256::from_slice(hash));
-            Some(pong_msg)
+            Some(DiscoverMessage::Pong(PongMessage::new(
+                ping_msg.unwrap(),
+                H256::from_slice(hash),
+            )))
         }
         //5 => println!("ENRRequestPacket"),
         _ => None,
     }
-}
-
-pub fn create_disc_v4_packet(pong_msg: PongMessage, secret_key: &SecretKey) -> Bytes {
-    let mut datagram = BytesMut::with_capacity(MAX_PACKET_SIZE);
-
-    let mut sig_bytes = datagram.split_off(H256::len_bytes());
-    let mut payload = sig_bytes.split_off(secp256k1::constants::COMPACT_SIGNATURE_SIZE + 1);
-    //hardcoded 2 for pong
-    payload.put_u8(2);
-    pong_msg.encode(&mut payload);
-
-    let signature: RecoverableSignature = SECP256K1.sign_ecdsa_recoverable(
-        &secp256k1::Message::from_slice(keccak256(&payload).as_ref()).unwrap(),
-        secret_key,
-    );
-
-    let (rec, sig) = signature.serialize_compact();
-    sig_bytes.extend_from_slice(&sig);
-    sig_bytes.put_u8(rec.to_i32() as u8);
-    sig_bytes.unsplit(payload);
-
-    let hash = keccak256(&sig_bytes);
-    datagram.extend_from_slice(&hash);
-
-    datagram.unsplit(sig_bytes);
-    datagram.freeze()
 }
 
 fn msg_type_is_valid(msg_type: &u8) -> bool {

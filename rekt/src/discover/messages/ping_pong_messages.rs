@@ -1,13 +1,12 @@
 use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use bytes::{Bytes, BytesMut};
-use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
+use open_fastrlp::{RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
 use crate::types::hash::H256;
 
-const DEFAULT_PONG_EXPIRATION: u64 = 20;
+use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
 
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Endpoint {
@@ -44,18 +43,12 @@ impl PongMessage {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs()
-            + DEFAULT_PONG_EXPIRATION;
+            + DEFAULT_MESSAGE_EXPIRATION;
 
         Self {
             hash,
             expires,
             to: ping_msg.to,
         }
-    }
-
-    pub fn rlp_encode(&self) -> Bytes {
-        let mut rlp_encoded_msg = BytesMut::new();
-        self.encode(&mut rlp_encoded_msg);
-        rlp_encoded_msg.freeze()
     }
 }
