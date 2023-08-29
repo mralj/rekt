@@ -29,6 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", NodeRecord::get_local_node(our_pub_key).str);
 
+    if let Some(ip) = public_ip::addr().await {
+        println!("public ip address: {:?}", ip);
+    } else {
+        println!("couldn't get an IP address");
+    }
+
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_private_key,
         our_pub_key,
