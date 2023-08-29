@@ -7,6 +7,7 @@ use secp256k1::{SecretKey, SECP256K1};
 use crate::discover::decoder::MAX_PACKET_SIZE;
 use crate::types::hash::H256;
 
+use super::enr::EnrResponseMessage;
 use super::ping_pong_messages::{PingMessage, PongMessage};
 
 pub(super) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
@@ -39,6 +40,7 @@ impl DiscoverMessageType {
     pub fn discover_msg_should_be_handled(&self) -> bool {
         match self {
             DiscoverMessageType::Ping => true,
+            DiscoverMessageType::EnrRequest => true,
             _ => false,
         }
     }
@@ -47,6 +49,7 @@ impl DiscoverMessageType {
 pub enum DiscoverMessage {
     Ping(PingMessage),
     Pong(PongMessage),
+    EnrResponse(EnrResponseMessage),
 }
 
 impl DiscoverMessage {
@@ -54,6 +57,7 @@ impl DiscoverMessage {
         match &self {
             DiscoverMessage::Ping(_) => 1,
             DiscoverMessage::Pong(_) => 2,
+            DiscoverMessage::EnrResponse(_) => 6,
         }
     }
 }
@@ -63,6 +67,7 @@ impl Encodable for DiscoverMessage {
         match self {
             DiscoverMessage::Ping(msg) => msg.encode(out),
             DiscoverMessage::Pong(msg) => msg.encode(out),
+            DiscoverMessage::EnrResponse(msg) => msg.encode(out),
         }
     }
 }

@@ -1,8 +1,11 @@
+use enr::Enr;
 use open_fastrlp::Decodable;
+use secp256k1::SecretKey;
 
 use crate::types::hash::H256;
 
 use super::messages::discover_message::{DiscoverMessage, DiscoverMessageType};
+use super::messages::enr::EnrResponseMessage;
 use super::messages::ping_pong_messages::{PingMessage, PongMessage};
 
 // The following constants are defined in the "docs"
@@ -16,7 +19,7 @@ const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE;
 // as invalid because their hash won't match.
 pub const MAX_PACKET_SIZE: usize = 1280;
 
-pub fn decode_msg_and_create_response(buf: &[u8]) -> Option<DiscoverMessage> {
+pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Option<DiscoverMessage> {
     let hash = &buf[..HASH_SIZE];
     let _signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
@@ -35,7 +38,9 @@ pub fn decode_msg_and_create_response(buf: &[u8]) -> Option<DiscoverMessage> {
                 H256::from_slice(hash),
             )))
         }
-        //5 => println!("ENRRequestPacket"),
+        DiscoverMessageType::EnrRequest => Some(DiscoverMessage::EnrResponse(
+            EnrResponseMessage::new(H256::from_slice(hash), enr.clone()),
+        )),
         _ => None,
     }
 }
