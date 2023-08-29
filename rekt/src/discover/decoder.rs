@@ -57,19 +57,16 @@ pub fn decode_msg(buf: &[u8]) -> Option<PongMessage> {
 }
 
 pub fn create_disc_v4_packet(pong_msg: PongMessage, secret_key: &SecretKey) -> Bytes {
-    // allocate max packet size
     let mut datagram = BytesMut::with_capacity(MAX_PACKET_SIZE);
 
-    // since signature has fixed len, we can split and fill the datagram buffer at fixed
-    // positions, this way we can encode the message directly in the datagram buffer
     let mut sig_bytes = datagram.split_off(H256::len_bytes());
     let mut payload = sig_bytes.split_off(secp256k1::constants::COMPACT_SIGNATURE_SIZE + 1);
+    //hardcoded 2 for pong
     payload.put_u8(2);
     pong_msg.encode(&mut payload);
 
     let signature: RecoverableSignature = SECP256K1.sign_ecdsa_recoverable(
-        &secp256k1::Message::from_slice(keccak256(&payload).as_ref())
-            .expect("is correct MESSAGE_SIZE; qed"),
+        &secp256k1::Message::from_slice(keccak256(&payload).as_ref()).unwrap(),
         secret_key,
     );
 
