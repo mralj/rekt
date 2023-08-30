@@ -2,6 +2,7 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
 
+use bytes::Bytes;
 use kanal::{AsyncReceiver, AsyncSender};
 use tokio::net::UdpSocket;
 
@@ -19,8 +20,8 @@ pub struct DiscoveryServer {
     socket_rx: Arc<UdpSocket>,
     socket_tx: Arc<UdpSocket>,
 
-    packet_rx: AsyncReceiver<(SocketAddr, DiscoverMessage)>,
-    packet_tx: AsyncSender<(SocketAddr, DiscoverMessage)>,
+    packet_rx: AsyncReceiver<(SocketAddr, Bytes)>,
+    packet_tx: AsyncSender<(SocketAddr, Bytes)>,
 }
 
 impl DiscoveryServer {
@@ -66,23 +67,28 @@ impl DiscoveryServer {
                     continue;
                 }
 
-                let response = decode_msg_and_create_response(&buf[..size], &self.local_node.enr);
-                if response.is_none() {
-                    continue;
-                }
-
-                let _ = self.packet_tx.send((src, response.unwrap())).await;
+                let _ = self
+                    .packet_tx
+                    .send((src, Bytes::copy_from_slice(&buf[..size])))
+                    .await;
             }
         }
     }
 
     async fn run_writer(&self) -> Result<(), io::Error> {
         loop {
-            if let Ok((sender, msg)) = self.packet_rx.recv().await {
+            if let Ok((sender, buf)) = self.packet_rx.recv().await {
+                let response = decode_msg_and_create_response(&buf[..], &self.local_node.enr);
+                if response.is_none() {
+                    continue;
+                }
+
                 self.socket_tx
                     .send_to(
-                        &DiscoverMessage::create_disc_v4_packet(msg, &self.local_node.private_key)
-                            [..],
+                        &DiscoverMessage::create_disc_v4_packet(
+                            response.unwrap(),
+                            &self.local_node.private_key,
+                        )[..],
                         sender,
                     )
                     .await?;
