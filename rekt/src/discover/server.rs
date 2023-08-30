@@ -84,16 +84,7 @@ impl DiscoveryServer {
                     continue;
                 }
 
-                let _ = self
-                    .socket_tx
-                    .send_to(
-                        &DiscoverMessage::create_disc_v4_packet(
-                            response.unwrap(),
-                            &self.local_node.private_key,
-                        )[..],
-                        sender,
-                    )
-                    .await;
+                let _ = self.socket_tx.send_to(&buf[..], sender).await;
             }
         }
     }
