@@ -78,13 +78,14 @@ impl DiscoveryServer {
 
     async fn run_writer(&self) -> Result<(), io::Error> {
         loop {
-            if let Ok((sender, buf, start)) = self.packet_rx.recv().await {
+            if let Ok((sender, buf, _)) = self.packet_rx.recv().await {
                 let response = decode_msg_and_create_response(&buf[..], &self.local_node.enr);
                 if response.is_none() {
                     continue;
                 }
 
-                self.socket_tx
+                let _ = self
+                    .socket_tx
                     .send_to(
                         &DiscoverMessage::create_disc_v4_packet(
                             response.unwrap(),
@@ -92,9 +93,7 @@ impl DiscoveryServer {
                         )[..],
                         sender,
                     )
-                    .await?;
-
-                println!("Time elapsed: {:?}", start.elapsed());
+                    .await;
             }
         }
     }
