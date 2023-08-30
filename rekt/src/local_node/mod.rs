@@ -8,6 +8,7 @@ use secp256k1::{PublicKey, SecretKey};
 use crate::constants::DEFAULT_PORT;
 use crate::types::node_record::NodeRecord;
 
+#[derive(Clone, Debug)]
 pub struct LocalNode {
     pub node_record: NodeRecord,
     pub private_key: secp256k1::SecretKey,
