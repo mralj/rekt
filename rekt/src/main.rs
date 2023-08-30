@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if our_node.public_ip_retrieved {
         tokio::task::spawn(async move {
-            let _ = run_discovery_server(&our_node.private_key).await;
+            let _ = run_discovery_server(&our_node).await;
         });
     } else {
         println!("Failed to retrieve public ip, discovery server not started");

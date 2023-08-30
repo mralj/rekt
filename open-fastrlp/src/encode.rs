@@ -352,6 +352,44 @@ impl Encodable for std::net::IpAddr {
     }
 }
 
+impl<K> Encodable for enr::Enr<K>
+where
+    K: enr::EnrKey,
+{
+    fn encode(&self, out: &mut dyn BufMut) {
+        let payload_length = self.signature().length()
+            + self.seq().length()
+            + self
+                .iter()
+                .fold(0, |acc, (k, v)| acc + k.as_slice().length() + v.len());
+
+        let header = Header {
+            list: true,
+            payload_length,
+        };
+        header.encode(out);
+
+        self.signature().encode(out);
+        self.seq().encode(out);
+
+        for (k, v) in self.iter() {
+            // Keys are byte data
+            k.as_slice().encode(out);
+            // Values are raw RLP encoded data
+            out.put_slice(v);
+        }
+    }
+
+    fn length(&self) -> usize {
+        let payload_length = self.signature().length()
+            + self.seq().length()
+            + self
+                .iter()
+                .fold(0, |acc, (k, v)| acc + k.as_slice().length() + v.len());
+        payload_length + length_of_length(payload_length)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate alloc;
