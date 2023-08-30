@@ -79,7 +79,8 @@ impl DiscoveryServer {
     async fn run_writer(&self) -> Result<(), io::Error> {
         loop {
             if let Ok((sender, buf, _)) = self.packet_rx.recv().await {
-                let response = decode_msg_and_create_response(&buf[..], &self.local_node.enr);
+                let response =
+                    decode_msg_and_create_response(&buf[..], &self.local_node.enr, &sender);
                 if response.is_none() {
                     continue;
                 }
