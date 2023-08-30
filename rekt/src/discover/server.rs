@@ -41,11 +41,18 @@ impl DiscoveryServer {
     }
 
     async fn run_reader(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+        let socket = match UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
         )))
-        .await?;
+        .await
+        {
+            Ok(socket) => socket,
+            Err(e) => {
+                println!("Error binding socket: {}", e);
+                return Err(e);
+            }
+        };
 
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
@@ -66,12 +73,18 @@ impl DiscoveryServer {
     }
 
     async fn run_writer(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+        let socket = match UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
         )))
-        .await?;
-
+        .await
+        {
+            Ok(socket) => socket,
+            Err(e) => {
+                println!("Error binding socket: {}", e);
+                return Err(e);
+            }
+        };
         loop {
             if let Ok((sender, msg)) = self.packet_rx.recv().await {
                 match socket
