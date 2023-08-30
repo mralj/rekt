@@ -1,4 +1,4 @@
-use std::net::{SocketAddr, UdpSocket};
+use std::net::SocketAddr;
 
 use enr::Enr;
 use open_fastrlp::Decodable;
@@ -47,11 +47,10 @@ pub fn decode_msg_and_create_response(
         }
         DiscoverMessageType::EnrRequest => {
             println!("ENR request message received, from {:?}", src);
-            None
-            // Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
-            //     H256::from_slice(hash),
-            //     enr.clone(),
-            // )))
+            Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
+                H256::from_slice(hash),
+                enr.clone(),
+            )))
         }
         _ => {
             println!("Msg of type: {}", msg_type);
