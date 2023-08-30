@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use open_fastrlp::RlpEncodable;
 
 use crate::types::hash::H256;
@@ -11,10 +9,7 @@ pub struct EnrResponseMessage {
 }
 
 impl EnrResponseMessage {
-    pub fn new(request_hash: H256, enr: &enr::Enr<secp256k1::SecretKey>) -> Self {
-        let start = Instant::now();
-        let enr = enr.clone();
-        println!("ENR clone took {:?}", start.elapsed());
+    pub fn new(request_hash: H256, enr: enr::Enr<secp256k1::SecretKey>) -> Self {
         Self { request_hash, enr }
     }
 }

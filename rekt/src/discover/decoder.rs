@@ -32,15 +32,21 @@ pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Optio
 
     match msg_type {
         DiscoverMessageType::Ping => {
+            println!("Ping message received");
             let ping_msg = PingMessage::decode(msg_data).ok()?;
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
                 H256::from_slice(hash),
             )))
         }
-        DiscoverMessageType::EnrRequest => Some(DiscoverMessage::EnrResponse(
-            EnrResponseMessage::new(H256::from_slice(hash), &enr),
-        )),
+        DiscoverMessageType::EnrRequest => {
+            println!("ENR request message received");
+
+            Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
+                H256::from_slice(hash),
+                enr.clone(),
+            )))
+        }
         _ => None,
     }
 }
