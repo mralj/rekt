@@ -1,4 +1,5 @@
 use bytes::{BufMut, Bytes, BytesMut};
+use derive_more::Display;
 use ethers::utils::keccak256;
 use open_fastrlp::Encodable;
 use secp256k1::ecdsa::RecoverableSignature;
@@ -12,6 +13,7 @@ use super::ping_pong_messages::{PingMessage, PongMessage};
 
 pub(super) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
 
+#[derive(Debug, Display)]
 pub enum DiscoverMessageType {
     Ping = 1,
     Pong = 2,

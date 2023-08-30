@@ -47,7 +47,10 @@ pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Optio
                 enr.clone(),
             )))
         }
-        _ => None,
+        _ => {
+            println!("Msg of type: {}", msg_type);
+            None
+        }
     }
 }
 
