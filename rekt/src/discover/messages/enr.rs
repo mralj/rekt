@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use open_fastrlp::RlpEncodable;
 
 use crate::types::hash::H256;
