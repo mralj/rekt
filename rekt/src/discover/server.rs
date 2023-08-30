@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::sync::Arc;
 
 use kanal::{AsyncReceiver, AsyncSender};
 use tokio::net::UdpSocket;
@@ -14,18 +15,34 @@ use super::messages::discover_message::DiscoverMessage;
 #[derive(Clone)]
 pub struct DiscoveryServer {
     local_node: LocalNode,
+
+    socket_rx: Arc<UdpSocket>,
+    socket_tx: Arc<UdpSocket>,
+
     packet_rx: AsyncReceiver<(SocketAddr, DiscoverMessage)>,
     packet_tx: AsyncSender<(SocketAddr, DiscoverMessage)>,
 }
 
 impl DiscoveryServer {
-    pub fn new(local_node: LocalNode) -> Self {
+    pub async fn new(local_node: LocalNode) -> Result<Self, io::Error> {
         let (packet_tx, packet_rx) = kanal::unbounded_async();
-        Self {
+        let socket = Arc::new(
+            UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+                Ipv4Addr::UNSPECIFIED,
+                DEFAULT_PORT,
+            )))
+            .await?,
+        );
+
+        Ok(Self {
             local_node,
+
+            socket_rx: Arc::clone(&socket),
+            socket_tx: Arc::clone(&socket),
+
             packet_rx,
             packet_tx,
-        }
+        })
     }
 
     pub async fn start(&self) {
@@ -41,22 +58,9 @@ impl DiscoveryServer {
     }
 
     async fn run_reader(&self) -> Result<(), io::Error> {
-        let socket = match UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            DEFAULT_PORT,
-        )))
-        .await
-        {
-            Ok(socket) => socket,
-            Err(e) => {
-                println!("Error binding socket: {}", e);
-                return Err(e);
-            }
-        };
-
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
-            let packet = socket.recv_from(&mut buf).await;
+            let packet = self.socket_rx.recv_from(&mut buf).await;
             if let Ok((size, src)) = packet {
                 if !packet_size_is_valid(size) {
                     continue;
@@ -73,21 +77,10 @@ impl DiscoveryServer {
     }
 
     async fn run_writer(&self) -> Result<(), io::Error> {
-        let socket = match UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            DEFAULT_PORT,
-        )))
-        .await
-        {
-            Ok(socket) => socket,
-            Err(e) => {
-                println!("Error binding socket: {}", e);
-                return Err(e);
-            }
-        };
         loop {
             if let Ok((sender, msg)) = self.packet_rx.recv().await {
-                match socket
+                match self
+                    .socket_tx
                     .send_to(
                         &DiscoverMessage::create_disc_v4_packet(msg, &self.local_node.private_key)
                             [..],
