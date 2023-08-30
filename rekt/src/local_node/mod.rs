@@ -39,7 +39,7 @@ impl LocalNode {
             .ip(ip)
             .udp4(DEFAULT_PORT)
             .tcp4(DEFAULT_PORT)
-            .add_value_rlp("eth", fork_id_rlp_encoded)
+            //.add_value_rlp("eth", fork_id_rlp_encoded)
             .build(&private_key)
             .unwrap();
 
