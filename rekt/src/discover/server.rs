@@ -68,10 +68,15 @@ impl DiscoveryServer {
                     continue;
                 }
 
-                let _ = self
-                    .packet_tx
-                    .send((src, Bytes::copy_from_slice(&buf[..size]), Instant::now()))
-                    .await;
+                let response = decode_msg_and_create_response(&buf[..], &self.local_node.enr);
+                if response.is_none() {
+                    continue;
+                }
+                let _ = self.socket_tx.send_to(&buf[..size], src).await;
+                // let _ = self
+                //     .packet_tx
+                //     .send((src, Bytes::copy_from_slice(&buf[..size]), Instant::now()))
+                //     .await;
             }
         }
     }
