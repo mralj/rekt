@@ -40,7 +40,6 @@ impl TryFrom<u8> for DiscoverMessageType {
 
 impl DiscoverMessageType {
     pub fn discover_msg_should_be_handled(&self) -> bool {
-        return true;
         match self {
             DiscoverMessageType::Ping => true,
             DiscoverMessageType::EnrRequest => true,

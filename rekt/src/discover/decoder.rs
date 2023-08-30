@@ -41,12 +41,10 @@ pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Optio
         }
         DiscoverMessageType::EnrRequest => {
             println!("ENR request message received");
-
-            None
-            // Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
-            //     H256::from_slice(hash),
-            //     enr.clone(),
-            // )))
+            Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
+                H256::from_slice(hash),
+                enr.clone(),
+            )))
         }
         _ => {
             println!("Msg of type: {}", msg_type);

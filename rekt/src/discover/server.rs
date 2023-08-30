@@ -1,6 +1,7 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::Arc;
+use std::time::Instant;
 
 use bytes::Bytes;
 use kanal::{AsyncReceiver, AsyncSender};
@@ -20,8 +21,8 @@ pub struct DiscoveryServer {
     socket_rx: Arc<UdpSocket>,
     socket_tx: Arc<UdpSocket>,
 
-    packet_rx: AsyncReceiver<(SocketAddr, Bytes)>,
-    packet_tx: AsyncSender<(SocketAddr, Bytes)>,
+    packet_rx: AsyncReceiver<(SocketAddr, Bytes, Instant)>,
+    packet_tx: AsyncSender<(SocketAddr, Bytes, Instant)>,
 }
 
 impl DiscoveryServer {
@@ -69,7 +70,7 @@ impl DiscoveryServer {
 
                 let _ = self
                     .packet_tx
-                    .send((src, Bytes::copy_from_slice(&buf[..size])))
+                    .send((src, Bytes::copy_from_slice(&buf[..size]), Instant::now()))
                     .await;
             }
         }
@@ -77,7 +78,7 @@ impl DiscoveryServer {
 
     async fn run_writer(&self) -> Result<(), io::Error> {
         loop {
-            if let Ok((sender, buf)) = self.packet_rx.recv().await {
+            if let Ok((sender, buf, start)) = self.packet_rx.recv().await {
                 let response = decode_msg_and_create_response(&buf[..], &self.local_node.enr);
                 if response.is_none() {
                     continue;
@@ -92,6 +93,8 @@ impl DiscoveryServer {
                         sender,
                     )
                     .await?;
+
+                println!("Time elapsed: {:?}", start.elapsed());
             }
         }
     }
