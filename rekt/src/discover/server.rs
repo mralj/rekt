@@ -74,13 +74,17 @@ impl DiscoveryServer {
 
         loop {
             if let Ok((sender, msg)) = self.packet_rx.recv().await {
-                let _ = socket
+                match socket
                     .send_to(
                         &DiscoverMessage::create_disc_v4_packet(msg, &self.local_node.private_key)
                             [..],
                         sender,
                     )
-                    .await;
+                    .await
+                {
+                    Ok(size) => println!("Sent {} bytes to {}", size, sender),
+                    Err(e) => println!("Error sending packet: {}", e),
+                }
             }
         }
     }
