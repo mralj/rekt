@@ -5,6 +5,7 @@ use enr::{Enr, EnrBuilder};
 use open_fastrlp::Encodable;
 use secp256k1::{PublicKey, SecretKey};
 
+use crate::blockchain::fork::ForkId;
 use crate::constants::DEFAULT_PORT;
 use crate::types::node_record::NodeRecord;
 
@@ -27,10 +28,16 @@ impl LocalNode {
         };
 
         let fork_id_rlp_encoded = {
+            #[derive(open_fastrlp::RlpEncodable)]
+            struct ForkIdRlpHelper {
+                fork_id: ForkId,
+            }
+
             let mut buf = BytesMut::new();
-            crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID
-                .clone()
-                .encode(&mut buf);
+            let fork_id = *crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_ID;
+
+            let fork_id_rlp_helper = ForkIdRlpHelper { fork_id };
+            fork_id_rlp_helper.encode(&mut buf);
 
             buf.freeze()
         };
