@@ -141,7 +141,9 @@ pub async fn run_tcp() -> Result<(), io::Error> {
     loop {
         let (mut socket, addr) = listener.accept().await?;
 
-        println!("Accepted connection from {}", addr);
+        if addr.port() == 30311 {
+            println!("Accepted connection from {}", addr);
+        }
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 1024];
