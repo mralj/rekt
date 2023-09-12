@@ -146,9 +146,7 @@ impl DiscoveryServer {
                     .socket_tx
                     .send_to(
                         &DiscoverMessage::create_disc_v4_packet(
-                            DiscoverMessage::FindNode(FindNode::new(
-                                self.local_node.node_record.id,
-                            )),
+                            DiscoverMessage::FindNode(FindNode::new(node.id)),
                             &self.local_node.private_key,
                         )[..],
                         SocketAddr::V4(SocketAddrV4::new(address, node.udp_port)),
