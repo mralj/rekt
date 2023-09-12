@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use kanal::{AsyncReceiver, AsyncSender};
@@ -16,6 +16,7 @@ use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
+use super::messages::find_node::FindNode;
 use super::messages::ping_pong_messages::PingMessage;
 
 #[derive(Clone)]
@@ -132,6 +133,30 @@ impl DiscoveryServer {
                 {
                     Ok(_) => println!("Sent ping to {}", node.ip),
                     Err(e) => println!("Failed to send ping to {}: {:?}", node.ip, e),
+                }
+            }
+        }
+
+        // sleep randomly 5s so that we "know" ping/pongs were exchanged
+        tokio::time::sleep(Duration::from_secs(10)).await;
+
+        for node in &self.boot_nodes {
+            if let IpAddr::V4(address) = node.address {
+                match self
+                    .socket_tx
+                    .send_to(
+                        &DiscoverMessage::create_disc_v4_packet(
+                            DiscoverMessage::FindNode(FindNode::new(
+                                self.local_node.node_record.id,
+                            )),
+                            &self.local_node.private_key,
+                        )[..],
+                        SocketAddr::V4(SocketAddrV4::new(address, node.udp_port)),
+                    )
+                    .await
+                {
+                    Ok(_) => println!("Sent find node to {}", node.ip),
+                    Err(e) => println!("Failed to send find node to {}: {:?}", node.ip, e),
                 }
             }
         }

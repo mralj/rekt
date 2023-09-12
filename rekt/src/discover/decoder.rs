@@ -56,6 +56,10 @@ pub fn decode_msg_and_create_response(
             println!("Pong message received, from {:?}", src);
             None
         }
+        DiscoverMessageType::Neighbors => {
+            println!("Neighbors message received, from {:?}", src);
+            None
+        }
         _ => {
             println!("Msg of type: {}", msg_type);
             None
