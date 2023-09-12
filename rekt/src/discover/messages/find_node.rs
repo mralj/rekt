@@ -2,9 +2,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use open_fastrlp::{RlpDecodable, RlpEncodable};
 
-use crate::types::hash::H512;
-
 use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
+use crate::types::hash::H512;
+use crate::types::node_record::NodeRecord;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, RlpEncodable, RlpDecodable)]
 pub struct FindNode {
@@ -22,4 +22,10 @@ impl FindNode {
 
         Self { id, expires }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, RlpEncodable, RlpDecodable)]
+pub struct Neighbours {
+    pub nodes: Vec<NodeRecord>,
+    pub expire: u64,
 }

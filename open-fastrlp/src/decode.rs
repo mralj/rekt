@@ -398,6 +398,24 @@ impl Decodable for std::net::IpAddr {
     }
 }
 
+impl Decodable for secp256k1::PublicKey {
+    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        let h = Header::decode(buf)?;
+        if h.list {
+            return Err(DecodeError::UnexpectedList);
+        }
+
+        if h.payload_length != 33 {
+            return Err(DecodeError::UnexpectedLength);
+        }
+
+        let mut pk = [0u8; 33];
+        pk.copy_from_slice(&buf[..33]);
+
+        secp256k1::PublicKey::from_slice(&pk).map_err(|_| DecodeError::Custom("invalid public key"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate alloc;

@@ -3,6 +3,7 @@ use arrayvec::ArrayVec;
 use auto_impl::auto_impl;
 use bytes::{BufMut, Bytes, BytesMut};
 use core::borrow::Borrow;
+use enr::k256::PublicKey;
 
 fn zeroless_view(v: &impl AsRef<[u8]>) -> &[u8] {
     let v = v.as_ref();
@@ -387,6 +388,23 @@ where
                 .iter()
                 .fold(0, |acc, (k, v)| acc + k.as_slice().length() + v.len());
         payload_length + length_of_length(payload_length)
+    }
+}
+
+impl Encodable for secp256k1::PublicKey {
+    fn encode(&self, out: &mut dyn BufMut) {
+        let header = Header {
+            list: true,
+            payload_length: 33, // by definition
+        };
+        header.encode(out);
+        let bytes = self.serialize();
+        out.put_slice(&bytes);
+    }
+    //
+    // by definition it must be 32 bytes
+    fn length(&self) -> usize {
+        33
     }
 }
 
