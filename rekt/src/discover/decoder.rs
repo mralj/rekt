@@ -52,6 +52,10 @@ pub fn decode_msg_and_create_response(
                 enr.clone(),
             )))
         }
+        DiscoverMessageType::Pong => {
+            println!("Pong message received, from {:?}", src);
+            None
+        }
         _ => {
             println!("Msg of type: {}", msg_type);
             None

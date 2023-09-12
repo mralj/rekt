@@ -1,5 +1,6 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -8,16 +9,19 @@ use kanal::{AsyncReceiver, AsyncSender};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpSocket, UdpSocket};
 
-use crate::constants::DEFAULT_PORT;
+use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
+use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
+use super::messages::ping_pong_messages::PingMessage;
 
 #[derive(Clone)]
 pub struct DiscoveryServer {
     local_node: LocalNode,
+    boot_nodes: Vec<NodeRecord>,
 
     socket_rx: Arc<UdpSocket>,
     socket_tx: Arc<UdpSocket>,
@@ -37,8 +41,16 @@ impl DiscoveryServer {
             .await?,
         );
 
+        let boot_nodes = BOOTSTRAP_NODES
+            .iter()
+            .cloned()
+            .map(NodeRecord::from_str)
+            .filter_map(Result::ok)
+            .collect();
+
         Ok(Self {
             local_node,
+            boot_nodes,
 
             socket_rx: Arc::clone(&socket),
             socket_tx: Arc::clone(&socket),
@@ -51,12 +63,16 @@ impl DiscoveryServer {
     pub async fn start(&self) {
         let reader = self.clone();
         let writer = self.clone();
+        let disc_boot = self.clone();
 
         tokio::task::spawn(async move {
             let _ = reader.run_reader().await;
         });
         tokio::task::spawn(async move {
             let _ = writer.run_writer().await;
+        });
+        tokio::task::spawn(async move {
+            let _ = disc_boot.run_disc_on_bootstrap_nodes().await;
         });
     }
 
@@ -98,6 +114,29 @@ impl DiscoveryServer {
                     .await;
             }
         }
+    }
+
+    async fn run_disc_on_bootstrap_nodes(&self) -> Result<(), io::Error> {
+        for node in &self.boot_nodes {
+            if let IpAddr::V4(address) = node.address {
+                match self
+                    .socket_tx
+                    .send_to(
+                        &DiscoverMessage::create_disc_v4_packet(
+                            DiscoverMessage::Ping(PingMessage::new(&self.local_node, node)),
+                            &self.local_node.private_key,
+                        )[..],
+                        SocketAddr::V4(SocketAddrV4::new(address, node.udp_port)),
+                    )
+                    .await
+                {
+                    Ok(_) => println!("Sent ping to {}", node.ip),
+                    Err(e) => println!("Failed to send ping to {}: {:?}", node.ip, e),
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
