@@ -1,4 +1,3 @@
-use open_fastrlp::{RlpDecodable, RlpEncodable};
 use secp256k1::PublicKey;
 use std::{
     net::{IpAddr, Ipv4Addr},
@@ -25,7 +24,7 @@ pub enum NodeRecordParseError {
     Discport(ParseIntError),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeRecord {
     /// The Address of a node.
     pub address: IpAddr,
