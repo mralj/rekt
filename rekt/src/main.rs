@@ -12,7 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = get_config()?;
+    let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
-    let nodes: Vec<String> = BOOTSTRAP_NODES.iter().cloned().map(ToOwned).collect();
+    let mut nodes: Vec<String> = BOOTSTRAP_NODES.iter().cloned().map(String::from).collect();
     nodes.append(&mut config.nodes);
 
     let outbound_connections = Arc::new(OutboundConnections::new(
