@@ -27,10 +27,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
+    let nodes: Vec<String> = BOOTSTRAP_NODES.iter().cloned().map(ToOwned).collect();
+    nodes.append(&mut config.nodes);
+
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
-        config.nodes,
+        nodes,
     ));
     OutboundConnections::start(outbound_connections).await;
 
