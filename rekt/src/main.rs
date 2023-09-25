@@ -2,6 +2,7 @@ use std::fs::File;
 use std::sync::Arc;
 
 use rekt::config::get_config;
+use rekt::constants::BOOTSTRAP_NODES;
 use rekt::discover;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -11,7 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = get_config()?;
+    let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
@@ -29,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
-        config.nodes,
+        get_nodes_to_connect_to(&mut config.nodes),
     ));
     OutboundConnections::start(outbound_connections).await;
 
@@ -45,4 +46,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tokio::signal::ctrl_c().await;
 
     Ok(())
+}
+
+fn get_nodes_to_connect_to(nodes: &mut Vec<String>) -> Vec<String> {
+    nodes.append(&mut BOOTSTRAP_NODES.iter().copied().map(String::from).collect());
+    nodes.clone()
 }
