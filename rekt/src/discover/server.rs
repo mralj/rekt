@@ -82,9 +82,9 @@ impl DiscoveryServer {
         loop {
             let packet = self.socket_rx.recv_from(&mut buf).await;
             if let Ok((size, src)) = packet {
-                if !packet_size_is_valid(size) {
-                    continue;
-                }
+                // if !packet_size_is_valid(size) {
+                //     continue;
+                // }
 
                 let _ = self
                     .packet_tx
