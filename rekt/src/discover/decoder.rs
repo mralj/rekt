@@ -32,9 +32,9 @@ pub fn decode_msg_and_create_response(
     let msg_data = &mut &buf[HEADER_SIZE + TYPE_SIZE..];
 
     let msg_type = DiscoverMessageType::try_from(*msg_type).ok()?;
-    if !msg_type.discover_msg_should_be_handled() {
-        return None;
-    }
+    // if !msg_type.discover_msg_should_be_handled() {
+    //     return None;
+    // }
 
     match msg_type {
         DiscoverMessageType::Ping => {
@@ -45,6 +45,10 @@ pub fn decode_msg_and_create_response(
                 H256::from_slice(hash),
             )))
         }
+        DiscoverMessageType::Pong => {
+            println!("Pong message received, from {:?}", src);
+            None
+        }
         DiscoverMessageType::EnrRequest => {
             println!("ENR request message received, from {:?}", src);
             Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
@@ -52,10 +56,7 @@ pub fn decode_msg_and_create_response(
                 enr.clone(),
             )))
         }
-        DiscoverMessageType::Pong => {
-            println!("Pong message received, from {:?}", src);
-            None
-        }
+
         DiscoverMessageType::Neighbors => {
             println!("Neighbors message received, from {:?}", src);
             None
