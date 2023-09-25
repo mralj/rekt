@@ -34,7 +34,7 @@ impl Server {
                     continue;
                 }
                 if let Some(response) =
-                    decode_msg_and_create_response(&buf[..size], &self.local_node.enr)
+                    decode_msg_and_create_response(&buf[..size], &self.local_node.enr, &src)
                 {
                     let _ = socket
                         .send_to(
