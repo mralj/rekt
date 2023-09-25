@@ -45,3 +45,4 @@ kanal = "0.1.0-pre8"
 dashmap = "5.4.0"
 public-ip = "0.2.2"
 enr = {version = "0.9.0", features = ["rust-secp256k1"]}
+chrono = "0.4.31"

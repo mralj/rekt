@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::time::SystemTime;
 
+use chrono::Local;
 use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
@@ -38,13 +39,10 @@ pub fn decode_msg_and_create_response(
         return None;
     }
 
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S");
     match msg_type {
         DiscoverMessageType::Ping => {
-            println!(
-                "[{:?}] Received ping message from, {}",
-                SystemTime::now(),
-                src
-            );
+            println!("[{}] Received ping message from, {}", now, src);
             let ping_msg = PingMessage::decode(msg_data).ok()?;
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
@@ -52,11 +50,7 @@ pub fn decode_msg_and_create_response(
             )))
         }
         DiscoverMessageType::EnrRequest => {
-            println!(
-                "[{:?}] Received ENR message from, {}",
-                SystemTime::now(),
-                src
-            );
+            println!("[{}] Received ENR message from, {}", now, src);
 
             Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
                 H256::from_slice(hash),
