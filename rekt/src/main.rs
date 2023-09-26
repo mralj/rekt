@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if our_node.public_ip_retrieved {
         tokio::task::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(5));
+            tokio::time::sleep(Duration::from_secs(5)).await;
             match DiscoveryServer::new(our_node.clone()).await {
                 Ok(disc_server) => disc_server.start().await,
                 Err(e) => println!("Failed to start discovery server: {:?}", e),
