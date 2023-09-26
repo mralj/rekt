@@ -32,7 +32,7 @@ pub struct DiscoveryServer {
 }
 
 impl DiscoveryServer {
-    pub async fn new(local_node: LocalNode) -> Result<Self, io::Error> {
+    pub async fn new(local_node: LocalNode, nodes: Vec<String>) -> Result<Self, io::Error> {
         let (packet_tx, packet_rx) = kanal::unbounded_async();
         let socket = Arc::new(
             UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
@@ -42,9 +42,9 @@ impl DiscoveryServer {
             .await?,
         );
 
-        let boot_nodes = BOOTSTRAP_NODES
+        let boot_nodes = nodes
             .iter()
-            .cloned()
+            .map(|n| n.as_str())
             .map(NodeRecord::from_str)
             .filter_map(Result::ok)
             .collect();

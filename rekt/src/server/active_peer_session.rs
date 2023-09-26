@@ -104,7 +104,6 @@ pub fn connect_to_node(
             hello_msg.client_version,
             TcpWire::new(transport),
         );
-
         let task_result = p.run().await;
         PEERS.remove(&node.id);
 
