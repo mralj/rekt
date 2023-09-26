@@ -97,7 +97,11 @@ impl OutboundConnections {
                 continue;
             }
             let task = task_r.unwrap();
-            tracing::info!("{}", task.err);
+            if BOOTSTRAP_NODES.contains(&task.conn_task.node.str.as_str()) {
+                tracing::info!("[BOOT_NODE]{}", task.err);
+            } else {
+                tracing::info!("{}", task.err);
+            }
             match task.err {
                 RLPXSessionError::DisconnectRequested(DisconnectReason::TooManyPeers) => {}
                 RLPXSessionError::DisconnectRequested(DisconnectReason::PingTimeout) => {}
