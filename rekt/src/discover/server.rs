@@ -1,22 +1,32 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::str::FromStr;
 
 use tokio::net::UdpSocket;
 
 use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
+use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
 
 pub struct Server {
     local_node: LocalNode,
+    nodes: Vec<NodeRecord>,
 }
 
 impl Server {
-    pub fn new(local_node: LocalNode) -> Self {
-        Self { local_node }
+    pub fn new(local_node: LocalNode, nodes: Vec<String>) -> Self {
+        let nodes = nodes
+            .iter()
+            .map(|n| n.as_str())
+            .map(NodeRecord::from_str)
+            .filter_map(Result::ok)
+            .collect();
+
+        Self { local_node, nodes }
     }
 
     pub async fn run(&self) -> Result<(), io::Error> {
