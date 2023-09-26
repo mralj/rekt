@@ -18,7 +18,8 @@ use super::messages::ping_pong_messages::PingMessage;
 pub struct Server {
     local_node: LocalNode,
     nodes: Vec<NodeRecord>,
-    udp_socket: Arc<UdpSocket>,
+    udp_socket_listener: Arc<UdpSocket>,
+    udp_socket_pinger: Arc<UdpSocket>,
 }
 
 impl Server {
@@ -41,7 +42,8 @@ impl Server {
         Ok(Self {
             local_node,
             nodes,
-            udp_socket,
+            udp_socket_listener: udp_socket.clone(),
+            udp_socket_pinger: udp_socket.clone(),
         })
     }
 
@@ -69,10 +71,9 @@ impl Server {
 
     async fn run_listener(&self) -> Result<(), io::Error> {
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
-        let socket = self.udp_socket.clone();
 
         loop {
-            let packet = socket.recv_from(&mut buf).await;
+            let packet = self.udp_socket_listener.recv_from(&mut buf).await;
             if let Ok((size, src)) = packet {
                 if !packet_size_is_valid(size) {
                     continue;
@@ -80,7 +81,8 @@ impl Server {
                 if let Some(response) =
                     decode_msg_and_create_response(&buf[..size], &self.local_node.enr, &src)
                 {
-                    let _ = socket
+                    let _ = self
+                        .udp_socket_listener
                         .send_to(
                             &DiscoverMessage::create_disc_v4_packet(
                                 response,
@@ -95,10 +97,10 @@ impl Server {
     }
 
     async fn run_pinger(&self) -> Result<(), io::Error> {
-        let socket = self.udp_socket.clone();
         for node in &self.nodes {
             if let IpAddr::V4(address) = node.address {
-                match socket
+                match self
+                    .udp_socket_pinger
                     .send_to(
                         &DiscoverMessage::create_disc_v4_packet(
                             DiscoverMessage::Ping(PingMessage::new(&self.local_node, node)),

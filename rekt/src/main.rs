@@ -40,6 +40,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 discover::server::Server::new_arc(our_node.clone(), config.nodes).await
             {
                 let _ = discover::server::Server::start(discovery_server);
+            } else {
+                println!("Failed to start discovery server");
             }
         });
     } else {
