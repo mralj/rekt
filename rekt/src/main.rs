@@ -27,17 +27,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
+    let nodes = get_nodes_to_connect_to(&mut config.nodes);
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
-        config.nodes.clone(),
+        nodes.clone(),
     ));
     OutboundConnections::start(outbound_connections).await;
 
     if our_node.public_ip_retrieved {
         tokio::task::spawn(async move {
             if let Ok(discovery_server) =
-                discover::server::Server::new_arc(our_node.clone(), config.nodes).await
+                discover::server::Server::new_arc(our_node.clone(), nodes).await
             {
                 let _ = discover::server::Server::start(discovery_server).await;
             } else {
