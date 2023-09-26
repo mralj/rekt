@@ -31,13 +31,20 @@ impl Server {
             .filter_map(Result::ok)
             .collect();
 
-        let udp_socket = Arc::new(
-            UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-                Ipv4Addr::UNSPECIFIED,
-                DEFAULT_PORT,
-            )))
-            .await?,
-        );
+        let udp_socket = match UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_PORT,
+        )))
+        .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                println!("Failed to bind udp socket: {:?}", e);
+                return Err(e);
+            }
+        };
+
+        let udp_socket = Arc::new(udp_socket);
 
         Ok(Self {
             local_node,
