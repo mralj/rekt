@@ -102,13 +102,6 @@ impl OutboundConnections {
             } else {
                 tracing::info!("{}", task.err);
             }
-            match task.err {
-                RLPXSessionError::DisconnectRequested(DisconnectReason::TooManyPeers) => {}
-                RLPXSessionError::DisconnectRequested(DisconnectReason::PingTimeout) => {}
-                RLPXSessionError::P2PError(P2PError::AlreadyConnected) => {}
-                RLPXSessionError::P2PError(P2PError::AlreadyConnectedToSameIp) => {}
-                _ => continue,
-            };
 
             let task = task.conn_task;
             let it_is_not_yet_time_to_retry = !task
