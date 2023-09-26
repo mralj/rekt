@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::sync::Arc;
+use std::time::Duration;
 
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
@@ -39,6 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if our_node.public_ip_retrieved {
         tokio::task::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5));
             match DiscoveryServer::new(our_node.clone()).await {
                 Ok(disc_server) => disc_server.start().await,
                 Err(e) => println!("Failed to start discovery server: {:?}", e),
