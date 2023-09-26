@@ -1,6 +1,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use tokio::net::UdpSocket;
 
@@ -17,10 +18,11 @@ use super::messages::ping_pong_messages::PingMessage;
 pub struct Server {
     local_node: LocalNode,
     nodes: Vec<NodeRecord>,
+    udp_socket: Arc<UdpSocket>,
 }
 
 impl Server {
-    pub fn new(local_node: LocalNode, nodes: Vec<String>) -> Self {
+    pub async fn new(local_node: LocalNode, nodes: Vec<String>) -> Result<Self, io::Error> {
         let nodes = nodes
             .iter()
             .map(|n| n.as_str())
@@ -28,32 +30,47 @@ impl Server {
             .filter_map(Result::ok)
             .collect();
 
-        Self { local_node, nodes }
+        let udp_socket = Arc::new(
+            UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+                Ipv4Addr::UNSPECIFIED,
+                DEFAULT_PORT,
+            )))
+            .await?,
+        );
+
+        Ok(Self {
+            local_node,
+            nodes,
+            udp_socket,
+        })
     }
 
-    pub async fn start(&self) -> Result<(), io::Error> {
-        let pinger = self.clone();
-        let listener = self.clone();
+    pub async fn new_arc(
+        local_node: LocalNode,
+        nodes: Vec<String>,
+    ) -> Result<Arc<Self>, io::Error> {
+        Ok(Arc::new(Self::new(local_node, nodes).await?))
+    }
 
-        tokio::task::spawn(async move {
-            let _ = pinger.run_pinger().await;
-        });
+    pub async fn start(server: Arc<Self>) -> Result<(), io::Error> {
+        let pinger = server.clone();
+        let listener = server.clone();
 
         tokio::task::spawn(async move {
             let _ = listener.run_listener().await;
+        });
+
+        tokio::task::spawn(async move {
+            let _ = pinger.run_pinger().await;
         });
 
         Ok(())
     }
 
     async fn run_listener(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            DEFAULT_PORT,
-        )))
-        .await?;
-
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
+        let socket = self.udp_socket.clone();
+
         loop {
             let packet = socket.recv_from(&mut buf).await;
             if let Ok((size, src)) = packet {
@@ -78,12 +95,7 @@ impl Server {
     }
 
     async fn run_pinger(&self) -> Result<(), io::Error> {
-        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            DEFAULT_PORT,
-        )))
-        .await?;
-
+        let socket = self.udp_socket.clone();
         for node in &self.nodes {
             if let IpAddr::V4(address) = node.address {
                 match socket
