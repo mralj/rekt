@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use chrono::Local;
 use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
@@ -36,9 +37,10 @@ pub fn decode_msg_and_create_response(
     //     return None;
     // }
 
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S");
     match msg_type {
         DiscoverMessageType::Ping => {
-            println!("Ping message received, from {:?}", src);
+            println!("[{}] Ping message received, from {:?}", now, src);
             let ping_msg = PingMessage::decode(msg_data).ok()?;
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
@@ -46,11 +48,11 @@ pub fn decode_msg_and_create_response(
             )))
         }
         DiscoverMessageType::Pong => {
-            println!("Pong message received, from {:?}", src);
+            println!("[{}] Pong message received, from {:?}", now, src);
             None
         }
         DiscoverMessageType::EnrRequest => {
-            println!("ENR request message received, from {:?}", src);
+            println!("[{}] ENR message received, from {:?}", now, src);
             Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
                 H256::from_slice(hash),
                 enr.clone(),
@@ -58,11 +60,14 @@ pub fn decode_msg_and_create_response(
         }
 
         DiscoverMessageType::Neighbors => {
-            println!("Neighbors message received, from {:?}", src);
+            println!("[{}] Neighbors  message received, from {:?}", now, src);
             None
         }
         _ => {
-            println!("Msg of type: {}", msg_type);
+            println!(
+                "[{}] Unhandled message of type {}received, from {:?}",
+                msg_type, now, src
+            );
             None
         }
     }
