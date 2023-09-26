@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(discovery_server) =
                 discover::server::Server::new_arc(our_node.clone(), config.nodes).await
             {
-                let _ = discover::server::Server::start(discovery_server);
+                let _ = discover::server::Server::start(discovery_server).await;
             } else {
                 println!("Failed to start discovery server");
             }
