@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
-        &config.nodes,
+        config.nodes,
     ));
     OutboundConnections::start(outbound_connections).await;
 
