@@ -13,6 +13,7 @@ use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
 use super::messages::ping_pong_messages::PingMessage;
 
+#[derive(Debug, Clone)]
 pub struct Server {
     local_node: LocalNode,
     nodes: Vec<NodeRecord>,
@@ -30,7 +31,22 @@ impl Server {
         Self { local_node, nodes }
     }
 
-    pub async fn run_listener(&self) -> Result<(), io::Error> {
+    pub async fn start(&self) -> Result<(), io::Error> {
+        let pinger = self.clone();
+        let listener = self.clone();
+
+        tokio::task::spawn(async move {
+            let _ = pinger.run_pinger().await;
+        });
+
+        tokio::task::spawn(async move {
+            let _ = listener.run_listener().await;
+        });
+
+        Ok(())
+    }
+
+    async fn run_listener(&self) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
@@ -61,7 +77,7 @@ impl Server {
         }
     }
 
-    pub async fn run_pinger(&self) -> Result<(), io::Error> {
+    async fn run_pinger(&self) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
