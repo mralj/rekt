@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 
 use tokio::net::UdpSocket;
@@ -11,6 +11,7 @@ use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
+use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {
     local_node: LocalNode,
@@ -29,7 +30,7 @@ impl Server {
         Self { local_node, nodes }
     }
 
-    pub async fn run(&self) -> Result<(), io::Error> {
+    pub async fn run_listener(&self) -> Result<(), io::Error> {
         let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
@@ -58,5 +59,33 @@ impl Server {
                 }
             }
         }
+    }
+
+    pub async fn run_pinger(&self) -> Result<(), io::Error> {
+        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::UNSPECIFIED,
+            DEFAULT_PORT,
+        )))
+        .await?;
+
+        for node in &self.nodes {
+            if let IpAddr::V4(address) = node.address {
+                match socket
+                    .send_to(
+                        &DiscoverMessage::create_disc_v4_packet(
+                            DiscoverMessage::Ping(PingMessage::new(&self.local_node, node)),
+                            &self.local_node.private_key,
+                        )[..],
+                        SocketAddr::V4(SocketAddrV4::new(address, node.udp_port)),
+                    )
+                    .await
+                {
+                    Ok(_) => println!("Sent ping to {}", node.ip),
+                    Err(e) => println!("Failed to send ping to {}: {:?}", node.ip, e),
+                }
+            }
+        }
+
+        Ok(())
     }
 }
