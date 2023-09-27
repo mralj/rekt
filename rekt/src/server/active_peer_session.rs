@@ -51,18 +51,9 @@ pub fn connect_to_node(
         let node = conn_task.node.clone();
         let rlpx_connection = Connection::new(secret_key, node.pub_key);
 
-        let socket = map_err!(TcpSocket::new_v4());
-        map_err!(socket.set_reuseport(true));
-        map_err!(socket.set_reuseaddr(true));
-
-        map_err!(socket.bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            DEFAULT_PORT,
-        ))));
-
         let stream = map_err!(match timeout(
             Duration::from_secs(5),
-            socket.connect(node.get_socket_addr()),
+            TcpStream::connect(node.get_socket_addr())
         )
         .await
         {
