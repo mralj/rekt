@@ -2,7 +2,6 @@ use std::fs::File;
 use std::sync::Arc;
 
 use rekt::config::get_config;
-use rekt::discover::server::run_discovery_server;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
@@ -31,12 +30,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         our_node.public_key,
         config.nodes,
     ));
+
     OutboundConnections::start(outbound_connections).await;
 
     if our_node.public_ip_retrieved {
-        tokio::task::spawn(async move {
-            let _ = run_discovery_server(&our_node).await;
-        });
+        let discover_server = Arc::new(rekt::discover::server::Server::new(our_node).await?);
+        rekt::discover::server::Server::start(discover_server);
     } else {
         println!("Failed to retrieve public ip, discovery server not started");
     }
