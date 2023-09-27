@@ -74,7 +74,7 @@ impl Server {
                 }
 
                 if let Some(resp) =
-                    decode_msg_and_create_response(&buf[..size], &self.local_node.enr)
+                    decode_msg_and_create_response(&src, &buf[..size], &self.local_node.enr)
                 {
                     let packet =
                         DiscoverMessage::create_disc_v4_packet(resp, &self.local_node.private_key);

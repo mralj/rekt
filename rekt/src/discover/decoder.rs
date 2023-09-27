@@ -1,3 +1,6 @@
+use std::net::SocketAddr;
+
+use chrono::Local;
 use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
@@ -19,7 +22,11 @@ const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE;
 // as invalid because their hash won't match.
 pub const MAX_PACKET_SIZE: usize = 1280;
 
-pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Option<DiscoverMessage> {
+pub fn decode_msg_and_create_response(
+    src: &SocketAddr,
+    buf: &[u8],
+    enr: &Enr<SecretKey>,
+) -> Option<DiscoverMessage> {
     let hash = &buf[..HASH_SIZE];
     let _signature = &buf[HASH_SIZE..HEADER_SIZE];
     let msg_type = &buf[HEADER_SIZE..][0];
@@ -30,9 +37,10 @@ pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Optio
         return None;
     }
 
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S");
     match msg_type {
         DiscoverMessageType::Ping => {
-            println!("Ping message");
+            println!("[{}] Ping message [{:?}]", now, src);
             let ping_msg = PingMessage::decode(msg_data).ok()?;
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
@@ -40,7 +48,7 @@ pub fn decode_msg_and_create_response(buf: &[u8], enr: &Enr<SecretKey>) -> Optio
             )))
         }
         DiscoverMessageType::EnrRequest => {
-            println!("ENR message");
+            println!("[{}] ENR message [{:?}]", now, src);
             Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
                 H256::from_slice(hash),
                 enr.clone(),
