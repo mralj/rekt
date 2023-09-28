@@ -2,7 +2,7 @@ use std::fs::File;
 use std::sync::Arc;
 
 use rekt::config::get_config;
-use rekt::discover::server::run_discovery_server;
+use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
@@ -11,7 +11,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = get_config()?;
+    let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
@@ -29,14 +29,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
-        config.nodes,
+        get_all_nodes(&mut config.nodes),
     ));
+
     OutboundConnections::start(outbound_connections).await;
 
     if our_node.public_ip_retrieved {
-        tokio::task::spawn(async move {
-            let _ = run_discovery_server(&our_node).await;
-        });
+        let discover_server = Arc::new(rekt::discover::server::Server::new(our_node).await?);
+        rekt::discover::server::Server::start(discover_server);
     } else {
         println!("Failed to retrieve public ip, discovery server not started");
     }
@@ -44,4 +44,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tokio::signal::ctrl_c().await;
 
     Ok(())
+}
+
+fn get_all_nodes(static_nodes: &mut Vec<String>) -> Vec<String> {
+    let mut nodes = BOOTSTRAP_NODES
+        .iter()
+        .copied()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>();
+
+    nodes.append(static_nodes);
+    nodes
 }

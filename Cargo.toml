@@ -1,7 +1,5 @@
-
 [workspace]
-members = [
-    "./open-fastrlp",
-    "./open-fastrlp/rlp-derive/",
-    "./rekt",
-]
+members = ["./open-fastrlp", "./open-fastrlp/rlp-derive/", "./rekt"]
+
+[workspace.package]
+edition = "2021"
