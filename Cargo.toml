@@ -1,7 +1,12 @@
-
 [workspace]
 members = [
     "./open-fastrlp",
     "./open-fastrlp/rlp-derive/",
     "./rekt",
 ]
+
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+

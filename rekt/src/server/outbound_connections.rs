@@ -3,7 +3,6 @@ use std::time::{Duration, Instant};
 
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
-use tokio::select;
 use tokio::time::interval;
 
 use crate::p2p::errors::P2PError;
@@ -125,20 +124,13 @@ impl OutboundConnections {
     }
 
     async fn run_logger(&self) {
-        let mut count_interval = interval(Duration::from_secs(60));
         let mut info_interval = interval(Duration::from_secs(5 * 60));
 
         loop {
-            select! {
-                _ = count_interval.tick() => {
-                    println!("{}", PEERS.len());
-                },
-                _ = info_interval.tick() => {
-                    tracing::info!("==================== ==========================  ==========");
-                    for v in PEERS.iter() {
-                        tracing::info!("{}", v.value())
-                    }
-                }
+            info_interval.tick().await;
+            tracing::info!("==================== ==========================  ==========");
+            for v in PEERS.iter() {
+                tracing::info!("PEER COUNT: {}", v.value())
             }
         }
     }
