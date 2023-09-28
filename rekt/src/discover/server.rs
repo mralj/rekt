@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use tokio::net::UdpSocket;
 
-use crate::constants::DEFAULT_PORT;
+use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
 
@@ -35,13 +35,14 @@ impl Server {
         );
 
         let (sender, receiver) = kanal::unbounded_async();
+        let boot_nodes: Vec<String> = BOOTSTRAP_NODES.iter().copied().map(String::from).collect();
 
         Ok(Self {
             local_node,
             udp_socket,
             sender,
             receiver,
-            boot_nodes: Vec::new(),
+            boot_nodes,
             static_nodes: Vec::new(),
         })
     }
