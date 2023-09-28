@@ -5,6 +5,7 @@ use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
 
+use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER;
 use crate::discover::messages::find_node::Neighbours;
 use crate::types::hash::H256;
 
@@ -65,9 +66,16 @@ pub fn decode_msg_and_create_response(
         }
         DiscoverMessageType::EnrResponse => {
             let enr_response = EnrResponse::decode(msg_data).ok()?;
+            let forks_match = {
+                if let Some(fork_id) = enr_response.eth_fork_id() {
+                    BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
+                } else {
+                    false
+                }
+            };
             println!(
-                "[{}] ENR Response message [{:?}]: {:?}",
-                now, src, enr_response
+                "[{}] ENR Response message [{:?}]: {:?}, is match: {}",
+                now, src, enr_response, forks_match
             );
             None
         }
