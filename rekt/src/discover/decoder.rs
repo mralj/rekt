@@ -9,7 +9,7 @@ use crate::discover::messages::find_node::Neighbours;
 use crate::types::hash::H256;
 
 use super::messages::discover_message::{DiscoverMessage, DiscoverMessageType};
-use super::messages::enr::EnrResponseMessage;
+use super::messages::enr::EnrResponse;
 use super::messages::ping_pong_messages::{PingMessage, PongMessage};
 
 // The following constants are defined in the "docs"
@@ -50,7 +50,7 @@ pub fn decode_msg_and_create_response(
         }
         DiscoverMessageType::EnrRequest => {
             println!("[{}] ENR message [{:?}]", now, src);
-            Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
+            Some(DiscoverMessage::EnrResponse(EnrResponse::new(
                 H256::from_slice(hash),
                 enr.clone(),
             )))
@@ -61,6 +61,14 @@ pub fn decode_msg_and_create_response(
                 println!("Neighbor: {:?}", n)
             }
 
+            None
+        }
+        DiscoverMessageType::EnrResponse => {
+            let enr_response = EnrResponse::decode(msg_data).ok()?;
+            println!(
+                "[{}] ENR Response message [{:?}]: {:?}",
+                now, src, enr_response
+            );
             None
         }
         _ => None,

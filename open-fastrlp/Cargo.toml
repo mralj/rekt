@@ -14,6 +14,7 @@ ethnum = { version = "1", default-features = false, optional = true }
 ethereum-types = { version = "0.14", features = ["codec"], optional = true }
 rlp-derive = { package = "open-fastrlp-derive", version = "0.1", path = "./rlp-derive", optional = true }
 enr = "0.9"
+rlp = "0.5.2"
 
 [dev-dependencies]
 rlp-test = { path = ".", package = "open-fastrlp", features = [
