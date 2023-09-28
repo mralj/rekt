@@ -8,6 +8,7 @@ use crate::discover::decoder::MAX_PACKET_SIZE;
 use crate::types::hash::H256;
 
 use super::enr::EnrResponseMessage;
+use super::find_node::FindNode;
 use super::ping_pong_messages::{PingMessage, PongMessage};
 
 pub(super) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
@@ -41,6 +42,7 @@ impl DiscoverMessageType {
         match self {
             DiscoverMessageType::Ping => true,
             DiscoverMessageType::EnrRequest => true,
+            DiscoverMessageType::Neighbors => true,
             _ => false,
         }
     }
@@ -50,6 +52,7 @@ pub enum DiscoverMessage {
     Ping(PingMessage),
     Pong(PongMessage),
     EnrResponse(EnrResponseMessage),
+    FindNode(FindNode),
 }
 
 impl DiscoverMessage {
@@ -57,6 +60,7 @@ impl DiscoverMessage {
         match &self {
             DiscoverMessage::Ping(_) => 1,
             DiscoverMessage::Pong(_) => 2,
+            DiscoverMessage::FindNode(_) => 3,
             DiscoverMessage::EnrResponse(_) => 6,
         }
     }
@@ -68,6 +72,7 @@ impl Encodable for DiscoverMessage {
             DiscoverMessage::Ping(msg) => msg.encode(out),
             DiscoverMessage::Pong(msg) => msg.encode(out),
             DiscoverMessage::EnrResponse(msg) => msg.encode(out),
+            DiscoverMessage::FindNode(msg) => msg.encode(out),
         }
     }
 }

@@ -5,6 +5,7 @@ use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
 
+use crate::discover::messages::find_node::Neighbours;
 use crate::types::hash::H256;
 
 use super::messages::discover_message::{DiscoverMessage, DiscoverMessageType};
@@ -53,6 +54,22 @@ pub fn decode_msg_and_create_response(
                 H256::from_slice(hash),
                 enr.clone(),
             )))
+        }
+        DiscoverMessageType::Neighbors => {
+            println!("[{}] Neighbors message [{:?}]", now, src);
+            let neighbours = match Neighbours::decode(msg_data) {
+                Ok(neighbours) => neighbours,
+                Err(e) => {
+                    println!("[{}] Error decoding Neighbours message: {:?}", now, e);
+                    return None;
+                }
+            };
+
+            for n in neighbours.nodes {
+                println!("Neighbor: {:?}", n)
+            }
+
+            None
         }
         _ => None,
     }
