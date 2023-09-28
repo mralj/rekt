@@ -1,5 +1,6 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -8,6 +9,7 @@ use tokio::net::UdpSocket;
 use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
+use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
@@ -20,7 +22,7 @@ pub struct Server {
     receiver: kanal::AsyncReceiver<(SocketAddr, Bytes)>,
     sender: kanal::AsyncSender<(SocketAddr, Bytes)>,
 
-    boot_nodes: Vec<String>,
+    boot_nodes: Vec<NodeRecord>,
     static_nodes: Vec<String>,
 }
 
@@ -35,7 +37,11 @@ impl Server {
         );
 
         let (sender, receiver) = kanal::unbounded_async();
-        let boot_nodes: Vec<String> = BOOTSTRAP_NODES.iter().copied().map(String::from).collect();
+        let boot_nodes: Vec<NodeRecord> = BOOTSTRAP_NODES
+            .iter()
+            .copied()
+            .filter_map(|n| NodeRecord::from_str(n).ok())
+            .collect();
 
         Ok(Self {
             local_node,
@@ -98,14 +104,20 @@ impl Server {
 
     async fn run_lookup(&self) {
         for boot_node in &self.boot_nodes {
-            let msg = DiscoverMessage::FindNode(FindNode::new(self.local_node.node_record.id));
-            let _ = self
-                .sender
-                .send((
-                    SocketAddr::V4(SocketAddrV4::new(boot_node.parse().unwrap(), DEFAULT_PORT)),
-                    DiscoverMessage::create_disc_v4_packet(msg, &self.local_node.private_key),
-                ))
-                .await;
+            if let IpAddr::V4(address) = boot_node.address {
+                let _ = self
+                    .sender
+                    .send((
+                        SocketAddr::V4(SocketAddrV4::new(address, boot_node.tcp_port)),
+                        DiscoverMessage::create_disc_v4_packet(
+                            DiscoverMessage::FindNode(FindNode::new(
+                                self.local_node.node_record.id,
+                            )),
+                            &self.local_node.private_key,
+                        ),
+                    ))
+                    .await;
+            }
         }
     }
 }
