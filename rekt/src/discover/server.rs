@@ -119,6 +119,8 @@ impl Server {
             }
         }
 
+        //TODO: implement this properly later on, the timer is here just to make sure that
+        // ping messages are sent before the lookup is started
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         for boot_node in &self.boot_nodes {

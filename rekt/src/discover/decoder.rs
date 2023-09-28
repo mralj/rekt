@@ -56,15 +56,7 @@ pub fn decode_msg_and_create_response(
             )))
         }
         DiscoverMessageType::Neighbors => {
-            println!("[{}] Neighbors message [{:?}]", now, src);
-            let neighbours = match Neighbours::decode(msg_data) {
-                Ok(neighbours) => neighbours,
-                Err(e) => {
-                    println!("[{}] Error decoding Neighbours message: {:?}", now, e);
-                    return None;
-                }
-            };
-
+            let neighbours = Neighbours::decode(msg_data).ok()?;
             for n in neighbours.nodes {
                 println!("Neighbor: {:?}", n)
             }
