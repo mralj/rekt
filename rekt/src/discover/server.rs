@@ -14,6 +14,7 @@ use crate::types::node_record::NodeRecord;
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
 use super::messages::find_node::FindNode;
+use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {
     local_node: LocalNode,
@@ -103,6 +104,23 @@ impl Server {
     }
 
     async fn run_lookup(&self) {
+        for boot_node in &self.boot_nodes {
+            if let IpAddr::V4(address) = boot_node.address {
+                let _ = self
+                    .sender
+                    .send((
+                        SocketAddr::V4(SocketAddrV4::new(address, boot_node.tcp_port)),
+                        DiscoverMessage::create_disc_v4_packet(
+                            DiscoverMessage::Ping(PingMessage::new(&self.local_node, boot_node)),
+                            &self.local_node.private_key,
+                        ),
+                    ))
+                    .await;
+            }
+        }
+
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
         for boot_node in &self.boot_nodes {
             if let IpAddr::V4(address) = boot_node.address {
                 let _ = self

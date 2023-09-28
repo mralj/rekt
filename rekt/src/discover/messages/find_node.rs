@@ -29,12 +29,12 @@ impl FindNode {
 
 #[derive(Clone, Debug, Eq, PartialEq, RlpEncodable, RlpDecodable)]
 pub struct Neighbours {
-    pub nodes: Vec<NodeRecord>,
+    pub nodes: Vec<NeighborNodeRecord>,
     pub expire: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, RlpEncodable, RlpDecodable)]
-pub struct NodeRecord {
+pub struct NeighborNodeRecord {
     /// The Address of a node.
     pub address: IpAddr,
     /// TCP port of the port that accepts connections.
@@ -45,7 +45,7 @@ pub struct NodeRecord {
     pub id: H512,
 }
 
-impl Display for NodeRecord {
+impl Display for NeighborNodeRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

@@ -4,9 +4,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use open_fastrlp::{RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
+use crate::local_node::LocalNode;
 use crate::types::hash::H256;
+use crate::types::node_record::NodeRecord;
 
 use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
+
+// Defined by the docs, this is hardcoded
+// https://github.com/ethereum/devp2p/blob/master/discv4.md
+// 4 is for discovery v4
+const DEFAULT_IP_PACKET_V: u8 = 4;
 
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Endpoint {
@@ -21,6 +28,16 @@ impl Endpoint {
     }
 }
 
+impl From<&NodeRecord> for Endpoint {
+    fn from(node_record: &NodeRecord) -> Self {
+        Self {
+            ip: node_record.address,
+            udp: node_record.udp_port,
+            tcp: node_record.tcp_port,
+        }
+    }
+}
+
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct PingMessage {
     pub(super) version: u8,
@@ -28,6 +45,24 @@ pub struct PingMessage {
     pub(super) to: Endpoint,
     pub(super) expiration: u64,
     pub(super) enr_seq: u64,
+}
+
+impl PingMessage {
+    pub fn new(our_node: &LocalNode, target_node: &NodeRecord) -> Self {
+        let expires = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + DEFAULT_MESSAGE_EXPIRATION;
+
+        PingMessage {
+            version: DEFAULT_IP_PACKET_V,
+            from: Endpoint::from(&our_node.node_record),
+            to: Endpoint::from(target_node),
+            expiration: expires,
+            enr_seq: our_node.enr.seq(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
