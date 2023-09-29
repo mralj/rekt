@@ -5,11 +5,12 @@ use enr::Enr;
 use open_fastrlp::Decodable;
 use secp256k1::SecretKey;
 
+use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER;
 use crate::discover::messages::find_node::Neighbours;
 use crate::types::hash::H256;
 
 use super::messages::discover_message::{DiscoverMessage, DiscoverMessageType};
-use super::messages::enr::EnrResponseMessage;
+use super::messages::enr::EnrResponse;
 use super::messages::ping_pong_messages::{PingMessage, PongMessage};
 
 // The following constants are defined in the "docs"
@@ -50,7 +51,7 @@ pub fn decode_msg_and_create_response(
         }
         DiscoverMessageType::EnrRequest => {
             println!("[{}] ENR message [{:?}]", now, src);
-            Some(DiscoverMessage::EnrResponse(EnrResponseMessage::new(
+            Some(DiscoverMessage::EnrResponse(EnrResponse::new(
                 H256::from_slice(hash),
                 enr.clone(),
             )))
@@ -61,6 +62,21 @@ pub fn decode_msg_and_create_response(
                 println!("Neighbor: {:?}", n)
             }
 
+            None
+        }
+        DiscoverMessageType::EnrResponse => {
+            let enr_response = EnrResponse::decode(msg_data).ok()?;
+            let forks_match = {
+                if let Some(fork_id) = enr_response.eth_fork_id() {
+                    BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
+                } else {
+                    false
+                }
+            };
+            println!(
+                "[{}] ENR Response message [{:?}]: {:?}, is match: {}",
+                now, src, enr_response, forks_match
+            );
             None
         }
         _ => None,

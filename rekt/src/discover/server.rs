@@ -13,6 +13,7 @@ use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::messages::discover_message::DiscoverMessage;
+use super::messages::enr::EnrRequest;
 use super::messages::find_node::FindNode;
 use super::messages::ping_pong_messages::PingMessage;
 
@@ -130,9 +131,7 @@ impl Server {
                     .send((
                         SocketAddr::V4(SocketAddrV4::new(address, boot_node.tcp_port)),
                         DiscoverMessage::create_disc_v4_packet(
-                            DiscoverMessage::FindNode(FindNode::new(
-                                self.local_node.node_record.id,
-                            )),
+                            DiscoverMessage::EnrRequest(EnrRequest::new()),
                             &self.local_node.private_key,
                         ),
                     ))

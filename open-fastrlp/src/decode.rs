@@ -398,6 +398,37 @@ impl Decodable for std::net::IpAddr {
     }
 }
 
+impl<K> Decodable for enr::Enr<K>
+where
+    K: enr::EnrKey,
+{
+    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        // currently the only way to build an enr is to decode it using the rlp::Decodable trait
+        let enr = <Self as rlp::Decodable>::decode(&rlp::Rlp::new(buf)).map_err(|e| match e {
+            rlp::DecoderError::RlpIsTooShort => DecodeError::InputTooShort,
+            rlp::DecoderError::RlpInvalidLength => DecodeError::Overflow,
+            rlp::DecoderError::RlpExpectedToBeList => DecodeError::UnexpectedString,
+            rlp::DecoderError::RlpExpectedToBeData => DecodeError::UnexpectedList,
+            rlp::DecoderError::RlpDataLenWithZeroPrefix
+            | rlp::DecoderError::RlpListLenWithZeroPrefix => DecodeError::LeadingZero,
+            rlp::DecoderError::RlpInvalidIndirection => DecodeError::NonCanonicalSize,
+            rlp::DecoderError::RlpIncorrectListLen => {
+                DecodeError::Custom("incorrect list length when decoding rlp")
+            }
+            rlp::DecoderError::RlpIsTooBig => DecodeError::Custom("rlp is too big"),
+            rlp::DecoderError::RlpInconsistentLengthAndData => {
+                DecodeError::Custom("inconsistent length and data when decoding rlp")
+            }
+            rlp::DecoderError::Custom(s) => DecodeError::Custom(s),
+        });
+        if enr.is_ok() {
+            // Decode was successful, advance buffer
+            let header = Header::decode(buf)?;
+            buf.advance(header.payload_length);
+        }
+        enr
+    }
+}
 #[cfg(test)]
 mod tests {
     extern crate alloc;
