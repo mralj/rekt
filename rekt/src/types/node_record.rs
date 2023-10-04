@@ -60,6 +60,19 @@ impl NodeRecord {
             str: format!("enode://{:02x}@{}:{}", id, address, tcp_port),
         }
     }
+
+    pub fn ip_v4_address(&self) -> Option<Ipv4Addr> {
+        match self.address {
+            IpAddr::V4(ip) => Some(ip),
+            IpAddr::V6(ipv6) => {
+                if let Some(ipv4) = ipv6.to_ipv4_mapped() {
+                    Some(ipv4)
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl FromStr for NodeRecord {
