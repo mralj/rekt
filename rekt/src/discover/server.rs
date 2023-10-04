@@ -1,11 +1,13 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
 use dashmap::{DashMap, DashSet};
 use tokio::net::UdpSocket;
+use tokio::time::interval;
+use tokio_stream::StreamExt;
 
 use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
 use crate::discover::decoder::packet_size_is_valid;
@@ -15,7 +17,7 @@ use crate::types::node_record::NodeRecord;
 
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::discover_node::DiscoverNode;
-use super::messages::discover_message::DiscoverMessage;
+use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRATION};
 use super::messages::enr::EnrRequest;
 use super::messages::find_node::FindNode;
 use super::messages::ping_pong_messages::PingMessage;
@@ -29,7 +31,7 @@ pub struct Server {
 
     nodes: DashMap<H512, DiscoverNode>,
 
-    pending_pings: DashSet<H512>,
+    pending_pings: DashMap<H512, std::time::Instant>,
 
     //TODO delete this
     boot_nodes: Vec<NodeRecord>,
@@ -61,7 +63,7 @@ impl Server {
             boot_nodes,
             static_nodes: Vec::new(),
             nodes: DashMap::with_capacity(10_0000),
-            pending_pings: DashSet::with_capacity(10_000),
+            pending_pings: DashMap::with_capacity(10_000),
         })
     }
 
@@ -110,7 +112,7 @@ impl Server {
     }
 
     async fn send_ping_packet(&self, node: &DiscoverNode) {
-        if self.pending_pings.contains(&node.id()) {
+        if self.pending_pings.contains_key(&node.id()) {
             return;
         }
 
@@ -122,6 +124,8 @@ impl Server {
             n.mark_ping_attempt();
         }
 
+        self.pending_pings
+            .insert(node.id(), std::time::Instant::now());
         let packet = DiscoverMessage::create_disc_v4_packet(
             DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node.node_record)),
             &self.local_node.private_key,
@@ -134,5 +138,16 @@ impl Server {
                 packet,
             ))
             .await;
+    }
+
+    async fn purge_stale_pings(&self) {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
+        ));
+
+        while let Some(_) = stream.next().await {
+            self.pending_pings
+                .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+        }
     }
 }
