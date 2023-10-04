@@ -11,7 +11,7 @@ use super::enr::{EnrRequest, EnrResponse};
 use super::find_node::FindNode;
 use super::ping_pong_messages::{PingMessage, PongMessage};
 
-pub(super) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
+pub(crate) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
 
 pub enum DiscoverMessageType {
     Ping = 1,

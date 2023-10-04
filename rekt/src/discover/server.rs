@@ -110,14 +110,22 @@ impl Server {
     }
 
     async fn send_ping_packet(&self, node: &DiscoverNode) {
+        if self.pending_pings.contains(&node.id()) {
+            return;
+        }
+
+        if let Some(mut n) = self.nodes.get_mut(&node.id()) {
+            if n.re_ping_is_not_needed() {
+                return;
+            }
+
+            n.mark_ping_attempt();
+        }
+
         let packet = DiscoverMessage::create_disc_v4_packet(
             DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node.node_record)),
             &self.local_node.private_key,
         );
-
-        if let Some(mut n) = self.nodes.get_mut(&node.id()) {
-            n.mark_ping_attempt();
-        }
 
         let _ = self
             .udp_sender
