@@ -17,7 +17,7 @@ pub struct HeaderInfo {
     pub payload_len: usize,
     pub header_len: usize,
     pub total_len: usize,
-    pub(crate) list: bool,
+    pub list: bool,
 }
 
 impl HeaderInfo {
