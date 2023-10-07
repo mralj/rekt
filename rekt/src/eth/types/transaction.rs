@@ -99,15 +99,52 @@ impl Transaction {
     ) -> Result<usize, DecodeError> {
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
-        let nonce = u64::decode(payload_view)?;
-        let gas_price = u64::decode(payload_view)?;
-
+        let nonce = match u64::decode(payload_view) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode legacy: Could not decode nonce: {:?}", e);
+                return Err(e);
+            }
+        };
+        let gas_price = match u64::decode(payload_view) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode legacy: Could not decode gas price: {:?}", e);
+                return Err(e);
+            }
+        };
+        //
         // skip gas limit
-        HeaderInfo::skip_next_item(payload_view)?;
-        let recipient = H160::decode(payload_view)?;
+        match HeaderInfo::skip_next_item(payload_view) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("Decode legacy: Could not skip gas limit: {:?}", e);
+                return Err(e);
+            }
+        };
+
+        let recipient = match H160::decode(payload_view) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode legacy: Could not decode recipient: {:?}", e);
+                return Err(e);
+            }
+        };
         // skip value
-        HeaderInfo::skip_next_item(payload_view)?;
-        let data = Bytes::decode(payload_view)?;
+        match HeaderInfo::skip_next_item(payload_view) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("Decode legacy: Could not skip value: {:?}", e);
+                return Err(e);
+            }
+        }
+        let data = match Bytes::decode(payload_view) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode legacy: Could not decode data: {:?}", e);
+                return Err(e);
+            }
+        };
 
         //print!("nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
         //     nonce, gas_price, recipient, hash
