@@ -16,14 +16,15 @@ enum TxType {
 }
 
 impl TryFrom<u8> for TxType {
-    type Error = DecodeError;
+    type Error = DecodeTxError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
+            0x00 => Ok(TxType::Legacy),
             0x01 => Ok(TxType::AccessList),
             0x02 => Ok(TxType::DynamicFee),
             0x03 => Ok(TxType::Blob),
-            _ => Err(DecodeError::UnexpectedString),
+            _ => Err(DecodeTxError::UnknownTxType),
         }
     }
 }
