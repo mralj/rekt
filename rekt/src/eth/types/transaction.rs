@@ -87,7 +87,13 @@ impl Transaction {
         // skip gas limit
         HeaderInfo::skip_next_item(payload_view);
 
-        let recipient = H160::decode(payload_view).map_err(|_| DecodeTxError::ContractCreation)?;
+        let recipient = match H160::decode(payload_view) {
+            Ok(v) => v,
+            Err(_errored_because_this_tx_is_contract_creation) => {
+                return Ok(rlp_header.payload_length);
+            }
+        };
+
         // skip value
         HeaderInfo::skip_next_item(payload_view);
         let data = Bytes::decode(payload_view);
@@ -123,7 +129,12 @@ impl Transaction {
         // skip gas limit
         HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = H160::decode(payload_view);
+        let recipient = match H160::decode(payload_view) {
+            Ok(v) => v,
+            Err(_errored_because_this_tx_is_contract_creation) => {
+                return Ok(rlp_header.payload_length);
+            }
+        };
 
         // skip value
         HeaderInfo::skip_next_item(payload_view)?;
@@ -160,7 +171,13 @@ impl Transaction {
 
         // skip gas limit
         HeaderInfo::skip_next_item(payload_view)?;
-        let recipient = H160::decode(payload_view)?;
+
+        let recipient = match H160::decode(payload_view) {
+            Ok(v) => v,
+            Err(_errored_because_this_tx_is_contract_creation) => {
+                return Ok(rlp_header.payload_length);
+            }
+        };
         // skip value
         HeaderInfo::skip_next_item(payload_view)?;
         let data = Bytes::decode(payload_view)?;
