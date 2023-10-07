@@ -48,16 +48,36 @@ pub struct Transaction {
 
 impl Transaction {
     fn decode(buf: &mut &[u8]) -> Result<usize, DecodeError> {
-        let tx_header_info = HeaderInfo::decode(buf)?;
+        let tx_header_info = match HeaderInfo::decode(buf) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode general: Could not decode header info: {:?}", e);
+                return Err(e);
+            }
+        };
 
         let rlp_decoding_is_of_legacy_tx = tx_header_info.list;
         if rlp_decoding_is_of_legacy_tx {
-            let hash = eth_tx_hash(&buf[..tx_header_info.total_len]);
-            let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
+            let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_header_info.total_len]);
+            let tx_metadata = match Header::decode_from_info(buf, tx_header_info) {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Decode legacy : Could not decode metadata: {:?}", e);
+                    return Err(e);
+                }
+            };
 
             return Transaction::decode_legacy(buf, tx_metadata, hash);
         }
-        let _parse_rlp_header_and_advance_buf = Header::decode_from_info(buf, tx_header_info)?;
+
+        let _parse_rlp_header_and_advance_buf = match Header::decode_from_info(buf, tx_header_info)
+        {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Decode typed: Could not decode metadata: {:?}", e);
+                return Err(e);
+            }
+        };
         let tx_type_flag = TxType::try_from(buf[0])?;
         match tx_type_flag {
             TxType::AccessList => {
@@ -108,7 +128,7 @@ impl Transaction {
                 return Err(DecodeError::UnexpectedString);
             }
         };
-        let hash = eth_tx_hash_2(tx_type, &buf[..tx_header_info.total_len]);
+        let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
         let rlp_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(v) => v,
             Err(e) => {
@@ -157,7 +177,7 @@ impl Transaction {
                 return Err(DecodeError::UnexpectedString);
             }
         };
-        let hash = eth_tx_hash_2(tx_type, &buf[..tx_header_info.total_len]);
+        let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
         let rlp_header = match Header::decode_from_info(buf, tx_header_info) {
             Ok(v) => v,
             Err(e) => {
@@ -227,20 +247,11 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
     Ok(())
 }
 
-fn eth_tx_hash(raw_tx: &[u8]) -> String {
+fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> String {
     let mut hasher = Keccak256::new();
-    hasher.update(raw_tx);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect::<Vec<String>>()
-        .join("")
-}
-
-fn eth_tx_hash_2(tx_type: TxType, raw_tx: &[u8]) -> String {
-    let mut hasher = Keccak256::new();
-    hasher.update(&[tx_type as u8]);
+    if tx_type != TxType::Legacy {
+        hasher.update(&[tx_type as u8]);
+    }
     hasher.update(raw_tx);
     hasher
         .finalize()
