@@ -170,7 +170,7 @@ impl Transaction {
             Ok(v) => v,
             Err(e) => {
                 println!("Could not decode header: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
+                return Err(e);
             }
         };
 
