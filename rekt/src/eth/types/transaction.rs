@@ -190,7 +190,13 @@ impl Transaction {
         // skip gas limit
         HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = H160::decode(payload_view)?;
+        let recipient = match H160::decode(payload_view) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("Typed Could not decode recipient: {:?}", e);
+                return Err(DecodeError::UnexpectedString);
+            }
+        };
 
         // skip value
         HeaderInfo::skip_next_item(payload_view)?;
