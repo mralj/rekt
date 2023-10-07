@@ -3,6 +3,7 @@ use derive_more::Display;
 use ethers::types::{U128, U256};
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
+use thiserror::Error;
 
 use crate::types::hash::H160;
 
@@ -47,37 +48,18 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<usize, DecodeError> {
-        let tx_header_info = match HeaderInfo::decode(buf) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode general: Could not decode header info: {:?}", e);
-                return Err(e);
-            }
-        };
+    fn decode(buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
+        let tx_header_info = HeaderInfo::decode(buf)?;
 
         let rlp_decoding_is_of_legacy_tx = tx_header_info.list;
         if rlp_decoding_is_of_legacy_tx {
             let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_header_info.total_len]);
-            let tx_metadata = match Header::decode_from_info(buf, tx_header_info) {
-                Ok(v) => v,
-                Err(e) => {
-                    println!("Decode legacy : Could not decode metadata: {:?}", e);
-                    return Err(e);
-                }
-            };
+            let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
 
             return Transaction::decode_legacy(buf, tx_metadata, hash);
         }
 
-        let _parse_rlp_header_and_advance_buf = match Header::decode_from_info(buf, tx_header_info)
-        {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode typed: Could not decode metadata: {:?}", e);
-                return Err(e);
-            }
-        };
+        let _parse_rlp_header_and_advance_buf = Header::decode_from_info(buf, tx_header_info)?;
         let tx_type_flag = TxType::try_from(buf[0])?;
         match tx_type_flag {
             TxType::AccessList => {
@@ -88,7 +70,7 @@ impl Transaction {
                 buf.advance(1);
                 Transaction::decode_dynamic_and_blob_tx_types(tx_type_flag, buf)
             }
-            _ => Err(DecodeError::UnexpectedString),
+            _ => Err(DecodeTxError::UnknownTxType),
         }
     }
 
@@ -96,55 +78,19 @@ impl Transaction {
         buf: &mut &[u8],
         rlp_header: Header,
         hash: String,
-    ) -> Result<usize, DecodeError> {
+    ) -> Result<usize, DecodeTxError> {
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
-        let nonce = match u64::decode(payload_view) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode legacy: Could not decode nonce: {:?}", e);
-                return Err(e);
-            }
-        };
-        let gas_price = match u64::decode(payload_view) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode legacy: Could not decode gas price: {:?}", e);
-                return Err(e);
-            }
-        };
-        //
-        // skip gas limit
-        match HeaderInfo::skip_next_item(payload_view) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("Decode legacy: Could not skip gas limit: {:?}", e);
-                return Err(e);
-            }
-        };
+        let nonce = u64::decode(payload_view)?;
+        let gas_price = u64::decode(payload_view)?;
 
-        let recipient = match H160::decode(payload_view) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode legacy: Could not decode recipient: {:?}", e);
-                return Err(e);
-            }
-        };
+        // skip gas limit
+        HeaderInfo::skip_next_item(payload_view);
+
+        let recipient = H160::decode(payload_view).map_err(|_| DecodeTxError::ContractCreation)?;
         // skip value
-        match HeaderInfo::skip_next_item(payload_view) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("Decode legacy: Could not skip value: {:?}", e);
-                return Err(e);
-            }
-        }
-        let data = match Bytes::decode(payload_view) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Decode legacy: Could not decode data: {:?}", e);
-                return Err(e);
-            }
-        };
+        HeaderInfo::skip_next_item(payload_view);
+        let data = Bytes::decode(payload_view);
 
         //print!("nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
         //     nonce, gas_price, recipient, hash
@@ -157,26 +103,13 @@ impl Transaction {
     fn decode_dynamic_and_blob_tx_types(
         tx_type: TxType,
         buf: &mut &[u8],
-    ) -> Result<usize, DecodeError> {
-        let tx_header_info = match HeaderInfo::decode(buf) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Could not decode header info: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
-            }
-        };
+    ) -> Result<usize, DecodeTxError> {
+        let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-        let rlp_header = match Header::decode_from_info(buf, tx_header_info) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Could not decode header: {:?}", e);
-                return Err(e);
-            }
-        };
+        let rlp_header = Header::decode_from_info(buf, tx_header_info)?;
 
         if !rlp_header.list {
-            println!("Expected list");
-            return Err(DecodeError::UnexpectedString);
+            return Err(DecodeTxError::from(DecodeError::UnexpectedString));
         }
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
@@ -190,13 +123,7 @@ impl Transaction {
         // skip gas limit
         HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = match H160::decode(payload_view) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Typed Could not decode recipient: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
-            }
-        };
+        let recipient = H160::decode(payload_view);
 
         // skip value
         HeaderInfo::skip_next_item(payload_view)?;
@@ -212,26 +139,16 @@ impl Transaction {
         Ok(rlp_header.payload_length)
     }
 
-    fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize, DecodeError> {
-        let tx_header_info = match HeaderInfo::decode(buf) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Could not decode header info: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
-            }
-        };
+    fn decode_access_list_tx_type(
+        tx_type: TxType,
+        buf: &mut &[u8],
+    ) -> Result<usize, DecodeTxError> {
+        let tx_header_info = HeaderInfo::decode(buf)?;
         let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-        let rlp_header = match Header::decode_from_info(buf, tx_header_info) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("Could not decode header: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
-            }
-        };
+        let rlp_header = Header::decode_from_info(buf, tx_header_info)?;
 
         if !rlp_header.list {
-            println!("Expected list");
-            return Err(DecodeError::UnexpectedString);
+            return Err(DecodeTxError::from(DecodeError::UnexpectedString));
         }
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
@@ -256,20 +173,20 @@ impl Transaction {
     }
 }
 
-pub fn decode_txs_request(buf: &mut &[u8]) -> Result<(), DecodeError> {
+pub fn decode_txs_request(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
     let h = Header::decode(buf)?;
     if !h.list {
-        return Err(DecodeError::UnexpectedString);
+        return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
     // skip decoding request id
     HeaderInfo::skip_next_item(buf)?;
     decode_txs(buf)
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
+pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
-        return Err(DecodeError::UnexpectedString);
+        return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
 
     // note that for processing we are just "viewing" into the data
@@ -281,7 +198,7 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeError> {
             Ok(v) => v,
             Err(e) => {
                 println!("Could not decode tx: {:?}", e);
-                return Err(DecodeError::UnexpectedString);
+                return Err(e);
             }
         };
         payload_view.advance(tx_byte_size);
@@ -302,4 +219,14 @@ fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> String {
         .map(|byte| format!("{:02x}", byte))
         .collect::<Vec<String>>()
         .join("")
+}
+
+#[derive(Error, Debug)]
+pub enum DecodeTxError {
+    #[error("Decode error: {0}")]
+    MessageDecodeError(#[from] open_fastrlp::DecodeError),
+    #[error("TX is contract creation")]
+    ContractCreation,
+    #[error("TX is of unknown type")]
+    UnknownTxType,
 }
