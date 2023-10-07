@@ -6,6 +6,7 @@ use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
+use rekt::token::tokens_to_buy::TokensToBuy;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -42,6 +43,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let _ = tokio::signal::ctrl_c().await;
+
+    TokensToBuy::start(Arc::new(TokensToBuy::new()));
 
     Ok(())
 }

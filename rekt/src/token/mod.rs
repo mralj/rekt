@@ -1,3 +1,5 @@
+pub mod tokens_to_buy;
+
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,12 @@ pub struct Token {
 pub struct EnableBuyConfig {
     pub tx_to: Address,
     pub enable_buy_tx_hash: TxSignatureHash,
+}
+
+impl Token {
+    pub fn get_key(&self) -> Address {
+        self.enable_buy_config.tx_to
+    }
 }
 
 #[cfg(test)]
