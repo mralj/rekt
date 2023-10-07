@@ -7,4 +7,5 @@ pub mod local_node;
 pub mod p2p;
 pub mod rlpx;
 pub mod server;
+pub mod token;
 pub mod types;
