@@ -139,9 +139,7 @@ impl OutboundConnections {
         loop {
             info_interval.tick().await;
             tracing::info!("==================== ==========================  ==========");
-            for v in PEERS.iter() {
-                tracing::info!("PEER COUNT: {}", v.value())
-            }
+            tracing::info!("PEER COUNT: {}", PEERS.len());
         }
     }
 }
