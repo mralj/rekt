@@ -109,10 +109,13 @@ impl Transaction {
             return Ok(rlp_header.payload_length);
         }
 
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
-            "OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            "[{now}] OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
             nonce, gas_price, recipient, hash
         );
+
+        tokens_to_buy.mark_token_as_bought(&token.get_key());
         //
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
@@ -161,11 +164,12 @@ impl Transaction {
             return Ok(rlp_header.payload_length);
         }
 
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
-            "NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            "[{now}] NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
             nonce, gas_price, max_price_per_gas,  recipient, hash
         );
-
+        tokens_to_buy.mark_token_as_bought(&token.get_key());
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
@@ -212,11 +216,12 @@ impl Transaction {
             return Ok(rlp_header.payload_length);
         }
 
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
-            "ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            "[{now}] ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
             nonce, gas_price, recipient, hash
         );
-
+        tokens_to_buy.mark_token_as_bought(&token.get_key());
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
