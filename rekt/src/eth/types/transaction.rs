@@ -5,7 +5,7 @@ use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 use thiserror::Error;
 
-use crate::{token::tokens_to_buy::TokensToBuy, types::hash::H160};
+use crate::{enemies::enemy::Enemy, token::tokens_to_buy::TokensToBuy, types::hash::H160};
 
 #[derive(Debug, Clone, PartialEq, Eq, Display)]
 enum TxType {
@@ -96,15 +96,23 @@ impl Transaction {
         };
 
         let token = tokens_to_buy.get(&recipient);
-        // we skip further decoding if this is not a token we are interested in
+        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
+        let data = Bytes::decode(payload_view)?;
+
+        if let Some(token) = Enemy::enemy_is_preparing_to_buy_token(&data) {
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+            println!(
+            "[{now}] OLD TX BOT PREPARED: nonce: {}, gas_price: {}, to: {},  token:https:://bscscan.com/token/0x{}, tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, token, hash
+        );
+
+            return Ok(rlp_header.payload_length);
+        }
+
         if token.is_none() {
             return Ok(rlp_header.payload_length);
         }
         let token = token.unwrap();
-
-        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
-        let data = Bytes::decode(payload_view)?;
-
         if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
             return Ok(rlp_header.payload_length);
         }
@@ -151,15 +159,26 @@ impl Transaction {
         };
 
         let token = tokens_to_buy.get(&recipient);
-        // we skip further decoding if this is not a token we are interested in
-        if token.is_none() {
-            return Ok(rlp_header.payload_length);
-        }
-        let token = token.unwrap();
 
         let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
         let data = Bytes::decode(payload_view)?;
 
+        if let Some(token) = Enemy::enemy_is_preparing_to_buy_token(&data) {
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+            println!(
+            "[{now}] NEW TX BOT PREPARED: nonce: {}, gas_price: {}, to: {},  token:https:://bscscan.com/token/0x{}, tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, token, hash
+        );
+
+            return Ok(rlp_header.payload_length);
+        }
+
+        // we skip further decoding if this is not a token we are interested in
+        if token.is_none() {
+            return Ok(rlp_header.payload_length);
+        }
+
+        let token = token.unwrap();
         if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
             return Ok(rlp_header.payload_length);
         }

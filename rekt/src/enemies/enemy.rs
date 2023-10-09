@@ -76,4 +76,22 @@ impl Enemy {
             &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT],
         ))
     }
+
+    pub fn enemy_is_preparing_to_buy_token(data: &[u8]) -> Option<TokenAddress> {
+        if data.len() < 4 {
+            return None;
+        }
+
+        if ENEMIES.is_empty() {
+            return None;
+        }
+
+        let prepare_method_signature = EnemyPrepareMethodSignature::from_slice(&data[..4]);
+
+        if let Some(enemy) = ENEMIES.get(&prepare_method_signature) {
+            return (enemy.extract_token)(data).ok();
+        }
+
+        None
+    }
 }
