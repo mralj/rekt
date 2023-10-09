@@ -36,8 +36,10 @@ impl TokensToBuy {
             match TokensToBuy::read_tokens_to_buy_from_file().await {
                 Ok(tokens) => {
                     for token in tokens {
-                        println!("Added token to buy: {}", token.buy_token_address);
-                        self.tokens.insert(token.get_key(), token);
+                        let buy_token_address = token.buy_token_address;
+                        if self.tokens.insert(token.get_key(), token).is_none() {
+                            println!("Added token to buy: {}", buy_token_address);
+                        }
                     }
                 }
                 Err(e) => {
