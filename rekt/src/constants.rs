@@ -28,3 +28,8 @@ pub const BOOTSTRAP_NODES: [&str; 23] = [
     ];
 
 pub const OUR_NODE: [&str; 1]= ["enode://e64736846307a7935165c8152659b6fc0a722fd420b3c4214ce283dc17ed25961e98fac951386a57a8a055fcd8222323a928d11ae665a87da190f561b9578567@127.0.0.1:30311"];
+
+pub const TX_ARG_LEN_OF_ADDRESS: usize = 20;
+
+pub const TOKEN_IN_TX_STARTS_AT: usize = 16;
+pub const TOKEN_IN_TX_ENDS_AT: usize = TOKEN_IN_TX_STARTS_AT + TX_ARG_LEN_OF_ADDRESS;
