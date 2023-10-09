@@ -11,3 +11,4 @@ Cargo.lock
 /cspell.json
 log.txt
 .DS_Store
+/tokens_to_buy.json
