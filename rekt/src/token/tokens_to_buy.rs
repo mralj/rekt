@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use tokio::time::interval;
 
-use super::Token;
+use super::token::Token;
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
 
