@@ -47,12 +47,19 @@ impl TokensToBuy {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
     pub fn get_all(&self) -> Vec<Token> {
         self.tokens.iter().map(|v| v.clone()).collect()
     }
 
-    pub fn has_token(&self, token_address: &ethers::types::Address) -> bool {
-        self.tokens.contains_key(token_address)
+    pub fn get(
+        &self,
+        token_address: &ethers::types::Address,
+    ) -> Option<dashmap::mapref::one::Ref<'_, ethers::types::Address, Token>> {
+        self.tokens.get(token_address)
     }
 
     pub fn get_and_remove_token(&self, token_address: ethers::types::Address) -> Option<Token> {

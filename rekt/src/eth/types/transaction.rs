@@ -5,7 +5,7 @@ use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo, RlpEncodable};
 use sha3::{Digest, Keccak256};
 use thiserror::Error;
 
-use crate::types::hash::H160;
+use crate::{token::tokens_to_buy::TokensToBuy, types::hash::H160};
 
 #[derive(Debug, Clone, PartialEq, Eq, Display)]
 enum TxType {
@@ -49,7 +49,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    fn decode(buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
+    fn decode(tokens_to_buy: &TokensToBuy, buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
         let tx_header_info = HeaderInfo::decode(buf)?;
 
         let rlp_decoding_is_of_legacy_tx = tx_header_info.list;
@@ -57,7 +57,7 @@ impl Transaction {
             let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_header_info.total_len]);
             let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
 
-            return Transaction::decode_legacy(buf, tx_metadata, hash);
+            return Transaction::decode_legacy(tokens_to_buy, buf, tx_metadata, hash);
         }
 
         let _parse_rlp_header_and_advance_buf = Header::decode_from_info(buf, tx_header_info)?;
@@ -65,17 +65,18 @@ impl Transaction {
         match tx_type_flag {
             TxType::AccessList => {
                 buf.advance(1);
-                Transaction::decode_access_list_tx_type(tx_type_flag, buf)
+                Transaction::decode_access_list_tx_type(tokens_to_buy, tx_type_flag, buf)
             }
             TxType::DynamicFee | TxType::Blob => {
                 buf.advance(1);
-                Transaction::decode_dynamic_and_blob_tx_types(tx_type_flag, buf)
+                Transaction::decode_dynamic_and_blob_tx_types(tokens_to_buy, tx_type_flag, buf)
             }
             _ => Err(DecodeTxError::UnknownTxType),
         }
     }
 
     fn decode_legacy(
+        tokens_to_buy: &TokensToBuy,
         buf: &mut &[u8],
         rlp_header: Header,
         hash: String,
@@ -85,29 +86,40 @@ impl Transaction {
         let nonce = u64::decode(payload_view)?;
         let gas_price = u64::decode(payload_view)?;
 
-        // skip gas limit
-        HeaderInfo::skip_next_item(payload_view);
+        let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = match H160::decode(payload_view) {
+        let recipient = match ethers::types::H160::decode(payload_view) {
             Ok(v) => v,
             Err(_errored_because_this_tx_is_contract_creation) => {
                 return Ok(rlp_header.payload_length);
             }
         };
 
-        // skip value
-        HeaderInfo::skip_next_item(payload_view);
-        let data = Bytes::decode(payload_view);
+        let token = tokens_to_buy.get(&recipient);
+        // we skip further decoding if this is not a token we are interested in
+        if token.is_none() {
+            return Ok(rlp_header.payload_length);
+        }
+        let token = token.unwrap();
 
-        //print!("nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-        //     nonce, gas_price, recipient, hash
-        // );
+        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
+        let data = Bytes::decode(payload_view)?;
+
+        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+            return Ok(rlp_header.payload_length);
+        }
+
+        println!(
+            "OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, hash
+        );
         //
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
 
     fn decode_dynamic_and_blob_tx_types(
+        tokens_to_buy: &TokensToBuy,
         tx_type: TxType,
         buf: &mut &[u8],
     ) -> Result<usize, DecodeTxError> {
@@ -120,38 +132,46 @@ impl Transaction {
         }
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
-        // skip chain id
-        HeaderInfo::skip_next_item(payload_view)?;
+        let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
         let nonce = u64::decode(payload_view)?;
         let gas_price = u64::decode(payload_view)?;
         let max_price_per_gas = u64::decode(payload_view)?;
 
-        // skip gas limit
-        HeaderInfo::skip_next_item(payload_view)?;
+        let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = match H160::decode(payload_view) {
+        let recipient = match ethers::types::H160::decode(payload_view) {
             Ok(v) => v,
             Err(_errored_because_this_tx_is_contract_creation) => {
                 return Ok(rlp_header.payload_length);
             }
         };
 
-        // skip value
-        HeaderInfo::skip_next_item(payload_view)?;
+        let token = tokens_to_buy.get(&recipient);
+        // we skip further decoding if this is not a token we are interested in
+        if token.is_none() {
+            return Ok(rlp_header.payload_length);
+        }
+        let token = token.unwrap();
 
+        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
         let data = Bytes::decode(payload_view)?;
 
-        // println!(
-        //     "nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-        //     nonce, gas_price, max_price_per_gas,  recipient, hash
-        // );
+        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+            return Ok(rlp_header.payload_length);
+        }
+
+        println!(
+            "NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, max_price_per_gas,  recipient, hash
+        );
 
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
 
     fn decode_access_list_tx_type(
+        tokens_to_buy: &TokensToBuy,
         tx_type: TxType,
         buf: &mut &[u8],
     ) -> Result<usize, DecodeTxError> {
@@ -164,44 +184,58 @@ impl Transaction {
         }
         let payload_view = &mut &buf[..rlp_header.payload_length];
 
-        // skip chain id
-        HeaderInfo::skip_next_item(payload_view)?;
+        let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
         let nonce = u64::decode(payload_view)?;
         let gas_price = u64::decode(payload_view)?;
 
-        // skip gas limit
-        HeaderInfo::skip_next_item(payload_view)?;
+        let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
-        let recipient = match H160::decode(payload_view) {
+        let recipient = match ethers::types::H160::decode(payload_view) {
             Ok(v) => v,
             Err(_errored_because_this_tx_is_contract_creation) => {
                 return Ok(rlp_header.payload_length);
             }
         };
-        // skip value
-        HeaderInfo::skip_next_item(payload_view)?;
+
+        let token = tokens_to_buy.get(&recipient);
+        // we skip further decoding if this is not a token we are interested in
+        if token.is_none() {
+            return Ok(rlp_header.payload_length);
+        }
+        let token = token.unwrap();
+
+        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
         let data = Bytes::decode(payload_view)?;
 
-        // println!(
-        //     "nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
-        //     nonce, gas_price, recipient, hash
-        // );
+        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+            return Ok(rlp_header.payload_length);
+        }
+
+        println!(
+            "ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            nonce, gas_price, recipient, hash
+        );
+
+        //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
 }
 
-pub fn decode_txs_request(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
+pub fn decode_txs_request(
+    tokens_to_buy: &TokensToBuy,
+    buf: &mut &[u8],
+) -> Result<(), DecodeTxError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
     // skip decoding request id
     HeaderInfo::skip_next_item(buf)?;
-    decode_txs(buf)
+    decode_txs(tokens_to_buy, buf)
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
+pub fn decode_txs(tokens_to_buy: &TokensToBuy, buf: &mut &[u8]) -> Result<(), DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -212,7 +246,7 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
-        let tx_byte_size = match Transaction::decode(payload_view) {
+        let tx_byte_size = match Transaction::decode(tokens_to_buy, payload_view) {
             Ok(v) => v,
             Err(e) => {
                 println!("Could not decode tx: {:?}", e);

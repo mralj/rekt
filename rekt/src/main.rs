@@ -27,10 +27,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
+    let tokens_to_buy = Arc::new(TokensToBuy::new());
+    TokensToBuy::start(tokens_to_buy.clone());
+
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         get_all_nodes(&mut config.nodes),
+        tokens_to_buy,
     ));
 
     OutboundConnections::start(outbound_connections).await;
@@ -43,8 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let _ = tokio::signal::ctrl_c().await;
-
-    TokensToBuy::start(Arc::new(TokensToBuy::new()));
 
     Ok(())
 }

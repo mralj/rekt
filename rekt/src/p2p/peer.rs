@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use futures::{SinkExt, StreamExt};
 
@@ -14,6 +15,7 @@ use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
+use crate::token::tokens_to_buy::TokensToBuy;
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
@@ -25,6 +27,7 @@ pub struct Peer {
     pub(crate) info: String,
     protocol_version: ProtocolVersion,
     connection: P2PWire,
+    tokens_to_buy: Arc<TokensToBuy>,
 }
 
 impl Peer {
@@ -34,6 +37,7 @@ impl Peer {
         protocol: usize,
         info: String,
         connection: TcpWire,
+        tokens_to_buy: Arc<TokensToBuy>,
     ) -> Self {
         Self {
             id,
@@ -41,6 +45,7 @@ impl Peer {
             info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            tokens_to_buy,
         }
     }
 }
@@ -73,7 +78,7 @@ impl Peer {
                 // stream is done and should not be polled again, or bad things will happen
                 .ok_or(P2PError::NoMessage)??; //
 
-            if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(msg) {
+            if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(&self.tokens_to_buy, msg) {
                 self.connection.send(msg).await?;
             }
         }
