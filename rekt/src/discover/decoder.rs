@@ -78,20 +78,16 @@ pub fn decode_msg_and_create_response(
     let now = Local::now().format("%Y-%m-%d %H:%M:%S");
     match msg_type {
         DiscoverMessageType::Ping => {
-            println!("[{}] Ping message [{:?}]", now, src);
             let ping_msg = PingMessage::decode(msg_data).ok()?;
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
                 H256::from_slice(hash),
             )))
         }
-        DiscoverMessageType::EnrRequest => {
-            println!("[{}] ENR message [{:?}]", now, src);
-            Some(DiscoverMessage::EnrResponse(EnrResponse::new(
-                H256::from_slice(hash),
-                enr.clone(),
-            )))
-        }
+        DiscoverMessageType::EnrRequest => Some(DiscoverMessage::EnrResponse(EnrResponse::new(
+            H256::from_slice(hash),
+            enr.clone(),
+        ))),
         DiscoverMessageType::Neighbors => {
             let neighbours = Neighbours::decode(msg_data).ok()?;
             for n in neighbours.nodes {

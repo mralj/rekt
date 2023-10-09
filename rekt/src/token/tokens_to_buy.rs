@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use futures::StreamExt;
 use tokio::time::interval;
 
-use super::token::Token;
+use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
 
@@ -12,12 +12,14 @@ const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
 pub struct TokensToBuy {
     // NOTE: override hasher here, since addresses are already hashed
     tokens: DashMap<ethers::types::Address, Token>,
+    bought_tokens: DashSet<ethers::types::Address>,
 }
 
 impl TokensToBuy {
     pub fn new() -> Self {
         Self {
             tokens: DashMap::new(),
+            bought_tokens: DashSet::new(),
         }
     }
 
@@ -36,8 +38,13 @@ impl TokensToBuy {
             match TokensToBuy::read_tokens_to_buy_from_file().await {
                 Ok(tokens) => {
                     for token in tokens {
-                        println!("Added token to buy: {}", token.buy_token_address);
-                        self.tokens.insert(token.get_key(), token);
+                        let buy_token_address = token.buy_token_address;
+                        if self.token_already_bought(&buy_token_address) {
+                            continue;
+                        }
+                        if self.tokens.insert(token.get_key(), token).is_none() {
+                            println!("Added token to buy: {}", buy_token_address);
+                        }
                     }
                 }
                 Err(e) => {
@@ -47,16 +54,34 @@ impl TokensToBuy {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.tokens.is_empty()
+    }
+
     pub fn get_all(&self) -> Vec<Token> {
         self.tokens.iter().map(|v| v.clone()).collect()
     }
 
-    pub fn has_token(&self, token_address: &ethers::types::Address) -> bool {
-        self.tokens.contains_key(token_address)
+    pub fn get(
+        &self,
+        token_address: &TokenAddress,
+    ) -> Option<dashmap::mapref::one::Ref<'_, TokenAddress, Token>> {
+        self.tokens.get(token_address)
     }
 
-    pub fn get_and_remove_token(&self, token_address: ethers::types::Address) -> Option<Token> {
-        self.tokens.remove(&token_address).map(|v| v.1)
+    pub fn mark_token_as_bought(&self, token_address: &TokenAddress) {
+        let token = self.remove(token_address);
+        if let Some(token) = token {
+            self.bought_tokens.insert(token.buy_token_address);
+        }
+    }
+
+    pub fn token_already_bought(&self, token_address: &TokenAddress) -> bool {
+        self.bought_tokens.contains(token_address)
+    }
+
+    pub fn remove(&self, token_address: &TokenAddress) -> Option<Token> {
+        self.tokens.remove(token_address).map(|v| v.1)
     }
 
     async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {

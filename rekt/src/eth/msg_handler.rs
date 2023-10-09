@@ -1,5 +1,6 @@
 use open_fastrlp::Decodable;
 
+use crate::token::tokens_to_buy::TokensToBuy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
@@ -8,10 +9,16 @@ use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 use super::types::transaction::{decode_txs, decode_txs_request};
 
-pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+pub fn handle_eth_message(
+    tokens_to_buy: &TokensToBuy,
+    msg: EthMessage,
+) -> Result<Option<EthMessage>, ETHError> {
+    if tokens_to_buy.is_empty() {
+        return Ok(None);
+    }
     match msg.id {
-        EthProtocol::TransactionsMsg => handle_txs(msg),
-        EthProtocol::PooledTransactionsMsg => handle_txs(msg),
+        EthProtocol::TransactionsMsg => handle_txs(tokens_to_buy, msg),
+        EthProtocol::PooledTransactionsMsg => handle_txs(tokens_to_buy, msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
         _ => Ok(None),
     }
@@ -50,10 +57,13 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     }))
 }
 
-fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+fn handle_txs(
+    tokens_to_buy: &TokensToBuy,
+    msg: EthMessage,
+) -> Result<Option<EthMessage>, ETHError> {
     let _ = match msg.id {
-        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
-        EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
+        EthProtocol::TransactionsMsg => decode_txs(tokens_to_buy, &mut &msg.data[..]),
+        EthProtocol::PooledTransactionsMsg => decode_txs_request(tokens_to_buy, &mut &msg.data[..]),
         _ => Ok(()),
     };
 

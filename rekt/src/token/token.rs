@@ -1,14 +1,15 @@
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 
-type TxSignatureHash = ethers::types::H32;
+pub type TokenAddress = ethers::types::Address;
+pub type TxSignatureHash = ethers::types::H32;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Token {
     #[serde(rename = "buyToken")]
-    pub buy_token_address: Address,
+    pub buy_token_address: TokenAddress,
     #[serde(rename = "liqToken")]
-    pub liquidity_token_address: Address,
+    pub liquidity_token_address: TokenAddress,
 
     #[serde(rename = "buyBNB")]
     pub buy_amount: f64,
@@ -22,7 +23,7 @@ pub struct Token {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnableBuyConfig {
     #[serde(rename = "to")]
-    pub tx_to: Address,
+    pub tx_to: TokenAddress,
     #[serde(rename = "txHash")]
     pub enable_buy_tx_hash: TxSignatureHash,
 }
@@ -56,9 +57,11 @@ mod test {
         assert_eq!(
             token,
             Token {
-                buy_token_address: Address::from_str("0xaE01f96CB9ce103A6A1297CC19EC0d0814Cf4c7F")
-                    .unwrap(),
-                liquidity_token_address: Address::from_str(
+                buy_token_address: TokenAddress::from_str(
+                    "0xaE01f96CB9ce103A6A1297CC19EC0d0814Cf4c7F"
+                )
+                .unwrap(),
+                liquidity_token_address: TokenAddress::from_str(
                     "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
                 )
                 .unwrap(),

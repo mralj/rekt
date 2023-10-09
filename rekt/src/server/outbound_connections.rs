@@ -8,6 +8,7 @@ use tokio::time::interval;
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::RLPXSessionError;
+use crate::token::tokens_to_buy::TokensToBuy;
 
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
@@ -27,10 +28,17 @@ pub struct OutboundConnections {
 
     retry_rx: AsyncReceiver<ConnectionTaskError>,
     retry_tx: AsyncSender<ConnectionTaskError>,
+
+    tokens_to_buy: Arc<TokensToBuy>,
 }
 
 impl OutboundConnections {
-    pub fn new(our_private_key: SecretKey, our_pub_key: PublicKey, nodes: Vec<String>) -> Self {
+    pub fn new(
+        our_private_key: SecretKey,
+        our_pub_key: PublicKey,
+        nodes: Vec<String>,
+        tokens_to_buy: Arc<TokensToBuy>,
+    ) -> Self {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
@@ -42,6 +50,7 @@ impl OutboundConnections {
             conn_tx,
             retry_rx,
             retry_tx,
+            tokens_to_buy,
         }
     }
 
@@ -80,6 +89,7 @@ impl OutboundConnections {
                     self.our_private_key,
                     self.our_pub_key,
                     self.retry_tx.clone(),
+                    self.tokens_to_buy.clone(),
                 );
             }
         }
@@ -129,9 +139,7 @@ impl OutboundConnections {
         loop {
             info_interval.tick().await;
             tracing::info!("==================== ==========================  ==========");
-            for v in PEERS.iter() {
-                tracing::info!("PEER COUNT: {}", v.value())
-            }
+            tracing::info!("PEER COUNT: {}", PEERS.len());
         }
     }
 }
