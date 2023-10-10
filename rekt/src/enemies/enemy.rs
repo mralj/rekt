@@ -1,5 +1,5 @@
 use crate::{
-    constants::{TOKEN_IN_TX_ENDS_AT, TOKEN_IN_TX_STARTS_AT},
+    constants::{TOKEN_IN_TX_ENDS_AT, TOKEN_IN_TX_STARTS_AT, TX_SIGNATURE_LEN},
     token::token::TokenAddress,
 };
 
@@ -50,7 +50,7 @@ impl Enemy {
     }
 
     pub fn enemy_is_preparing_to_buy_token(data: &[u8]) -> Option<(String, TokenAddress)> {
-        if data.len() < 4 {
+        if data.len() < TX_SIGNATURE_LEN {
             return None;
         }
 
@@ -58,7 +58,8 @@ impl Enemy {
             return None;
         }
 
-        let prepare_method_signature = EnemyPrepareMethodSignature::from_slice(&data[..4]);
+        let prepare_method_signature =
+            EnemyPrepareMethodSignature::from_slice(&data[..TX_SIGNATURE_LEN]);
 
         if let Some(enemy) = ENEMIES.get(&prepare_method_signature) {
             if let Ok(token) = (enemy.extract_token)(data) {
