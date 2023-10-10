@@ -23,45 +23,26 @@ impl Enemy {
             return Err(anyhow::anyhow!("Data length is too short"));
         }
 
-        let mut tx_chunked_by_args_iter = data[TX_SIGNATURE_LEN..].chunks(TX_ARG_LEN).rev();
-        let total_chunk_count = tx_chunked_by_args_iter.len();
-        let mut iterated_through_chunks = 0;
+        let tx_args: Vec<_> = data[TX_SIGNATURE_LEN..].chunks(TX_ARG_LEN).collect();
 
-        while let Some(tx_arg) = tx_chunked_by_args_iter.next() {
-            iterated_through_chunks += 1;
-            // we check that first 31 bytes are 0, meaning
-            // that we are dealing with 0-padded u8 number
-            // u8 number is exactly 1 byte long, so all first 31 bytes should be 0
-            let tx_arg_is_number =
-                tx_arg.len() == TX_ARG_LEN && tx_arg[..TX_ARG_LEN - 1].iter().all(|&x| x == 0);
-            if tx_arg_is_number {
-                break;
+        let position_of_last_number = tx_args.iter().rev().position(|tx_arg| {
+            tx_arg.len() == TX_ARG_LEN && tx_arg[..TX_ARG_LEN - 1].iter().all(|&x| x == 0)
+        });
+
+        match position_of_last_number {
+            Some(index) => {
+                // index is reversed, so we need to reverse it back
+                // and go one backwards to get the buy token address
+                let target_arg = &tx_args[tx_args.len() - index - 2];
+                if target_arg.len() != TX_ARG_LEN {
+                    return Err(anyhow::anyhow!("Invalid address arg length"));
+                }
+                let token_address =
+                    TokenAddress::from_slice(&target_arg[TX_ARG_LEN - TX_ARG_LEN_OF_ADDRESS..]);
+                Ok(token_address)
             }
+            None => Err(anyhow::anyhow!("Could not find any numbers in tx data")),
         }
-
-        let no_numbers_were_found = iterated_through_chunks == total_chunk_count;
-        if no_numbers_were_found {
-            return Err(anyhow::anyhow!("No numbers in TX data"));
-        }
-
-        let mut tx_chunked_by_args_iter = data[TX_SIGNATURE_LEN..].chunks(TX_ARG_LEN).rev();
-        let mut latest_iter_value = None;
-        // we have -1 because we want to get the token before the number
-        for _ in 0..iterated_through_chunks - 1 {
-            latest_iter_value = tx_chunked_by_args_iter.next();
-        }
-
-        if let Some(latest_iter_value) = latest_iter_value {
-            if latest_iter_value.len() != TX_ARG_LEN {
-                return Err(anyhow::anyhow!("Invalid token address length"));
-            }
-
-            let token_address =
-                TokenAddress::from_slice(&latest_iter_value[TX_ARG_LEN - TX_ARG_LEN_OF_ADDRESS..]);
-            return Ok(token_address);
-        }
-
-        Err(anyhow::anyhow!("No token address found"))
     }
 }
 
