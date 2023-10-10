@@ -7,10 +7,13 @@ use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
 
-pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::with_capacity(10);
+pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
 
 pub fn import_tokens_to_buy() {
+    unsafe {
+        TOKENS_TO_BUY.reserve(10);
+    }
     tokio::task::spawn(async move {
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
             std::time::Duration::from_secs(20),
