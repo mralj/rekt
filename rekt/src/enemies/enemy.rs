@@ -49,7 +49,7 @@ impl Enemy {
         ))
     }
 
-    pub fn enemy_is_preparing_to_buy_token(data: &[u8]) -> Option<TokenAddress> {
+    pub fn enemy_is_preparing_to_buy_token(data: &[u8]) -> Option<(String, TokenAddress)> {
         if data.len() < 4 {
             return None;
         }
@@ -61,7 +61,9 @@ impl Enemy {
         let prepare_method_signature = EnemyPrepareMethodSignature::from_slice(&data[..4]);
 
         if let Some(enemy) = ENEMIES.get(&prepare_method_signature) {
-            return (enemy.extract_token)(data).ok();
+            if let Ok(token) = (enemy.extract_token)(data) {
+                return Some((enemy.name.clone(), token));
+            }
         }
 
         None
