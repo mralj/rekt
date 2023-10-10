@@ -95,7 +95,6 @@ impl Transaction {
             }
         };
 
-        let token = tokens_to_buy.get(&recipient);
         let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
         let data = Bytes::decode(payload_view)?;
 
@@ -109,12 +108,17 @@ impl Transaction {
             return Ok(rlp_header.payload_length);
         }
 
-        if token.is_none() {
-            return Ok(rlp_header.payload_length);
-        }
-        let token = token.unwrap();
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
-            return Ok(rlp_header.payload_length);
+        {
+            let token = match tokens_to_buy.get(&recipient) {
+                None => return Ok(rlp_header.payload_length),
+                Some(t) => t,
+            };
+
+            if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+                return Ok(rlp_header.payload_length);
+            }
+
+            tokens_to_buy.mark_token_as_bought(&token.get_key());
         }
 
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
@@ -123,8 +127,7 @@ impl Transaction {
             nonce, gas_price, recipient, hash
         );
 
-        tokens_to_buy.mark_token_as_bought(&token.get_key());
-        //
+        tokens_to_buy.remove(&recipient);
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
@@ -158,8 +161,6 @@ impl Transaction {
             }
         };
 
-        let token = tokens_to_buy.get(&recipient);
-
         let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
         let data = Bytes::decode(payload_view)?;
 
@@ -173,14 +174,17 @@ impl Transaction {
             return Ok(rlp_header.payload_length);
         }
 
-        // we skip further decoding if this is not a token we are interested in
-        if token.is_none() {
-            return Ok(rlp_header.payload_length);
-        }
+        {
+            let token = match tokens_to_buy.get(&recipient) {
+                None => return Ok(rlp_header.payload_length),
+                Some(t) => t,
+            };
 
-        let token = token.unwrap();
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
-            return Ok(rlp_header.payload_length);
+            if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+                return Ok(rlp_header.payload_length);
+            }
+
+            tokens_to_buy.mark_token_as_bought(&token.buy_token_address);
         }
 
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
@@ -188,8 +192,9 @@ impl Transaction {
             "[{now}] NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
             nonce, gas_price, max_price_per_gas,  recipient, hash
         );
-        tokens_to_buy.mark_token_as_bought(&token.get_key());
-        //  we skip v, r, s
+
+        tokens_to_buy.remove(&recipient);
+
         Ok(rlp_header.payload_length)
     }
 
@@ -221,26 +226,28 @@ impl Transaction {
             }
         };
 
-        let token = tokens_to_buy.get(&recipient);
-        // we skip further decoding if this is not a token we are interested in
-        if token.is_none() {
-            return Ok(rlp_header.payload_length);
+        {
+            let token = tokens_to_buy.get(&recipient);
+            // we skip further decoding if this is not a token we are interested in
+            if token.is_none() {
+                return Ok(rlp_header.payload_length);
+            }
+            let token = token.unwrap();
+
+            let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
+            let data = Bytes::decode(payload_view)?;
+
+            if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+                return Ok(rlp_header.payload_length);
+            }
+
+            tokens_to_buy.mark_token_as_bought(&token.get_key());
         }
-        let token = token.unwrap();
-
-        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
-        let data = Bytes::decode(payload_view)?;
-
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
-            return Ok(rlp_header.payload_length);
-        }
-
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
             "[{now}] ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
             nonce, gas_price, recipient, hash
         );
-        tokens_to_buy.mark_token_as_bought(&token.get_key());
         //  we skip v, r, s
         Ok(rlp_header.payload_length)
     }
