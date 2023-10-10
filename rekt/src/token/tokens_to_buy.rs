@@ -69,11 +69,8 @@ impl TokensToBuy {
         self.tokens.get(token_address)
     }
 
-    pub fn mark_token_as_bought(&self, token_address: &TokenAddress) {
-        let token = self.remove(token_address);
-        if let Some(token) = token {
-            self.bought_tokens.insert(token.buy_token_address);
-        }
+    pub fn mark_token_as_bought(&self, buy_token_address: &TokenAddress) {
+        self.bought_tokens.insert(*buy_token_address);
     }
 
     pub fn token_already_bought(&self, token_address: &TokenAddress) -> bool {
