@@ -1,12 +1,11 @@
 use std::str::FromStr;
 
-use dashmap::DashMap;
 use once_cell::sync::Lazy;
 
 use super::enemy::{Enemy, EnemyAddress, EnemyPrepareMethodSignature};
 
-pub static ENEMIES: Lazy<DashMap<EnemyPrepareMethodSignature, Enemy>> = Lazy::new(|| {
-    let enemies = vec![
+pub static ENEMIES: Lazy<Vec<Enemy>> = Lazy::new(|| {
+    vec![
         Enemy::new_default(
             "Figa".to_string(),
             EnemyAddress::from_str("0x3dca07e16b2becd3eb76a9f9ce240b525451f887")
@@ -29,11 +28,5 @@ pub static ENEMIES: Lazy<DashMap<EnemyPrepareMethodSignature, Enemy>> = Lazy::ne
                 .expect("Curcinelli prepare method signature should be valid"),
             extract_token: Enemy::extract_token_for_curcinelli_bot,
         },
-    ];
-
-    DashMap::from_iter(
-        enemies
-            .into_iter()
-            .map(|enemy| (enemy.prepare_method_signature, enemy)),
-    )
+    ]
 });

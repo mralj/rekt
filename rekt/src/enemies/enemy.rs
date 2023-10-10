@@ -54,14 +54,10 @@ impl Enemy {
             return None;
         }
 
-        if ENEMIES.is_empty() {
-            return None;
-        }
-
-        let prepare_method_signature =
-            EnemyPrepareMethodSignature::from_slice(&data[..TX_SIGNATURE_LEN]);
-
-        if let Some(enemy) = ENEMIES.get(&prepare_method_signature) {
+        if let Some(enemy) = ENEMIES
+            .iter()
+            .find(|enemy| enemy.prepare_method_signature.as_ref() == &data[..TX_SIGNATURE_LEN])
+        {
             if let Ok(token) = (enemy.extract_token)(data) {
                 return Some((enemy.name.clone(), token));
             }
