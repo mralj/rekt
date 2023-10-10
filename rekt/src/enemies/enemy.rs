@@ -1,40 +1,12 @@
-use std::str::FromStr;
-
-use dashmap::DashMap;
-use once_cell::sync::Lazy;
-
 use crate::{
     constants::{TOKEN_IN_TX_ENDS_AT, TOKEN_IN_TX_STARTS_AT},
     token::token::TokenAddress,
 };
 
+use super::enemies_list::ENEMIES;
+
 pub type EnemyAddress = ethers::types::Address;
 pub type EnemyPrepareMethodSignature = ethers::types::H32;
-
-pub static ENEMIES: Lazy<DashMap<EnemyPrepareMethodSignature, Enemy>> = Lazy::new(|| {
-    let enemies = vec![
-        Enemy::new_default(
-            "Figa".to_string(),
-            EnemyAddress::from_str("0x3dca07e16b2becd3eb76a9f9ce240b525451f887")
-                .expect("Figa wallet address should be valid"),
-            EnemyPrepareMethodSignature::from_str("0xbb0b896c")
-                .expect("Figa prepare method signature should be valid"),
-        ),
-        Enemy::new_default(
-            "Figa2".to_string(),
-            EnemyAddress::from_str("0x3dca07e16b2becd3eb76a9f9ce240b525451f887")
-                .expect("Figa2 wallet address should be valid"),
-            EnemyPrepareMethodSignature::from_str("0xb11e3d9c")
-                .expect("Figa prepare method signature should be valid"),
-        ),
-    ];
-
-    DashMap::from_iter(
-        enemies
-            .into_iter()
-            .map(|enemy| (enemy.prepare_method_signature, enemy)),
-    )
-});
 
 pub struct Enemy {
     pub name: String,
