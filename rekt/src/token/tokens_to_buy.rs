@@ -6,6 +6,7 @@ use tokio::time::interval;
 use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
+const REFRESH_TOKENS_INTERVAL: u64 = 20;
 
 pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
@@ -15,28 +16,27 @@ pub fn import_tokens_to_buy() {
         TOKENS_TO_BUY.reserve(10);
     }
     tokio::task::spawn(async move {
-        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
-            std::time::Duration::from_secs(20),
+        let mut read_tokens_ticker = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(REFRESH_TOKENS_INTERVAL),
         ));
 
-        while let Some(_) = stream.next().await {
+        while let Some(_) = read_tokens_ticker.next().await {
             match read_tokens_to_buy_from_file().await {
                 Ok(tokens) => {
                     for token in tokens {
-                        let buy_token_address = token.buy_token_address;
-                        if BOUGHT_TOKENS.contains(&buy_token_address) {
+                        if BOUGHT_TOKENS.contains(&token.buy_token_address) {
                             continue;
                         }
                         unsafe {
                             if TOKENS_TO_BUY
                                 .iter()
-                                .any(|v| v.buy_token_address == buy_token_address)
+                                .any(|v| v.buy_token_address == token.buy_token_address)
                             {
                                 continue;
                             }
+                            println!("Added token to buy: {}", token.buy_token_address);
                             TOKENS_TO_BUY.push(token);
                         }
-                        println!("Added token to buy: {}", buy_token_address);
                     }
                 }
                 Err(e) => {
@@ -47,6 +47,7 @@ pub fn import_tokens_to_buy() {
     });
 }
 
+#[inline(always)]
 pub fn there_are_no_tokens_to_buy() -> bool {
     unsafe { TOKENS_TO_BUY.is_empty() }
 }
@@ -63,6 +64,7 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
     }
 }
 
+#[inline(always)]
 pub fn get_token(address: &TokenAddress) -> Option<&Token> {
     unsafe {
         TOKENS_TO_BUY
@@ -71,66 +73,13 @@ pub fn get_token(address: &TokenAddress) -> Option<&Token> {
     }
 }
 
+#[inline(always)]
+pub fn tx_is_enable_buy(token: &Token, tx_data: &[u8]) -> bool {
+    tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref())
+}
+
 async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {
     let tokens_to_buy_file = tokio::fs::read_to_string(TOKENS_TO_BUY_FILE_PATH).await?;
     let tokens_to_buy: Vec<Token> = serde_json::from_str(&tokens_to_buy_file)?;
     Ok(tokens_to_buy)
 }
-
-// #[derive(Debug, Clone)]
-// pub struct TokensToBuy {
-//     // NOTE: override hasher here, since addresses are already hashed
-//     tokens: RefCell<Vec<Token>>,
-//     bought_tokens: DashSet<ethers::types::Address>,
-// }
-//
-// unsafe impl Sync for TokensToBuy {}
-//
-// impl TokensToBuy {
-//     pub fn new() -> Self {
-//         Self {
-//             tokens: RefCell::new(Vec::new()),
-//             bought_tokens: DashSet::new(),
-//         }
-//     }
-//
-//     pub fn start(self: Arc<Self>) {
-//         tokio::task::spawn(async move {
-//             self.refresh_tokens_to_buy().await;
-//         });
-//     }
-//
-//
-//     pub fn is_empty(&self) -> bool {
-//         self.tokens.try_borrow().is_empty()
-//     }
-//
-//     pub fn get_all(&self) -> Vec<Token> {
-//         self.tokens.iter().map(|v| v.clone()).collect()
-//     }
-//
-//     pub fn get(&self, token_address: &TokenAddress) -> Option<&Token> {
-//         self.tokens
-//             .iter()
-//             .find(|v| &v.buy_token_address == token_address)
-//     }
-//
-//     pub fn mark_token_as_bought(&self, buy_token_address: &TokenAddress) {
-//         self.bought_tokens.insert(*buy_token_address);
-//     }
-//
-//     pub fn token_already_bought(&self, token_address: &TokenAddress) -> bool {
-//         self.bought_tokens.contains(token_address)
-//     }
-//
-//     pub fn remove(&mut self, token_address: &TokenAddress) -> Option<Token> {
-//         let index = self
-//             .tokens
-//             .iter()
-//             .position(|v| &v.buy_token_address == token_address)?;
-//
-//         Some(self.tokens.remove(index))
-//     }
-//
-
-// }

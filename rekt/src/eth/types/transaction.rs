@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{
     enemies::enemy::Enemy,
-    token::tokens_to_buy::{get_token, mark_token_as_bought},
+    token::tokens_to_buy::{get_token, mark_token_as_bought, tx_is_enable_buy},
     types::hash::H160,
 };
 
@@ -116,7 +116,7 @@ impl Transaction {
             Some(t) => t,
         };
 
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+        if !tx_is_enable_buy(token, &data) {
             return Ok(rlp_header.payload_length);
         }
 
@@ -178,7 +178,7 @@ impl Transaction {
             Some(t) => t,
         };
 
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+        if !tx_is_enable_buy(token, &data) {
             return Ok(rlp_header.payload_length);
         }
 
@@ -219,15 +219,15 @@ impl Transaction {
             }
         };
 
-        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
-        let data = Bytes::decode(payload_view)?;
-
         let token = match get_token(&recipient) {
             None => return Ok(rlp_header.payload_length),
             Some(t) => t,
         };
 
-        if !data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+        let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
+        let data = Bytes::decode(payload_view)?;
+
+        if !tx_is_enable_buy(token, &data) {
             return Ok(rlp_header.payload_length);
         }
 
