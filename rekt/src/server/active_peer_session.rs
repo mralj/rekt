@@ -23,14 +23,12 @@ use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
-use crate::token::tokens_to_buy::TokensToBuy;
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
     secret_key: SecretKey,
     pub_key: PublicKey,
     tx: AsyncSender<ConnectionTaskError>,
-    tokens_to_buy: Arc<TokensToBuy>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -106,7 +104,6 @@ pub fn connect_to_node(
             protocol_v,
             hello_msg.client_version,
             TcpWire::new(transport),
-            tokens_to_buy,
         );
 
         let task_result = p.run().await;

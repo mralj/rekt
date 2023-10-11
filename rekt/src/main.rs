@@ -6,7 +6,7 @@ use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
-use rekt::token::tokens_to_buy::TokensToBuy;
+use rekt::token::tokens_to_buy::import_tokens_to_buy;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -27,14 +27,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
-    let tokens_to_buy = Arc::new(TokensToBuy::new());
-    TokensToBuy::start(tokens_to_buy.clone());
+    import_tokens_to_buy();
 
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         get_all_nodes(&mut config.nodes),
-        tokens_to_buy,
     ));
 
     OutboundConnections::start(outbound_connections).await;
