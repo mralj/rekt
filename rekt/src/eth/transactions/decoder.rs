@@ -5,6 +5,7 @@ use sha3::{Digest, Keccak256};
 use crate::{
     enemies::enemy::Enemy,
     token::tokens_to_buy::{get_token, mark_token_as_bought, tx_is_enable_buy},
+    types::hash::H256,
 };
 
 use super::{errors::DecodeTxError, types::TxType};
@@ -97,7 +98,7 @@ fn decode_legacy(buf: &mut &[u8], tx_metadata: HeaderInfo) -> Result<usize, Deco
     if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
-            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/0x{}",
+            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/{:#x}",
             nonce, gas_price, recipient, token, hash
         );
 
@@ -117,7 +118,7 @@ fn decode_legacy(buf: &mut &[u8], tx_metadata: HeaderInfo) -> Result<usize, Deco
 
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
     println!(
-        "[{now}] OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+        "[{now}] OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
         nonce, gas_price, recipient, hash
     );
 
@@ -159,7 +160,7 @@ fn decode_dynamic_and_blob_tx_types(
     if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
         println!(
-            "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {}, \n  token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/0x{}",
+            "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {}, \n  token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/{:#x}",
             nonce, gas_price, recipient, token, hash
         );
 
@@ -178,7 +179,7 @@ fn decode_dynamic_and_blob_tx_types(
     mark_token_as_bought(token.buy_token_address);
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
     println!(
-            "[{now}] NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+            "[{now}] NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
             nonce, gas_price, max_price_per_gas,  recipient, hash
         );
 
@@ -225,23 +226,18 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
 
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
     println!(
-        "[{now}] ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/0x{}",
+        "[{now}] ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
         nonce, gas_price, recipient, hash
     );
     //  we skip v, r, s
     Ok(tx_metadata.payload_length)
 }
 
-fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> String {
+fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> H256 {
     let mut hasher = Keccak256::new();
     if tx_type != TxType::Legacy {
         hasher.update(&[tx_type as u8]);
     }
     hasher.update(raw_tx);
-    hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect::<Vec<String>>()
-        .join("")
+    H256::from_slice(&hasher.finalize())
 }
