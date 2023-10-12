@@ -54,6 +54,10 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
         .take(1_000)
         .collect::<Vec<_>>();
 
+    if hashes_to_request.is_empty() {
+        return Ok(None);
+    }
+
     Ok(Some(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
         data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
