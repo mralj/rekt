@@ -94,26 +94,26 @@ fn decode_legacy(buf: &mut &[u8], tx_metadata: HeaderInfo) -> Result<usize, Deco
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
     let data = Bytes::decode(payload_view)?;
 
-    if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
-        println!(
-            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/0x{}",
-            nonce, gas_price, recipient, token, hash
-        );
-
-        return Ok(tx_metadata.payload_length);
-    }
-
-    let token = match get_token(&recipient) {
-        None => return Ok(tx_metadata.payload_length),
-        Some(t) => t,
-    };
-
-    if !tx_is_enable_buy(token, &data) {
-        return Ok(tx_metadata.payload_length);
-    }
-
-    mark_token_as_bought(token.buy_token_address);
+    // if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
+    //     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+    //     println!(
+    //         "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/0x{}",
+    //         nonce, gas_price, recipient, token, hash
+    //     );
+    //
+    //     return Ok(tx_metadata.payload_length);
+    // }
+    //
+    // let token = match get_token(&recipient) {
+    //     None => return Ok(tx_metadata.payload_length),
+    //     Some(t) => t,
+    // };
+    //
+    // if !tx_is_enable_buy(token, &data) {
+    //     return Ok(tx_metadata.payload_length);
+    // }
+    //
+    // mark_token_as_bought(token.buy_token_address);
 
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
     println!(
