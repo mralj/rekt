@@ -48,7 +48,8 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<(), DecodeTxError> {
 fn decode_tx(buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
     let tx_metadata = HeaderInfo::decode(buf)?;
 
-    //This is from the specs:
+    //NOTE:
+    //This is from the docs (https://eips.ethereum.org/EIPS/eip-2718)
     //Clients can differentiate between the legacy transactions and typed transactions by looking at the first byte.
     //If it starts with a value in the range [0, 0x7f] then it is a new transaction type,
     //if it starts with a value in the range [0xc0, 0xfe] then it is a legacy transaction type.
@@ -122,7 +123,6 @@ fn decode_legacy(buf: &mut &[u8], tx_metadata: HeaderInfo) -> Result<usize, Deco
         nonce, gas_price, recipient, hash
     );
 
-    //  we skip v, r, s
     Ok(tx_metadata.payload_length)
 }
 
@@ -229,7 +229,7 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
         "[{now}] ACCESS TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
         nonce, gas_price, recipient, hash
     );
-    //  we skip v, r, s
+
     Ok(tx_metadata.payload_length)
 }
 
