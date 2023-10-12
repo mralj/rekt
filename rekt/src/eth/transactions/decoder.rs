@@ -131,12 +131,12 @@ fn decode_dynamic_and_blob_tx_types(
 ) -> Result<usize, DecodeTxError> {
     let tx_header_info = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-    let rlp_header = Header::decode_from_info(buf, tx_header_info)?;
+    let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
 
-    if !rlp_header.list {
+    if !tx_metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
-    let payload_view = &mut &buf[..rlp_header.payload_length];
+    let payload_view = &mut &buf[..tx_metadata.payload_length];
 
     let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
@@ -149,7 +149,7 @@ fn decode_dynamic_and_blob_tx_types(
     let recipient = match ethers::types::H160::decode(payload_view) {
         Ok(v) => v,
         Err(_errored_because_this_tx_is_contract_creation) => {
-            return Ok(rlp_header.payload_length);
+            return Ok(tx_metadata.payload_length);
         }
     };
 
@@ -163,16 +163,16 @@ fn decode_dynamic_and_blob_tx_types(
             nonce, gas_price, recipient, token, hash
         );
 
-        return Ok(rlp_header.payload_length);
+        return Ok(tx_metadata.payload_length);
     }
 
     let token = match get_token(&recipient) {
-        None => return Ok(rlp_header.payload_length),
+        None => return Ok(tx_metadata.payload_length),
         Some(t) => t,
     };
 
     if !tx_is_enable_buy(token, &data) {
-        return Ok(rlp_header.payload_length);
+        return Ok(tx_metadata.payload_length);
     }
 
     mark_token_as_bought(token.buy_token_address);
@@ -182,18 +182,18 @@ fn decode_dynamic_and_blob_tx_types(
             nonce, gas_price, max_price_per_gas,  recipient, hash
         );
 
-    Ok(rlp_header.payload_length)
+    Ok(tx_metadata.payload_length)
 }
 
 fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
     let tx_header_info = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-    let rlp_header = Header::decode_from_info(buf, tx_header_info)?;
+    let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
 
-    if !rlp_header.list {
+    if !tx_metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
-    let payload_view = &mut &buf[..rlp_header.payload_length];
+    let payload_view = &mut &buf[..tx_metadata.payload_length];
 
     let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
@@ -205,12 +205,12 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
     let recipient = match ethers::types::H160::decode(payload_view) {
         Ok(v) => v,
         Err(_errored_because_this_tx_is_contract_creation) => {
-            return Ok(rlp_header.payload_length);
+            return Ok(tx_metadata.payload_length);
         }
     };
 
     let token = match get_token(&recipient) {
-        None => return Ok(rlp_header.payload_length),
+        None => return Ok(tx_metadata.payload_length),
         Some(t) => t,
     };
 
@@ -218,7 +218,7 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
     let data = Bytes::decode(payload_view)?;
 
     if !tx_is_enable_buy(token, &data) {
-        return Ok(rlp_header.payload_length);
+        return Ok(tx_metadata.payload_length);
     }
 
     mark_token_as_bought(token.buy_token_address);
@@ -229,7 +229,7 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
         nonce, gas_price, recipient, hash
     );
     //  we skip v, r, s
-    Ok(rlp_header.payload_length)
+    Ok(tx_metadata.payload_length)
 }
 
 fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> String {
