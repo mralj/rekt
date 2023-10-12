@@ -4,10 +4,10 @@ use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
+use super::transactions::decoder::{decode_txs, decode_txs_request};
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
-use super::types::transaction::{decode_txs, decode_txs_request};
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     if there_are_no_tokens_to_buy() {
