@@ -24,16 +24,16 @@ impl Connection {
         // in practice we don't need to validate MAC and we'll be saving couple of microseconds
         // NOTE, code below calling ingres_aes is not any kind of validation, it's just decryption
         //_______
-        let (header_bytes, mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
+        let (header_bytes, _mac_bytes) = split_at_mut(data, HEADER_SIZE)?;
         let mut header: HeaderBytes = header_bytes.try_into()?;
-        let mac = H128::from_slice(&mac_bytes[..MAC_SIZE]);
-
-        self.ingress_mac.as_mut().unwrap().update_header(&header);
-
-        let check_mac = self.ingress_mac.as_mut().unwrap().digest();
-        if check_mac != mac {
-            return Err(RLPXError::TagCheckHeaderFailed);
-        }
+        // let mac = H128::from_slice(&mac_bytes[..MAC_SIZE]);
+        //
+        // self.ingress_mac.as_mut().unwrap().update_header(&header);
+        //
+        // let check_mac = self.ingress_mac.as_mut().unwrap().digest();
+        // if check_mac != mac {
+        //     return Err(RLPXError::TagCheckHeaderFailed);
+        // }
         //_______
 
         self.ingress_aes
@@ -57,15 +57,15 @@ impl Connection {
     }
 
     pub fn read_body<'a>(&mut self, data: &'a mut [u8]) -> Result<&'a mut [u8], RLPXError> {
-        let (body, mac_bytes) = split_at_mut(data, data.len() - MAC_SIZE)?;
+        let (body, _mac_bytes) = split_at_mut(data, data.len() - MAC_SIZE)?;
         //TODO: after you are sure everything is working, remove MAC validation
         //__________
-        let mac = H128::from_slice(mac_bytes);
-        self.ingress_mac.as_mut().unwrap().update_body(body);
-        let check_mac = self.ingress_mac.as_mut().unwrap().digest();
-        if check_mac != mac {
-            return Err(RLPXError::TagCheckBodyFailed);
-        }
+        // let mac = H128::from_slice(mac_bytes);
+        // self.ingress_mac.as_mut().unwrap().update_body(body);
+        // let check_mac = self.ingress_mac.as_mut().unwrap().digest();
+        // if check_mac != mac {
+        //     return Err(RLPXError::TagCheckBodyFailed);
+        // }
         //__________
 
         let size = self.body_size.unwrap();

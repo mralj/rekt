@@ -175,6 +175,11 @@ fn decode_dynamic_and_blob_tx_types(
 
         return Ok(tx_metadata.payload_length);
     }
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+    println!(
+            "[{now}] NEW TX: nonce: {}, gas_price: {},max gas per price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
+            nonce, gas_price, max_price_per_gas,  recipient, hash
+        );
 
     let token = match get_token(&recipient) {
         None => return Ok(tx_metadata.payload_length),
