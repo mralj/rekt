@@ -15,10 +15,14 @@ pub fn init_cache() {
 
 pub fn insert(hash: &H256) -> bool {
     unsafe {
-        if CACHE[convert_hash_to_index(hash)] {
+        let index = convert_hash_to_index(hash);
+        if index >= CACHE.len() {
+            panic!("Index out of bounds");
+        }
+        if CACHE[index] {
             return true;
         }
-        CACHE[convert_hash_to_index(hash)] = true;
+        CACHE[index] = true;
         false
     }
 }
@@ -31,7 +35,7 @@ pub fn has(hash: &H256) -> bool {
 fn convert_hash_to_index(hash: &H256) -> usize {
     let bytes: [u8; 4] = hash[..4]
         .try_into()
-        .expect("Should've had at least 8 bytes");
+        .expect("Should've had at least 4 bytes");
     let index = u32::from_ne_bytes(bytes) as usize;
     index
 }

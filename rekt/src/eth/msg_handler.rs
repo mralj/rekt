@@ -48,7 +48,6 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    let hashes_len = hashes.len();
     let hashes_to_request = hashes
         .into_iter()
         .filter(|hash| !cache::has(hash))
@@ -59,14 +58,6 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
         return Ok(None);
     }
 
-    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
-    if hashes_len != hashes_to_request.len() {
-        println!(
-            "[{now}] Got {} hashes, but only {} are new",
-            hashes_len,
-            hashes_to_request.len()
-        );
-    }
     Ok(Some(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
         data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
