@@ -12,6 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    console_subscriber::init();
     let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
