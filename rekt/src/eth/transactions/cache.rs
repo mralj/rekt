@@ -20,8 +20,8 @@ pub fn init_cache() {
 
 pub fn insert(hash: &H256) -> bool {
     unsafe {
-        // println!("Cache size: {}", CACHE.len());
-        // println!("Cache CAP: {}", CACHE.capacity());
+        println!("Cache size: {}", CACHE.len());
+        println!("Cache CAP: {}", CACHE.capacity());
         //
         let index = convert_hash_to_index(hash);
         if index >= CACHE.len() - 1 {
@@ -37,6 +37,8 @@ pub fn insert(hash: &H256) -> bool {
 
 pub fn has(hash: &H256) -> bool {
     unsafe {
+        println!("Cache size: {}", CACHE.len());
+        println!("Cache CAP: {}", CACHE.capacity());
         let index = convert_hash_to_index(hash);
         if index >= CACHE.len() - 1 {
             panic!("Index out of bounds");
