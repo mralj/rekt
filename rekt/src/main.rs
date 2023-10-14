@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_writer(file)
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
+    //tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
     let our_node = LocalNode::new(public_ip::addr().await);
 
