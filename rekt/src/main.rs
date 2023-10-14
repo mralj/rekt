@@ -13,7 +13,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    console_subscriber::init();
+    //console_subscriber::init();
     let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
@@ -23,10 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_writer(file)
         .finish();
 
-    //tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
+    tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
     init_cache();
-
     let our_node = LocalNode::new(public_ip::addr().await);
 
     println!("{:?}", our_node.node_record.str);
