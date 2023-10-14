@@ -59,9 +59,10 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
         return Ok(None);
     }
 
+    let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
     if hashes_len != hashes_to_request.len() {
         println!(
-            "Got {} hashes, but only {} are new",
+            "[{now}] Got {} hashes, but only {} are new",
             hashes_len,
             hashes_to_request.len()
         );
