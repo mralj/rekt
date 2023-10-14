@@ -9,8 +9,12 @@ pub static mut CACHE: Vec<bool> = Vec::new();
 
 pub fn init_cache() {
     unsafe {
-        CACHE = vec![false; u32::MAX as usize];
+        CACHE = vec![false; (u32::MAX + 1) as usize];
     }
+}
+
+pub fn has(hash: &H256) -> bool {
+    unsafe { CACHE[convert_hash_to_index(hash)] }
 }
 
 pub fn insert(hash: &H256) -> bool {
@@ -25,10 +29,6 @@ pub fn insert(hash: &H256) -> bool {
         CACHE[index] = true;
         false
     }
-}
-
-pub fn has(hash: &H256) -> bool {
-    unsafe { CACHE[convert_hash_to_index(hash)] }
 }
 
 #[inline(always)]
