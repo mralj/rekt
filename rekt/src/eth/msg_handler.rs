@@ -4,7 +4,7 @@ use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
-use super::transactions::cache::CACHE;
+use super::transactions::cache::{self, CACHE};
 use super::transactions::decoder::{decode_txs, decode_txs_request};
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
@@ -48,19 +48,28 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    // let hashes_to_request = hashes
-    //     .into_iter()
-    //     .filter(|hash| !CACHE.contains_key(hash))
-    //     .take(1_000)
-    //     .collect::<Vec<_>>();
-    //
-    // if hashes_to_request.is_empty() {
-    //     return Ok(None);
-    // }
+    let hashes_len = hashes.len();
+    let hashes_to_request = hashes
+        .into_iter()
+        .filter(|hash| !cache::has(hash))
+        .take(1_000)
+        .collect::<Vec<_>>();
+
+    if hashes_len != hashes_to_request.len() {
+        println!(
+            "Got {} hashes, but only {} are new",
+            hashes_len,
+            hashes_to_request.len()
+        );
+    }
+
+    if hashes_to_request.is_empty() {
+        return Ok(None);
+    }
 
     Ok(Some(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
-        data: TransactionsRequest::new(hashes).rlp_encode(),
+        data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
     }))
 }
 

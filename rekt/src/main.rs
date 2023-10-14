@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
+use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::server::outbound_connections::OutboundConnections;
 
@@ -23,6 +24,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .finish();
 
     //tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
+
+    init_cache();
 
     let our_node = LocalNode::new(public_ip::addr().await);
 
