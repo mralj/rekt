@@ -9,7 +9,10 @@ pub static mut CACHE: Vec<bool> = Vec::new();
 
 pub fn init_cache() {
     unsafe {
-        CACHE = vec![false; u32::MAX as usize];
+        CACHE.reserve_exact(u32::MAX as usize);
+        for _ in 0..u32::MAX {
+            CACHE.push(false);
+        }
     }
 }
 
