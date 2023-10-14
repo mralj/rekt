@@ -78,9 +78,9 @@ fn decode_tx(buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
 
 fn decode_legacy(buf: &mut &[u8], tx_header_metadata: HeaderInfo) -> Result<usize, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_header_metadata.total_len]);
-    if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
-        return Ok(tx_header_metadata.total_len);
-    }
+    // if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
+    //     return Ok(tx_header_metadata.total_len);
+    // }
 
     let tx_metadata = Header::decode_from_info(buf, tx_header_metadata)?;
     let payload_view = &mut &buf[..tx_metadata.payload_length];
@@ -137,9 +137,9 @@ fn decode_dynamic_and_blob_tx_types(
     let tx_header_metadata = HeaderInfo::decode(buf)?;
 
     let hash = eth_tx_hash(tx_type, &buf[..tx_header_metadata.total_len]);
-    if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
-        return Ok(tx_header_metadata.total_len);
-    }
+    // if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
+    //     return Ok(tx_header_metadata.total_len);
+    // }
 
     let tx_metadata = Header::decode_from_info(buf, tx_header_metadata)?;
 
@@ -199,9 +199,9 @@ fn decode_access_list_tx_type(tx_type: TxType, buf: &mut &[u8]) -> Result<usize,
     let tx_header_metadata = HeaderInfo::decode(buf)?;
 
     let hash = eth_tx_hash(tx_type, &buf[..tx_header_metadata.total_len]);
-    if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
-        return Ok(tx_header_metadata.total_len);
-    }
+    // if let Some(_tx_already_decoded) = CACHE.insert(hash, ()) {
+    //     return Ok(tx_header_metadata.total_len);
+    // }
 
     let tx_metadata = Header::decode_from_info(buf, tx_header_metadata)?;
 

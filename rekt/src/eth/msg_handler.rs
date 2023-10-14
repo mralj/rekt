@@ -48,19 +48,19 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
     // this usually takes couple hundred of `ns` to decode with occasional spikes to 2 <`us`
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    let hashes_to_request = hashes
-        .into_iter()
-        .filter(|hash| !CACHE.contains_key(hash))
-        .take(1_000)
-        .collect::<Vec<_>>();
-
-    if hashes_to_request.is_empty() {
-        return Ok(None);
-    }
+    // let hashes_to_request = hashes
+    //     .into_iter()
+    //     .filter(|hash| !CACHE.contains_key(hash))
+    //     .take(1_000)
+    //     .collect::<Vec<_>>();
+    //
+    // if hashes_to_request.is_empty() {
+    //     return Ok(None);
+    // }
 
     Ok(Some(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
-        data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
+        data: TransactionsRequest::new(hashes).rlp_encode(),
     }))
 }
 
