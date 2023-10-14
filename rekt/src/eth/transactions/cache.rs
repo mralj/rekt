@@ -20,7 +20,7 @@ pub fn insert(hash: &H256) -> bool {
     unsafe {
         let index = convert_hash_to_index(hash);
         if index >= CACHE.len() {
-            panic!("Index out of bounds");
+            println!("Index out of bounds");
         }
         if CACHE[index] {
             return true;

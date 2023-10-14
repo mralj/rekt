@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use bytes::{Buf, Bytes};
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
 use sha3::{Digest, Keccak256};
@@ -78,9 +80,11 @@ fn decode_tx(buf: &mut &[u8]) -> Result<usize, DecodeTxError> {
 
 fn decode_legacy(buf: &mut &[u8], tx_header_metadata: HeaderInfo) -> Result<usize, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_header_metadata.total_len]);
+    let start = Instant::now();
     if cache::insert(&hash) {
         return Ok(tx_header_metadata.total_len);
     }
+    println!("Inserting tx into cache took: {:?}", start.elapsed());
     let tx_metadata = Header::decode_from_info(buf, tx_header_metadata)?;
     let payload_view = &mut &buf[..tx_metadata.payload_length];
 
@@ -136,10 +140,12 @@ fn decode_dynamic_and_blob_tx_types(
     let tx_header_metadata = HeaderInfo::decode(buf)?;
 
     let hash = eth_tx_hash(tx_type, &buf[..tx_header_metadata.total_len]);
+    let start = Instant::now();
     if cache::insert(&hash) {
         return Ok(tx_header_metadata.total_len);
     }
 
+    println!("Inserting tx into cache took: {:?}", start.elapsed());
     let tx_metadata = Header::decode_from_info(buf, tx_header_metadata)?;
 
     if !tx_metadata.list {
