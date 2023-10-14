@@ -13,14 +13,19 @@ pub fn init_cache() {
         for _ in 0..u32::MAX {
             CACHE.push(false);
         }
+        println!("Cache size: {}", CACHE.len());
+        println!("Cache CAP: {}", CACHE.capacity());
     }
 }
 
 pub fn insert(hash: &H256) -> bool {
     unsafe {
+        // println!("Cache size: {}", CACHE.len());
+        // println!("Cache CAP: {}", CACHE.capacity());
+        //
         let index = convert_hash_to_index(hash);
         if index >= CACHE.len() - 1 {
-            println!("Index out of bounds");
+            panic!("Index out of bounds");
         }
         if CACHE[index] {
             return true;
@@ -34,7 +39,7 @@ pub fn has(hash: &H256) -> bool {
     unsafe {
         let index = convert_hash_to_index(hash);
         if index >= CACHE.len() - 1 {
-            println!("Index out of bounds");
+            panic!("Index out of bounds");
         }
         CACHE[index]
     }
