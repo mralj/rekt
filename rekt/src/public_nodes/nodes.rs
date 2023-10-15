@@ -17,9 +17,14 @@ static PUBLIC_NODES: Lazy<Mutex<Vec<Provider<Http>>>> = Lazy::new(|| Mutex::new(
 pub async fn init_connection_to_public_nodes() {
     for rpc_url in PUBLIC_NODE_URLS.iter() {
         if let Ok(p) = Provider::<Http>::try_from(*rpc_url) {
-            if let Ok(node_info) = p.node_info().await {
-                print!("Connected to node: {:?} ", node_info);
-                PUBLIC_NODES.lock().unwrap().push(p);
+            match p.get_block_number().await {
+                Ok(b_no) => {
+                    println!("Connected to public node: {rpc_url}, Highest known block {b_no}");
+                    PUBLIC_NODES.lock().unwrap().push(p);
+                }
+                Err(e) => {
+                    println!("Failed to connect to public node: {}", e);
+                }
             }
         }
     }
