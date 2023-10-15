@@ -6,6 +6,7 @@ pub mod enemies;
 pub mod eth;
 pub mod local_node;
 pub mod p2p;
+pub mod public_nodes;
 pub mod rlpx;
 pub mod server;
 pub mod token;

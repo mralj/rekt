@@ -4,6 +4,7 @@ use std::sync::Arc;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
+use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
@@ -28,6 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", our_node.node_record.str);
 
     import_tokens_to_buy();
+
+    init_connection_to_public_nodes().await;
 
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
