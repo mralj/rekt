@@ -10,7 +10,6 @@ pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
     Lazy::new(|| RwLock::new(Vec::with_capacity(1_000)));
 
 pub async fn init_local_wallets() {
-    let start = std::time::Instant::now();
     let mut local_wallets = LOCAL_WALLETS_LIST
         .iter()
         .filter_map(|pk| WalletWithNonce::from_str(pk).ok())
@@ -32,16 +31,4 @@ pub async fn init_local_wallets() {
     println!("{} local wallets have no nonce", cnt);
 
     *LOCAL_WALLETS.write().await = local_wallets;
-    println!(
-        "Local wallets initialized in {}ms",
-        start.elapsed().as_millis()
-    );
-
-    // LOCAL_WALLETS.read().await.iter().for_each(|wallet| {
-    //     println!(
-    //         "Wallet with address: {} has nonce {}",
-    //         wallet.address(),
-    //         wallet.nonce().unwrap()
-    //     );
-    // });
 }
