@@ -15,12 +15,12 @@ pub async fn init_local_wallets(args: &Cli) {
     let mut local_wallets = LOCAL_WALLETS_LIST
         .iter()
         //note server_index is counted from 1 not 0
-        .skip(((args.server_index - 1) * args.pings_per_server) as usize)
-        .take(args.pings_per_server as usize)
+        .skip((args.server_index - 1) * args.pings_per_server)
+        .take(args.pings_per_server)
         .filter_map(|pk| WalletWithNonce::from_str(pk).ok())
         .collect::<Vec<WalletWithNonce>>();
 
-    if local_wallets.len() != args.pings_per_server as usize {
+    if local_wallets.len() != args.pings_per_server {
         panic!("Some local wallets are invalid");
     }
 

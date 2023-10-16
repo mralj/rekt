@@ -11,14 +11,14 @@ pub struct Cli {
         default_value = "1",
         value_name = "Server index"
     )]
-    pub server_index: u8,
+    pub server_index: usize,
     #[arg(
         short = 'p',
         long = "pings",
         default_value = "1",
         value_name = "Pings per server"
     )]
-    pub pings_per_server: u8,
+    pub pings_per_server: usize,
 }
 
 impl Display for Cli {
