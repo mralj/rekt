@@ -97,7 +97,7 @@ impl Connection {
 
     pub fn write_body(&mut self, out: &mut BytesMut, data: &[u8]) {
         #[allow(unstable_name_collisions)]
-        let len_with_padding = (data.len().div_ceil(&FRAME_PADDING)) * FRAME_PADDING;
+        let len_with_padding = (data.len().div_ceil(FRAME_PADDING)) * FRAME_PADDING;
         let old_len = out.len();
         out.resize(old_len + len_with_padding, 0);
 
