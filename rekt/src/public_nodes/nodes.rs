@@ -12,6 +12,8 @@ use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 
+use crate::wallets::wallet_with_nonce::WalletWithNonce;
+
 const DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC: u64 = 5;
 
 const PUBLIC_NODE_URLS: [&str; 6] = [
@@ -55,9 +57,9 @@ pub async fn get_nonces() {
         "fc3dce9c1b1958f3d6b6944f988c2d2d216468cafa8ae48a4ae17ddc96d06806",
     ];
 
-    let wallets: Vec<Wallet<SigningKey>> = private_keys
+    let wallets: Vec<WalletWithNonce> = private_keys
         .iter()
-        .filter_map(|k| LocalWallet::from_str(k).ok())
+        .filter_map(|k| WalletWithNonce::from_str(k).ok())
         .collect();
 
     if wallets.len() != private_keys.len() {
@@ -66,11 +68,12 @@ pub async fn get_nonces() {
 
     let mut nonce_tasks = FuturesUnordered::from_iter(wallets.iter().map(|w| get_nonce(w)));
     while let Some(nonce) = nonce_tasks.next().await {
+        println!("Nonce: {:?}", nonce);
         let _n = nonce;
     }
 }
 
-pub async fn get_nonce(wallet: &Wallet<SigningKey>) -> Option<U256> {
+pub async fn get_nonce(wallet: &WalletWithNonce) -> Option<U256> {
     let providers = PUBLIC_NODES.read().await;
     let mut nonce_tasks = FuturesUnordered::from_iter(providers.iter().map(|p| {
         tokio::time::timeout(
@@ -82,7 +85,6 @@ pub async fn get_nonce(wallet: &Wallet<SigningKey>) -> Option<U256> {
     if let Some(Ok(Ok(nonce))) = nonce_tasks.next().await {
         return Some(nonce);
     }
-
 
     return None;
 }
