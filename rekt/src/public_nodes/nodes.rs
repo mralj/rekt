@@ -1,17 +1,19 @@
-use std::str::FromStr;
+use std::time::Duration;
 
 use ethers::{
-    middleware::MiddlewareBuilder,
-    prelude::k256::ecdsa::SigningKey,
-    providers::{Http, Middleware, Provider},
-    signers::{LocalWallet, Signer, Wallet},
+    providers::{Http, JsonRpcClient, RetryClient, RetryClientBuilder},
     types::{BlockNumber, U256},
+    utils,
 };
 use futures::stream::FuturesUnordered;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
+use url::Url;
 
+use crate::wallets::wallet_with_nonce::WalletWithNonce;
+
+const DEFAULT_RETRY_COUNT: u8 = 2;
 const DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC: u64 = 5;
 
 const PUBLIC_NODE_URLS: [&str; 6] = [
@@ -23,13 +25,13 @@ const PUBLIC_NODE_URLS: [&str; 6] = [
     "https://bsc.nodereal.io",
 ];
 
-static PUBLIC_NODES: Lazy<RwLock<Vec<Provider<Http>>>> = Lazy::new(|| RwLock::new(Vec::new()));
+static PUBLIC_NODES: Lazy<RwLock<Vec<RetryClient<Http>>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
 pub async fn init_connection_to_public_nodes() {
     for rpc_url in PUBLIC_NODE_URLS.iter() {
         let mut public_nodes = PUBLIC_NODES.write().await;
-        if let Ok(p) = Provider::<Http>::try_from(*rpc_url) {
-            match p.get_block_number().await {
+        if let Ok(p) = get_retry_provider(rpc_url) {
+            match JsonRpcClient::request::<_, U256>(&p, "eth_blockNumber", ()).await {
                 Ok(b_no) => {
                     println!("Connected to public node: {rpc_url}, Highest known block {b_no}");
                     public_nodes.push(p);
@@ -42,40 +44,38 @@ pub async fn init_connection_to_public_nodes() {
     }
 }
 
-pub async fn get_nonces() {
-    let private_keys = vec![
-        "c9aebfba092f657150d66df2ec450e56b3d36cbb6c2f54c517208f003019d075",
-        "72f6f94063935787b1a3a10e97fe5300c1d1da237dd0a1b0b83f5676a87f1a41",
-        "88565bd29f41084bb57333ec4f458df9647f7a2216643a9670cd6ce5dfdde52b",
-        "a4166e95e71f53ad469144eb034aa1beee517cd14513dbb49743fe9ee29839b2",
-        "0af54ac661e593d6b3d34d3e0366e0c221651cce8b518cf8424cf9260ce6ace3",
-        "bd1bbd7a99228e2cc40e589474d3b7d7393751b0edd669d9af342992394621be",
-        "e22b68b87e5b52479dc4c9818ce3840aec79e917ed3fc3ab33639c437d6b4b90",
-        "387f73baa0e605b91cba78386c2b303db36b59d5447f1286e1b7689f7f929036",
-        "fc3dce9c1b1958f3d6b6944f988c2d2d216468cafa8ae48a4ae17ddc96d06806",
-    ];
+pub fn get_retry_provider(url: &str) -> Result<RetryClient<Http>, url::ParseError> {
+    let provider = Http::new(Url::parse(url)?);
 
-    let wallets: Vec<Wallet<SigningKey>> = private_keys
-        .iter()
-        .filter_map(|k| LocalWallet::from_str(k).ok())
-        .collect();
+    let client = RetryClientBuilder::default()
+        .rate_limit_retries(DEFAULT_RETRY_COUNT.into())
+        .timeout_retries(DEFAULT_RETRY_COUNT.into())
+        .initial_backoff(Duration::from_secs(
+            DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC,
+        ))
+        .build(
+            provider,
+            Box::<ethers::providers::HttpRateLimitRetryPolicy>::default(),
+        );
 
-    if wallets.len() != private_keys.len() {
-        panic!("Failed to parse all private keys");
-    }
-
-    let mut nonce_tasks = FuturesUnordered::from_iter(wallets.iter().map(|w| get_nonce(w)));
-    while let Some(nonce) = nonce_tasks.next().await {
-        let _n = nonce;
-    }
+    Ok(client)
 }
 
-pub async fn get_nonce(wallet: &Wallet<SigningKey>) -> Option<U256> {
+pub async fn get_nonce(wallet: &WalletWithNonce) -> Option<U256> {
     let providers = PUBLIC_NODES.read().await;
     let mut nonce_tasks = FuturesUnordered::from_iter(providers.iter().map(|p| {
         tokio::time::timeout(
-            std::time::Duration::from_secs(DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC),
-            p.get_transaction_count(wallet.address(), Some(BlockNumber::Pending.into())),
+            std::time::Duration::from_secs(
+                (DEFAULT_RETRY_COUNT as u64) * DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC,
+            ),
+            JsonRpcClient::request(
+                p,
+                "eth_getTransactionCount",
+                [
+                    utils::serialize(&wallet.address()),
+                    utils::serialize::<BlockNumber>(&BlockNumber::Pending.into()),
+                ],
+            ),
         )
     }));
 
@@ -83,6 +83,5 @@ pub async fn get_nonce(wallet: &Wallet<SigningKey>) -> Option<U256> {
         return Some(nonce);
     }
 
-
-    return None;
+    None
 }

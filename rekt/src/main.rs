@@ -4,10 +4,11 @@ use std::sync::Arc;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
-use rekt::public_nodes::nodes::{get_nonces, init_connection_to_public_nodes};
+use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
+use rekt::wallets::local_wallets::init_local_wallets;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -31,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     import_tokens_to_buy();
 
     init_connection_to_public_nodes().await;
-    get_nonces().await;
+    init_local_wallets().await;
 
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
