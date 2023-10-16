@@ -30,7 +30,14 @@ impl WalletWithNonce {
     }
 
     pub async fn update_nonce(&mut self) {
-        self.nonce = get_nonce(&self).await;
+        // NOTE: we update nocne only if we were able to get the value
+        // this protects us from the following scenario:
+        // we already have nonce (it's eg. Some(16))
+        // we try to update it, but there is some error
+        // we don't want to set nonce to None in this case
+        if let Some(n) = get_nonce(self).await {
+            self.nonce = Some(n);
+        }
     }
 
     pub fn sign_tx(&self, tx: &TypedTransaction) -> Result<Signature, WalletError> {

@@ -13,6 +13,7 @@ use url::Url;
 
 use crate::wallets::wallet_with_nonce::WalletWithNonce;
 
+const DEFAULT_RETRY_COUNT: u8 = 2;
 const DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC: u64 = 5;
 
 const PUBLIC_NODE_URLS: [&str; 6] = [
@@ -47,9 +48,11 @@ pub fn get_retry_provider(url: &str) -> Result<RetryClient<Http>, url::ParseErro
     let provider = Http::new(Url::parse(url)?);
 
     let client = RetryClientBuilder::default()
-        .rate_limit_retries(2)
-        .timeout_retries(2)
-        .initial_backoff(Duration::from_secs(20))
+        .rate_limit_retries(DEFAULT_RETRY_COUNT.into())
+        .timeout_retries(DEFAULT_RETRY_COUNT.into())
+        .initial_backoff(Duration::from_secs(
+            DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC,
+        ))
         .build(
             provider,
             Box::<ethers::providers::HttpRateLimitRetryPolicy>::default(),
@@ -62,7 +65,9 @@ pub async fn get_nonce(wallet: &WalletWithNonce) -> Option<U256> {
     let providers = PUBLIC_NODES.read().await;
     let mut nonce_tasks = FuturesUnordered::from_iter(providers.iter().map(|p| {
         tokio::time::timeout(
-            std::time::Duration::from_secs(DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC),
+            std::time::Duration::from_secs(
+                (DEFAULT_RETRY_COUNT as u64) * DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC,
+            ),
             JsonRpcClient::request(
                 p,
                 "eth_getTransactionCount",

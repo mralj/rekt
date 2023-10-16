@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use super::{local_wallets_list::LOCAL_WALLETS_LIST, wallet_with_nonce::WalletWithNonce};
 
 pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
-    Lazy::new(|| RwLock::new(Vec::with_capacity(1_000)));
+    Lazy::new(|| RwLock::new(Vec::new()));
 
 pub async fn init_local_wallets() {
     let mut local_wallets = LOCAL_WALLETS_LIST
