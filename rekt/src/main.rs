@@ -1,12 +1,14 @@
 use std::fs::File;
 use std::sync::Arc;
 
+use rekt::cli::Cli;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::outbound_connections::OutboundConnections;
 
+use clap::Parser;
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
 use rekt::wallets::local_wallets::init_local_wallets;
 use tracing::Level;
@@ -14,6 +16,7 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Cli::parse();
     let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
@@ -29,10 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{:?}", our_node.node_record.str);
 
-    import_tokens_to_buy();
-
     init_connection_to_public_nodes().await;
-    init_local_wallets().await;
+    init_local_wallets(&args).await;
+
+    import_tokens_to_buy();
 
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
