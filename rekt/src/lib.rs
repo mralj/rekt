@@ -2,6 +2,7 @@ pub mod blockchain;
 pub mod cli;
 pub mod config;
 pub mod constants;
+pub mod contracts;
 pub mod discover;
 pub mod enemies;
 pub mod eth;

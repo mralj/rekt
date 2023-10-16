@@ -16,7 +16,7 @@ use crate::wallets::wallet_with_nonce::WalletWithNonce;
 const DEFAULT_RETRY_COUNT: u8 = 2;
 const DEFAULT_PUBLIC_NODE_QUERY_TIMEOUT_IN_SEC: u64 = 5;
 
-const PUBLIC_NODE_URLS: [&str; 6] = [
+pub const PUBLIC_NODE_URLS: [&str; 6] = [
     "https://bscrpc.com",
     "https://bsc-dataseed.binance.org/",
     "https://rpc.ankr.com/bsc",
