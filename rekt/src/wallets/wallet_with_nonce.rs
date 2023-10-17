@@ -3,10 +3,17 @@ use std::str::FromStr;
 use ethers::{
     prelude::k256::ecdsa::SigningKey,
     signers::{Signer, Wallet, WalletError},
-    types::{transaction::eip2718::TypedTransaction, Address, Signature, U256},
+    types::{
+        transaction::eip2718::TypedTransaction, Address, Bytes, Signature, TransactionRequest, U256,
+    },
 };
 
-use crate::public_nodes::nodes::get_nonce;
+use crate::{
+    contracts::caesar_bot::{encode_buy_method, CAESAR_BOT_ADDRESS},
+    public_nodes::nodes::get_nonce,
+};
+
+const DEFAULT_MAX_GAS_LIMIT: usize = 4_000_000;
 
 pub struct WalletWithNonce {
     wallet: Wallet<SigningKey>,
@@ -40,7 +47,35 @@ impl WalletWithNonce {
         }
     }
 
-    pub fn sign_tx(&self, tx: &TypedTransaction) -> Result<Signature, WalletError> {
+    pub fn generate_and_sign_buy_tx(&self, gas_price: U256) -> Result<Bytes, WalletError> {
+        let tx = self.generate_buy_tx(gas_price);
+        let signature = self.sign_tx(&tx)?;
+
+        Ok(tx.rlp_signed(&signature))
+    }
+
+    fn generate_buy_tx(&self, gas_price: U256) -> TypedTransaction {
+        let tx = TransactionRequest {
+            from: Some(self.address()),
+            to: Some(ethers::types::NameOrAddress::Address(
+                Address::from_str(CAESAR_BOT_ADDRESS).expect("Invalid bot address"),
+            )),
+            gas: Some(U256::from(DEFAULT_MAX_GAS_LIMIT)),
+            gas_price: Some(gas_price),
+            data: Some(encode_buy_method()),
+            //TODO: this can be none, so we don't want to crate buy TX for wallet with unknown
+            //nocne
+            // options are, to immediately return None, or to try to update nonce
+            // if we decide to update nonce, this function will have to be async
+            nonce: self.nonce(),
+            chain_id: Some(ethers::types::U64::from(56)),
+            ..TransactionRequest::default()
+        };
+
+        TypedTransaction::Legacy(tx)
+    }
+
+    fn sign_tx(&self, tx: &TypedTransaction) -> Result<Signature, WalletError> {
         self.wallet.sign_transaction_sync(tx)
     }
 }

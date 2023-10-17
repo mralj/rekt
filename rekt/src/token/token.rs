@@ -1,7 +1,13 @@
-use ethers::types::Address;
+use std::str::FromStr;
+
+use ethers::types::{transaction::eip2718::TypedTransaction, Address, TransactionRequest, U256};
 use serde::{Deserialize, Serialize};
 
-use crate::eth::eth_message::EthMessage;
+use crate::{
+    contracts::caesar_bot::{encode_buy_method, CAESAR_BOT_ADDRESS},
+    eth::eth_message::EthMessage,
+    wallets::wallet_with_nonce::WalletWithNonce,
+};
 
 pub type TokenAddress = ethers::types::Address;
 pub type TxSignatureHash = ethers::types::H32;
@@ -37,8 +43,6 @@ impl Token {
     pub fn get_key(&self) -> Address {
         self.enable_buy_config.tx_to
     }
-
-    pub fn generate_buy_tx(&mut self) {}
 }
 
 #[cfg(test)]
