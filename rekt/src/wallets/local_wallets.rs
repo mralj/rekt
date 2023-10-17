@@ -39,16 +39,18 @@ pub async fn init_local_wallets(args: &Cli) {
 }
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(gas_price_in_gwei: u64) -> BytesMut {
-    let buy_txs = LOCAL_WALLETS
-        .read()
-        .await
-        .iter()
-        .filter_map(|wallet| {
-            wallet
-                .generate_and_sign_buy_tx(gwei_to_wei(gas_price_in_gwei))
-                .ok()
-        })
-        .collect::<Vec<_>>();
+    let mut local_wallets = LOCAL_WALLETS.write().await;
+
+    let generate_buy_txs_tasks = FuturesUnordered::from_iter(
+        local_wallets
+            .iter_mut()
+            .map(|wallet| wallet.generate_and_sign_buy_tx(gwei_to_wei(gas_price_in_gwei))),
+    );
+
+    let buy_txs = generate_buy_txs_tasks
+        .filter_map(|tx| async move { tx.ok() })
+        .collect::<Vec<_>>()
+        .await;
 
     let rlp_encoded_buy_txs = rlp_encode_list_of_bytes(&buy_txs);
     rlp_encoded_buy_txs
