@@ -13,6 +13,10 @@ impl EthMessage {
     pub fn new(id: EthProtocol, data: BytesMut) -> Self {
         Self { id, data }
     }
+
+    pub fn new_tx_message(data: BytesMut) -> Self {
+        Self::new(EthProtocol::TransactionsMsg, data)
+    }
 }
 
 impl From<P2pWireMessage> for EthMessage {
