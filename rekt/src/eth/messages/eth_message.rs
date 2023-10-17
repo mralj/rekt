@@ -3,7 +3,7 @@ use bytes::BytesMut;
 use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EthMessage {
     pub id: EthProtocol,
     pub data: BytesMut,

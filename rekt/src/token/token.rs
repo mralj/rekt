@@ -1,5 +1,13 @@
-use ethers::types::Address;
+use std::str::FromStr;
+
+use ethers::types::{transaction::eip2718::TypedTransaction, Address, TransactionRequest, U256};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    contracts::caesar_bot::{encode_buy_method, CAESAR_BOT_ADDRESS},
+    eth::eth_message::EthMessage,
+    wallets::wallet_with_nonce::WalletWithNonce,
+};
 
 pub type TokenAddress = ethers::types::Address;
 pub type TxSignatureHash = ethers::types::H32;
@@ -18,6 +26,9 @@ pub struct Token {
 
     #[serde(rename = "enableBuyConfig")]
     pub enable_buy_config: EnableBuyConfig,
+
+    #[serde(skip)]
+    pub buy_txs: Option<EthMessage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,7 +81,8 @@ mod test {
                 enable_buy_config: EnableBuyConfig {
                     tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                     enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
-                }
+                },
+                buy_txs: None
             }
         );
     }
