@@ -1,13 +1,7 @@
-use std::str::FromStr;
-
-use ethers::types::{transaction::eip2718::TypedTransaction, Address, TransactionRequest, U256};
+use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    contracts::caesar_bot::{encode_buy_method, CAESAR_BOT_ADDRESS},
-    eth::eth_message::EthMessage,
-    wallets::wallet_with_nonce::WalletWithNonce,
-};
+use crate::eth::eth_message::EthMessage;
 
 pub type TokenAddress = ethers::types::Address;
 pub type TxSignatureHash = ethers::types::H32;
@@ -42,6 +36,10 @@ pub struct EnableBuyConfig {
 impl Token {
     pub fn get_key(&self) -> Address {
         self.enable_buy_config.tx_to
+    }
+
+    pub fn set_buy_txs(&mut self, buy_txs: EthMessage) {
+        self.buy_txs = Some(buy_txs);
     }
 }
 

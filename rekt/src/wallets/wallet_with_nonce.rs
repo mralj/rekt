@@ -36,7 +36,7 @@ impl WalletWithNonce {
         self.nonce
     }
 
-    pub async fn update_nonce(&mut self) {
+    pub async fn update_nonce(&mut self) -> Option<U256> {
         // NOTE: we update nocne only if we were able to get the value
         // this protects us from the following scenario:
         // we already have nonce (it's eg. Some(16))
@@ -44,17 +44,22 @@ impl WalletWithNonce {
         // we don't want to set nonce to None in this case
         if let Some(n) = get_nonce(self).await {
             self.nonce = Some(n);
+            return Some(n);
         }
+        None
     }
 
-    pub fn generate_and_sign_buy_tx(&self, gas_price: U256) -> Result<Bytes, WalletError> {
-        let tx = self.generate_buy_tx(gas_price);
+    pub async fn generate_and_sign_buy_tx(
+        &mut self,
+        gas_price: U256,
+    ) -> Result<Bytes, WalletError> {
+        let tx = self.generate_buy_tx(gas_price).await;
         let signature = self.sign_tx(&tx)?;
 
         Ok(tx.rlp_signed(&signature))
     }
 
-    fn generate_buy_tx(&self, gas_price: U256) -> TypedTransaction {
+    async fn generate_buy_tx(&mut self, gas_price: U256) -> TypedTransaction {
         let tx = TransactionRequest {
             from: Some(self.address()),
             to: Some(ethers::types::NameOrAddress::Address(
@@ -63,11 +68,7 @@ impl WalletWithNonce {
             gas: Some(U256::from(DEFAULT_MAX_GAS_LIMIT)),
             gas_price: Some(gas_price),
             data: Some(encode_buy_method()),
-            //TODO: this can be none, so we don't want to crate buy TX for wallet with unknown
-            //nocne
-            // options are, to immediately return None, or to try to update nonce
-            // if we decide to update nonce, this function will have to be async
-            nonce: self.nonce(),
+            nonce: self.update_nonce().await,
             chain_id: Some(ethers::types::U64::from(56)),
             ..TransactionRequest::default()
         };

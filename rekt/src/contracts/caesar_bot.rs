@@ -25,10 +25,10 @@ pub fn encode_buy_method() -> Bytes {
 
 fn get_caesar_bot() -> Contract<Provider<Http>> {
     let bot_address = Address::from_str(CAESAR_BOT_ADDRESS).expect("Invalid bot address");
-    //TODO: handle this better, we just use the first node
-    // but we don't know if it is online or not
-    // N.B actually check this, I think that provider can be any because we are just encoding the  tx
-    // which is done locally
+    //NOTE: this looks like a shitty solution (since we are just using the first node from the list
+    //and we don't even know if the node works or not)
+    //but this is ok , because we are never using the node for anything
+    //we need here to make ethers crate happy
     let client = Provider::<Http>::try_from(PUBLIC_NODE_URLS[0]).expect("Failed to create client");
     let bot_contract = Contract::new(bot_address, get_abi(), client.into());
 
