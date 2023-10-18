@@ -8,7 +8,10 @@ use tokio::sync::RwLock;
 
 use crate::{cli::Cli, utils::wei_gwei_converter::gwei_to_wei};
 
-use super::{local_wallets_list::LOCAL_WALLETS_LIST, wallet_with_nonce::WalletWithNonce};
+use super::{
+    local_wallets_list::LOCAL_WALLETS_LIST,
+    wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
+};
 
 pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
     Lazy::new(|| RwLock::new(Vec::new()));
@@ -45,13 +48,15 @@ pub async fn update_nonces_for_local_wallets() {
     let _ = nonce_tasks.collect::<Vec<_>>().await;
 }
 
-pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(gas_price_in_gwei: u64) -> BytesMut {
+pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
+    gas_price_in_wei: WeiGasPrice,
+) -> BytesMut {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
     let generate_buy_txs_tasks = FuturesUnordered::from_iter(
         local_wallets
             .iter_mut()
-            .map(|wallet| wallet.generate_and_sign_buy_tx(gwei_to_wei(gas_price_in_gwei))),
+            .map(|wallet| wallet.generate_and_sign_buy_tx(gas_price_in_wei)),
     );
 
     let buy_txs = generate_buy_txs_tasks
