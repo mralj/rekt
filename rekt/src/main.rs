@@ -37,10 +37,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     import_tokens_to_buy();
 
+    let (tx_sender, _) = tokio::sync::broadcast::channel(1);
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         get_all_nodes(&mut config.nodes),
+        tx_sender,
     ));
 
     OutboundConnections::start(outbound_connections).await;

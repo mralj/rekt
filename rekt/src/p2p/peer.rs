@@ -1,15 +1,17 @@
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
+use tokio::select;
+use tokio::sync::broadcast;
 use tracing::error;
 
 use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
+use crate::eth::eth_message::EthMessage;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
@@ -24,8 +26,12 @@ pub struct Peer {
     pub id: H512,
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
+
     protocol_version: ProtocolVersion,
+
     connection: P2PWire,
+
+    send_txs_channel: broadcast::Sender<EthMessage>,
 }
 
 impl Peer {
@@ -35,6 +41,7 @@ impl Peer {
         protocol: usize,
         info: String,
         connection: TcpWire,
+        send_txs_channel: broadcast::Sender<EthMessage>,
     ) -> Self {
         Self {
             id,
@@ -42,6 +49,7 @@ impl Peer {
             info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            send_txs_channel,
         }
     }
 }
@@ -65,17 +73,21 @@ impl Peer {
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
+        let mut txs_to_send_receiver = self.send_txs_channel.subscribe();
         loop {
-            let msg = self
-                .connection
-                .next()
-                .await
-                // by stream definition when Poll::Ready(None) is returned this means that
-                // stream is done and should not be polled again, or bad things will happen
-                .ok_or(P2PError::NoMessage)??; //
-
-            if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(msg) {
-                self.connection.send(msg).await?;
+            select! {
+                biased;
+                msg_to_send = txs_to_send_receiver.recv() => {
+                    if let Ok(msg) = msg_to_send {
+                        self.connection.send(msg).await?;
+                    }
+                },
+                msg = self.connection.next() => {
+                    let msg = msg.ok_or(P2PError::NoMessage)??;
+                    if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(msg) {
+                       self.connection.send(msg).await?;
+                    }
+                },
             }
         }
     }
