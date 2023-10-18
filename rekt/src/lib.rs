@@ -13,4 +13,5 @@ pub mod rlpx;
 pub mod server;
 pub mod token;
 pub mod types;
+pub mod utils;
 pub mod wallets;

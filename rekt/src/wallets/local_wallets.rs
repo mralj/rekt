@@ -1,13 +1,12 @@
 use std::str::FromStr;
 
 use bytes::BytesMut;
-use ethers::types::U256;
 use futures::{stream::FuturesUnordered, StreamExt};
 use once_cell::sync::Lazy;
 use open_fastrlp::Header;
 use tokio::sync::RwLock;
 
-use crate::cli::Cli;
+use crate::{cli::Cli, utils::wei_gwei_converter::gwei_to_wei};
 
 use super::{local_wallets_list::LOCAL_WALLETS_LIST, wallet_with_nonce::WalletWithNonce};
 
@@ -68,8 +67,4 @@ fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::
         .for_each(|tx| out.extend_from_slice(tx));
 
     out
-}
-
-fn gwei_to_wei(gwei: u64) -> U256 {
-    U256::from(gwei) * U256::exp10(9)
 }
