@@ -13,6 +13,7 @@ use crate::{
     public_nodes::nodes::get_nonce,
 };
 
+pub type WeiGasPrice = U256;
 const DEFAULT_MAX_GAS_LIMIT: usize = 4_000_000;
 
 pub struct WalletWithNonce {
@@ -51,7 +52,7 @@ impl WalletWithNonce {
 
     pub async fn generate_and_sign_buy_tx(
         &mut self,
-        gas_price: U256,
+        gas_price: WeiGasPrice,
     ) -> Result<Bytes, WalletError> {
         let tx = self.generate_buy_tx(gas_price).await;
         let signature = self.sign_tx(&tx)?;
@@ -60,6 +61,10 @@ impl WalletWithNonce {
     }
 
     async fn generate_buy_tx(&mut self, gas_price: U256) -> TypedTransaction {
+        if self.nonce.is_none() {
+            self.update_nonce().await;
+        }
+
         let tx = TransactionRequest {
             from: Some(self.address()),
             to: Some(ethers::types::NameOrAddress::Address(
@@ -68,7 +73,7 @@ impl WalletWithNonce {
             gas: Some(U256::from(DEFAULT_MAX_GAS_LIMIT)),
             gas_price: Some(gas_price),
             data: Some(encode_buy_method()),
-            nonce: self.update_nonce().await,
+            nonce: self.nonce,
             chain_id: Some(ethers::types::U64::from(56)),
             ..TransactionRequest::default()
         };

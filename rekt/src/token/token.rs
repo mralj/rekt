@@ -1,7 +1,16 @@
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 
-use crate::eth::eth_message::EthMessage;
+use crate::{
+    eth::eth_message::EthMessage,
+    utils::wei_gwei_converter::{
+        get_default_gas_price_range, gwei_to_wei, gwei_to_wei_with_decimals,
+        DEFAULT_GWEI_DECIMAL_PRECISION,
+    },
+    wallets::local_wallets::{
+        generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
+    },
+};
 
 pub type TokenAddress = ethers::types::Address;
 pub type TxSignatureHash = ethers::types::H32;
@@ -22,7 +31,7 @@ pub struct Token {
     pub enable_buy_config: EnableBuyConfig,
 
     #[serde(skip)]
-    pub buy_txs: Option<EthMessage>,
+    pub buy_txs: Option<Vec<EthMessage>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,7 +47,21 @@ impl Token {
         self.enable_buy_config.tx_to
     }
 
-    pub fn set_buy_txs(&mut self, buy_txs: EthMessage) {
+    pub async fn prepare_buy_txs_per_gas_price(&mut self) {
+        update_nonces_for_local_wallets().await;
+        let gas_price_range = get_default_gas_price_range();
+        let mut buy_txs =
+            Vec::with_capacity((gas_price_range.end() - gas_price_range.start() + 1) as usize);
+
+        for gwei in gas_price_range {
+            let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(gwei_to_wei_with_decimals(
+                gwei,
+                DEFAULT_GWEI_DECIMAL_PRECISION,
+            ))
+            .await;
+            buy_txs.push(EthMessage::new_tx_message(txs));
+        }
+
         self.buy_txs = Some(buy_txs);
     }
 }
