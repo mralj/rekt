@@ -2,29 +2,45 @@ use std::{convert::Infallible, str::FromStr};
 
 use derive_more::Display;
 use ethers::types::Address;
+use tokio::sync::broadcast;
 use warp::{reject::Reject, Filter};
 
 use crate::{
-    token::tokens_to_buy::get_token_by_address,
+    eth::eth_message::EthMessage, token::tokens_to_buy::get_token_by_address,
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
-pub fn run_local_server() {
+pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
     tokio::task::spawn(async move {
-        let prep = warp::path!("prep" / String).and_then(|token_address: String| async move {
-            let token_address = match Address::from_str(&token_address) {
-                Ok(t_a) => t_a,
-                Err(_) => return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress)),
-            };
+        let prep = warp::path!("prep" / String).and_then({
+            let send_txs_channel = send_txs_channel.clone(); // Clone outside of the async block
+            move |token_address: String| {
+                let send_txs_channel = send_txs_channel.clone(); // Clone again for each request
+                async move {
+                    let token_address = match Address::from_str(&token_address) {
+                        Ok(t_a) => t_a,
+                        Err(_) => {
+                            return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress))
+                        }
+                    };
 
-            let token = get_token_by_address(&token_address);
-            if token.is_none() {
-                return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                    let token = get_token_by_address(&token_address);
+                    if token.is_none() {
+                        return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                    }
+                    let token = token.unwrap();
+                    let tx = generate_and_rlp_encode_prep_tx(token).await;
+                    match send_txs_channel.send(EthMessage::new_tx_message(tx)) {
+                        Ok(_) => {
+                            return Ok(format!(
+                                "Prep sent successfully: {}",
+                                token.buy_token_address
+                            ))
+                        }
+                        Err(_) => return Err(warp::reject::custom(LocalServerErr::TokenNotFound)),
+                    }
+                }
             }
-            let token = token.unwrap();
-            generate_and_rlp_encode_prep_tx(token).await;
-
-            Ok(format!("Prep sent successfully: {}", token_address))
         });
         warp::serve(prep).run(([0, 0, 0, 0], 6060)).await;
     });
