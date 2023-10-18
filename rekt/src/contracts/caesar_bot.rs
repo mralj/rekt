@@ -32,14 +32,14 @@ pub fn encode_prep_method(token: &Token) -> Bytes {
             (
                 token.liquidity_token_address,
                 token.buy_token_address,
-                (token.buy_amount * 10f64.pow(18)) as u64,
+                U256::from((token.buy_amount * 10f64.pow(18)) as u64),
                 token.skip_protection,
                 token.protection_percent,
                 //TODO: this should be read from token config
-                1,   // sell count
-                100, // first sell percent
-                0,   // percent of tokens to keep
-                0,   // token buy limit (max percent of tokens we can buy)
+                U256::from(1),   // sell count
+                U256::from(100), // first sell percent
+                U256::from(0),   // percent of tokens to keep
+                U256::from(0),   // token buy limit (max percent of tokens we can buy)
             ),
         )
         .expect("Failed to encode prep tx");
