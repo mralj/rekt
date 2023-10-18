@@ -9,8 +9,9 @@ use ethers::{
 };
 
 use crate::{
-    contracts::caesar_bot::{encode_buy_method, CAESAR_BOT_ADDRESS},
+    contracts::caesar_bot::{encode_buy_method, encode_prep_method, CAESAR_BOT_ADDRESS},
     public_nodes::nodes::get_nonce,
+    token::token::Token,
 };
 
 pub type WeiGasPrice = U256;
@@ -54,13 +55,26 @@ impl WalletWithNonce {
         &mut self,
         gas_price: WeiGasPrice,
     ) -> Result<Bytes, WalletError> {
-        let tx = self.generate_buy_tx(gas_price).await;
+        let data = encode_buy_method();
+        let tx = self.generate_tx_to_bot(data, gas_price).await;
         let signature = self.sign_tx(&tx)?;
 
         Ok(tx.rlp_signed(&signature))
     }
 
-    async fn generate_buy_tx(&mut self, gas_price: U256) -> TypedTransaction {
+    pub async fn generate_and_sign_prep_tx(
+        &mut self,
+        token: &Token,
+        gas_price: WeiGasPrice,
+    ) -> Result<Bytes, WalletError> {
+        let data = encode_prep_method(token);
+        let tx = self.generate_tx_to_bot(data, gas_price).await;
+        let signature = self.sign_tx(&tx)?;
+
+        Ok(tx.rlp_signed(&signature))
+    }
+
+    async fn generate_tx_to_bot(&mut self, data: Bytes, gas_price: U256) -> TypedTransaction {
         if self.nonce.is_none() {
             self.update_nonce().await;
         }
@@ -72,7 +86,7 @@ impl WalletWithNonce {
             )),
             gas: Some(U256::from(DEFAULT_MAX_GAS_LIMIT)),
             gas_price: Some(gas_price),
-            data: Some(encode_buy_method()),
+            data: Some(data),
             nonce: self.nonce,
             chain_id: Some(ethers::types::U64::from(56)),
             ..TransactionRequest::default()

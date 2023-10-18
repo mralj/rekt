@@ -6,7 +6,11 @@ use once_cell::sync::Lazy;
 use open_fastrlp::Header;
 use tokio::sync::RwLock;
 
-use crate::{cli::Cli, utils::wei_gwei_converter::gwei_to_wei};
+use crate::{
+    cli::Cli,
+    token::token::Token,
+    utils::wei_gwei_converter::{gwei_to_wei, MIN_GAS_PRICE},
+};
 
 use super::{
     local_wallets_list::LOCAL_WALLETS_LIST,
@@ -66,6 +70,18 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
 
     let rlp_encoded_buy_txs = rlp_encode_list_of_bytes(&buy_txs);
     rlp_encoded_buy_txs
+}
+
+pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
+    update_nonces_for_local_wallets().await;
+
+    let wallet = &mut LOCAL_WALLETS.write().await[0];
+    let tx = wallet
+        .generate_and_sign_prep_tx(token, gwei_to_wei(MIN_GAS_PRICE))
+        .await
+        .expect("Failed to generate and sign prep tx");
+
+    rlp_encode_list_of_bytes(&vec![tx])
 }
 
 fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::BytesMut {

@@ -24,6 +24,10 @@ pub struct Token {
 
     #[serde(rename = "buyBNB")]
     pub buy_amount: f64,
+
+    #[serde(rename = "skipTest", default)]
+    pub skip_protection: bool,
+
     #[serde(rename = "testPercent")]
     pub protection_percent: u16,
 
@@ -103,7 +107,8 @@ mod test {
                     tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                     enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
                 },
-                buy_txs: None
+                skip_protection: false,
+                buy_txs: None,
             }
         );
     }

@@ -2,7 +2,7 @@ use std::ops::RangeInclusive;
 
 use ethers::types::U256;
 
-const MIN_GAS_PRICE: u64 = 3;
+pub const MIN_GAS_PRICE: u64 = 3;
 const MAX_SUPPORTED_GAS_PRICE: u64 = 15;
 const DEFAULT_GWEI_PRECISION: usize = 9;
 
