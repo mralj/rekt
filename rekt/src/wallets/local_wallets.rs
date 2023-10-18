@@ -37,6 +37,14 @@ pub async fn init_local_wallets(args: &Cli) {
     *LOCAL_WALLETS.write().await = local_wallets;
 }
 
+pub async fn update_nonces_for_local_wallets() {
+    let mut local_wallets = LOCAL_WALLETS.write().await;
+
+    let nonce_tasks =
+        FuturesUnordered::from_iter(local_wallets.iter_mut().map(|wallet| wallet.update_nonce()));
+    let _ = nonce_tasks.collect::<Vec<_>>().await;
+}
+
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(gas_price_in_gwei: u64) -> BytesMut {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 

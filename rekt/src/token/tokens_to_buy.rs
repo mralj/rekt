@@ -23,7 +23,7 @@ pub fn import_tokens_to_buy() {
         while let Some(_) = read_tokens_ticker.next().await {
             match read_tokens_to_buy_from_file().await {
                 Ok(tokens) => {
-                    for token in tokens {
+                    for mut token in tokens {
                         if BOUGHT_TOKENS.contains(&token.buy_token_address) {
                             continue;
                         }
@@ -34,6 +34,7 @@ pub fn import_tokens_to_buy() {
                             {
                                 continue;
                             }
+                            token.prepare_buy_txs_per_gas_price().await;
                             println!("Added token to buy: {}", token.buy_token_address);
                             TOKENS_TO_BUY.push(token);
                         }
