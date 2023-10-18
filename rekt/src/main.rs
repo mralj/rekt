@@ -5,6 +5,7 @@ use rekt::cli::Cli;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
+use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::outbound_connections::OutboundConnections;
 
@@ -28,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
+    run_local_server();
     let our_node = LocalNode::new(public_ip::addr().await);
 
     println!("{:?}", our_node.node_record.str);

@@ -7,6 +7,7 @@ pub mod discover;
 pub mod enemies;
 pub mod eth;
 pub mod local_node;
+pub mod local_server;
 pub mod p2p;
 pub mod public_nodes;
 pub mod rlpx;
