@@ -75,6 +75,15 @@ pub fn get_token(address: &TokenAddress) -> Option<&Token> {
 }
 
 #[inline(always)]
+pub fn get_token_by_address(address: &TokenAddress) -> Option<&Token> {
+    unsafe {
+        TOKENS_TO_BUY
+            .iter()
+            .find(|v| &v.buy_token_address == address)
+    }
+}
+
+#[inline(always)]
 pub fn tx_is_enable_buy(token: &Token, tx_data: &[u8]) -> bool {
     tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref())
 }
