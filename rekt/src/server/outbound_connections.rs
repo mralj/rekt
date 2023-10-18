@@ -3,8 +3,10 @@ use std::time::{Duration, Instant};
 
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
+use tokio::sync::broadcast;
 use tokio::time::interval;
 
+use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::RLPXSessionError;
@@ -27,10 +29,16 @@ pub struct OutboundConnections {
 
     retry_rx: AsyncReceiver<ConnectionTaskError>,
     retry_tx: AsyncSender<ConnectionTaskError>,
+    send_txs_channel: broadcast::Sender<EthMessage>,
 }
 
 impl OutboundConnections {
-    pub fn new(our_private_key: SecretKey, our_pub_key: PublicKey, nodes: Vec<String>) -> Self {
+    pub fn new(
+        our_private_key: SecretKey,
+        our_pub_key: PublicKey,
+        nodes: Vec<String>,
+        send_txs_channel: broadcast::Sender<EthMessage>,
+    ) -> Self {
         let (conn_tx, conn_rx) = kanal::unbounded_async();
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
@@ -42,6 +50,7 @@ impl OutboundConnections {
             conn_tx,
             retry_rx,
             retry_tx,
+            send_txs_channel,
         }
     }
 
@@ -80,6 +89,7 @@ impl OutboundConnections {
                     self.our_private_key,
                     self.our_pub_key,
                     self.retry_tx.clone(),
+                    self.send_txs_channel.clone(),
                 );
             }
         }
