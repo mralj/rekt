@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use bytes::{Buf, Bytes};
 use dashmap::mapref::entry::Entry;
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
@@ -185,7 +183,6 @@ fn decode_dynamic_and_blob_tx_types(
     let tx_metadata = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
 
-    let now = Instant::now();
     match CACHE.entry(hash) {
         Entry::Occupied(mut entry) => {
             if entry.get().is_fetched() {
@@ -197,7 +194,6 @@ fn decode_dynamic_and_blob_tx_types(
             entry.insert(TxFetchStatus::Fetched);
         }
     }
-    println!("CACHE ENTRY: {:?}", now.elapsed());
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     if !tx_metadata.list {
