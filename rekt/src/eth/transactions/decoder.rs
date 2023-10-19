@@ -150,14 +150,6 @@ fn decode_legacy(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
     }
 
-    // mark_token_as_bought(token.buy_token_address);
-    //
-    // let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
-    // println!(
-    //     "[{now}] OLD TX: nonce: {}, gas_price: {}, to: {},  tx: https://bscscan.com/tx/{:#x}",
-    //     nonce, gas_price, recipient, hash
-    // );
-
     unsafe {
         BUY_IS_IN_PROGRESS = true;
     }
@@ -241,7 +233,7 @@ fn decode_access_list_tx_type(
 
     let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
-    let nonce = u64::decode(payload_view)?;
+    let _nonce = u64::decode(payload_view)?;
     let gas_price = u64::decode(payload_view)?;
 
     let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;

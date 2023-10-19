@@ -95,7 +95,7 @@ impl Peer {
                             EthMessageHandler::Response(msg) => {
                                 self.connection.send(msg).await?;
                             },
-                            EthMessageHandler::Buy(buy_info) => {
+                            EthMessageHandler::Buy(mut buy_info) => {
                                 if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
                                     let _ = self.send_txs_channel.send(buy_txs_eth_message);
 

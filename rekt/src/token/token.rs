@@ -89,7 +89,7 @@ impl Token {
         self.buy_txs = Some(buy_txs);
     }
 
-    pub fn get_buy_txs(&self, gas_price_in_wei: u64) -> Option<EthMessage> {
+    pub fn get_buy_txs(&mut self, gas_price_in_wei: u64) -> Option<EthMessage> {
         let gas_price_in_wei = U256::from(gas_price_in_wei);
         if !gas_price_is_in_supported_range(gas_price_in_wei) {
             color_print::cprintln!(
@@ -99,10 +99,10 @@ impl Token {
             return None;
         }
 
-        self.buy_txs.as_ref().map(|txs| {
+        self.buy_txs.as_mut().map(|txs| {
             let index = gas_price_to_index(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
             println!("index: {}", index);
-            txs[index].clone()
+            txs.swap_remove(index)
         })
     }
 }

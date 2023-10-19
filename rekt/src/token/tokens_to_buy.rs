@@ -60,7 +60,7 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
             .iter()
             .position(|v| v.buy_token_address == buy_token_address)
         {
-            TOKENS_TO_BUY.remove(index);
+            TOKENS_TO_BUY.swap_remove(index);
         }
     }
 }
