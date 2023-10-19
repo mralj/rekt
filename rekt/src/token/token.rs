@@ -31,6 +31,9 @@ pub struct Token {
     #[serde(rename = "testPercent")]
     pub protection_percent: u16,
 
+    #[serde(rename = "tokenBuyLimit", default)]
+    pub max_token_buy_limit: u64,
+
     #[serde(rename = "enableBuyConfig")]
     pub enable_buy_config: EnableBuyConfig,
 
@@ -157,6 +160,7 @@ mod test {
                 },
                 skip_protection: false,
                 buy_txs: None,
+                max_token_buy_limit: 0
             }
         );
     }
