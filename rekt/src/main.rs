@@ -29,7 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
-    run_local_server();
+    let (tx_sender, _) = tokio::sync::broadcast::channel(1);
+    run_local_server(tx_sender.clone());
     let our_node = LocalNode::new(public_ip::addr().await);
 
     println!("{:?}", our_node.node_record.str);
@@ -39,7 +40,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     import_tokens_to_buy();
 
-    let (tx_sender, _) = tokio::sync::broadcast::channel(1);
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,

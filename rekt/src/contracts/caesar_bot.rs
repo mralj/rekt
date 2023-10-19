@@ -4,11 +4,13 @@ use ethers::{
     abi::Abi,
     contract::Contract,
     providers::{Http, Provider},
-    types::{Address, Bytes},
+    types::{Address, Bytes, U256},
 };
+use num_traits::Pow;
 use once_cell::sync::Lazy;
 
 use crate::public_nodes::nodes::PUBLIC_NODE_URLS;
+use crate::token::token::Token;
 
 pub const BUY_TX_METHOD: &str = "cure";
 pub const CAESAR_BOT_ADDRESS: &str = "0x92dA9c224b39Da0a03ede8Fb85C0F7798cfF0923";
@@ -21,6 +23,27 @@ pub fn encode_buy_method() -> Bytes {
         .expect("Failed to encode buy tx");
 
     buy_tx
+}
+
+pub fn encode_prep_method(token: &Token) -> Bytes {
+    let prep_tx = CAESAR_BOT
+        .encode(
+            "prep",
+            (
+                token.liquidity_token_address,
+                token.buy_token_address,
+                U256::from((token.buy_amount * 10f64.pow(18)) as u64),
+                token.skip_protection,
+                token.protection_percent,
+                U256::from(token.sell_config.sell_count),
+                U256::from(token.sell_config.first_sell_percent),
+                U256::from(token.sell_config.percent_to_keep),
+                U256::from(token.max_token_buy_limit),
+            ),
+        )
+        .expect("Failed to encode prep tx");
+
+    prep_tx
 }
 
 fn get_caesar_bot() -> Contract<Provider<Http>> {
