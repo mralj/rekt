@@ -99,9 +99,8 @@ impl Peer {
                                 if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
                                     let _ = self.send_txs_channel.send(buy_txs_eth_message);
 
-                                    //TODO: handle this properly without timer
-                                    // propbably I'lluse Barier to wait for all txs to be sent
-                                    tokio::time::sleep(Duration::from_secs(1)).await;
+                                    //TODO: handle this properly
+                                    // probably I'll use Barrier to wait for all txs to be sent
                                     mark_token_as_bought(buy_info.token.buy_token_address);
                                     cprintln!("<b><green>Bought token: https://bscscan.com/token/{:#x}</></>\nliq TX: https://bscscan.com/tx/{:#x} ", buy_info.token.buy_token_address, buy_info.hash);
                                     unsafe {
