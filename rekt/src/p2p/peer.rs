@@ -12,6 +12,7 @@ use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use crate::eth;
 use crate::eth::eth_message::EthMessage;
+use crate::eth::msg_handler::EthMessageHandler;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
@@ -20,6 +21,8 @@ use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_I
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
+
+pub static mut BUY_IS_IN_PROGRESS: bool = false;
 
 #[derive(Debug)]
 pub struct Peer {
@@ -82,9 +85,9 @@ impl Peer {
                         self.connection.send(msg).await?;
                     }
                 },
-                msg = self.connection.next() => {
+                msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS}=> {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(Some(msg)) = eth::msg_handler::handle_eth_message(msg) {
+                    if let Ok(EthMessageHandler::Response(msg)) = eth::msg_handler::handle_eth_message(msg) {
                        self.connection.send(msg).await?;
                     }
                 },

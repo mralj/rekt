@@ -9,19 +9,25 @@ use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 
-pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+pub enum EthMessageHandler {
+    Response(EthMessage),
+    Buy,
+    None,
+}
+
+pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     if there_are_no_tokens_to_buy() {
-        return Ok(None);
+        return Ok(EthMessageHandler::None);
     }
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
-        _ => Ok(None),
+        _ => Ok(EthMessageHandler::None),
     }
 }
 
-fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     //NOTE: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -48,18 +54,18 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    Ok(Some(EthMessage {
+    Ok(EthMessageHandler::Response(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
         data: TransactionsRequest::new(hashes).rlp_encode(),
     }))
 }
 
-fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     let _ = match msg.id {
         EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
         EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
         _ => Ok(()),
     };
 
-    Ok(None)
+    Ok(EthMessageHandler::None)
 }
