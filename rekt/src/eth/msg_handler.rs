@@ -56,6 +56,7 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
+    let start = std::time::Instant::now();
     let hashes_to_request = hashes
         .into_iter()
         .filter(|hash| match CACHE.entry(*hash) {
@@ -67,6 +68,7 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
         })
         .take(1_000)
         .collect::<Vec<_>>();
+    println!("Took: {:?}", start.elapsed());
 
     if hashes_to_request.is_empty() {
         return Ok(EthMessageHandler::None);
