@@ -1,4 +1,5 @@
 use bytes::{Buf, Bytes};
+use dashmap::mapref::entry::Entry;
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
 use sha3::{Digest, Keccak256};
 
@@ -12,7 +13,11 @@ use crate::{
     types::hash::H256,
 };
 
-use super::{errors::DecodeTxError, types::TxType};
+use super::{
+    cache::{TxFetchStatus, CACHE},
+    errors::DecodeTxError,
+    types::TxType,
+};
 
 pub enum TxDecodingResult {
     NoBuy(usize),
@@ -110,6 +115,18 @@ fn decode_legacy(
     tx_metadata: HeaderInfo,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_metadata.total_len]);
+    match CACHE.entry(hash) {
+        Entry::Occupied(mut entry) => {
+            if entry.get().is_fetched() {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+            }
+            entry.insert(TxFetchStatus::Fetched);
+        }
+        Entry::Vacant(entry) => {
+            entry.insert(TxFetchStatus::Fetched);
+        }
+    }
+
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
 
     let payload_view = &mut &buf[..tx_metadata.payload_length];
@@ -163,10 +180,22 @@ fn decode_dynamic_and_blob_tx_types(
     tx_type: TxType,
     buf: &mut &[u8],
 ) -> Result<TxDecodingResult, DecodeTxError> {
-    let tx_header_info = HeaderInfo::decode(buf)?;
-    let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-    let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
+    let tx_metadata = HeaderInfo::decode(buf)?;
+    let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
 
+    match CACHE.entry(hash) {
+        Entry::Occupied(mut entry) => {
+            if entry.get().is_fetched() {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+            }
+            entry.insert(TxFetchStatus::Fetched);
+        }
+        Entry::Vacant(entry) => {
+            entry.insert(TxFetchStatus::Fetched);
+        }
+    }
+
+    let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     if !tx_metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
@@ -222,9 +251,22 @@ fn decode_access_list_tx_type(
     tx_type: TxType,
     buf: &mut &[u8],
 ) -> Result<TxDecodingResult, DecodeTxError> {
-    let tx_header_info = HeaderInfo::decode(buf)?;
-    let hash = eth_tx_hash(tx_type, &buf[..tx_header_info.total_len]);
-    let tx_metadata = Header::decode_from_info(buf, tx_header_info)?;
+    let tx_metadata = HeaderInfo::decode(buf)?;
+    let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
+
+    match CACHE.entry(hash) {
+        Entry::Occupied(mut entry) => {
+            if entry.get().is_fetched() {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+            }
+            entry.insert(TxFetchStatus::Fetched);
+        }
+        Entry::Vacant(entry) => {
+            entry.insert(TxFetchStatus::Fetched);
+        }
+    }
+
+    let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
 
     if !tx_metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
