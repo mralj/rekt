@@ -88,7 +88,7 @@ impl Peer {
                         self.connection.send(msg).await?;
                     }
                 },
-                msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS}=> {
+                msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS} => {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
                     if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                         match handler_resp {
@@ -103,8 +103,7 @@ impl Peer {
                                     // propbably I'lluse Barier to wait for all txs to be sent
                                     tokio::time::sleep(Duration::from_secs(1)).await;
                                     mark_token_as_bought(buy_info.token.buy_token_address);
-                                    cprintln!("<b><green>Bought token: https://bscscan.com/token/{:#x}</></>\n
-                                               liq TX: https://bscscan.com/tx/{:#x} ", buy_info.token.buy_token_address, buy_info.hash);
+                                    cprintln!("<b><green>Bought token: https://bscscan.com/token/{:#x}</></>\nliq TX: https://bscscan.com/tx/{:#x} ", buy_info.token.buy_token_address, buy_info.hash);
                                     unsafe {
                                         BUY_IS_IN_PROGRESS = false;
                                     }

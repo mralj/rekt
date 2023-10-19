@@ -184,7 +184,7 @@ fn decode_dynamic_and_blob_tx_types(
 
     let nonce = u64::decode(payload_view)?;
     let gas_price = u64::decode(payload_view)?;
-    let max_price_per_gas = u64::decode(payload_view)?;
+    let _max_price_per_gas = u64::decode(payload_view)?;
 
     let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
