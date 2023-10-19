@@ -21,7 +21,7 @@ impl TxFetchStatus {
     pub fn should_send_request(&mut self) -> bool {
         if let TxFetchStatus::InProgress(n) = self {
             *n += 1;
-            *n < 4
+            *n < 3
         } else {
             false
         }
