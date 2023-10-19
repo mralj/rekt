@@ -1,4 +1,4 @@
-use std::{convert::Infallible, str::FromStr};
+use std::str::FromStr;
 
 use derive_more::Display;
 use ethers::types::Address;
@@ -12,10 +12,11 @@ use crate::{
 
 pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
     tokio::task::spawn(async move {
+        //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
-            let send_txs_channel = send_txs_channel.clone(); // Clone outside of the async block
+            let send_txs_channel = send_txs_channel.clone();
             move |token_address: String| {
-                let send_txs_channel = send_txs_channel.clone(); // Clone again for each request
+                let send_txs_channel = send_txs_channel.clone();
                 async move {
                     let token_address = match Address::from_str(&token_address) {
                         Ok(t_a) => t_a,

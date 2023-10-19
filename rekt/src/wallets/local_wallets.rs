@@ -13,12 +13,22 @@ use crate::{
 };
 
 use super::{
-    local_wallets_list::LOCAL_WALLETS_LIST,
+    local_wallets_list::{LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, SELL_WALLET_ADDRESS},
     wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
 };
 
 pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
     Lazy::new(|| RwLock::new(Vec::new()));
+
+pub static PREPARE_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
+    RwLock::new(
+        WalletWithNonce::from_str(PREPARE_WALLET_ADDRESS).expect("Prepare wallet is invalid"),
+    )
+});
+
+pub static SELL_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
+    RwLock::new(WalletWithNonce::from_str(SELL_WALLET_ADDRESS).expect("Sell wallet is invalid"))
+});
 
 pub async fn init_local_wallets(args: &Cli) {
     let mut local_wallets = LOCAL_WALLETS_LIST
@@ -42,6 +52,16 @@ pub async fn init_local_wallets(args: &Cli) {
     }
 
     *LOCAL_WALLETS.write().await = local_wallets;
+
+    PREPARE_WALLET.write().await.update_nonce().await;
+    if PREPARE_WALLET.read().await.nonce().is_none() {
+        panic!("Prepare wallet has no nonce");
+    }
+
+    SELL_WALLET.write().await.update_nonce().await;
+    if SELL_WALLET.read().await.nonce().is_none() {
+        panic!("Sell wallet has no nonce");
+    }
 }
 
 pub async fn update_nonces_for_local_wallets() {
@@ -73,10 +93,10 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
 }
 
 pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
-    update_nonces_for_local_wallets().await;
+    let prep_wallet = &mut PREPARE_WALLET.write().await;
+    prep_wallet.update_nonce().await;
 
-    let wallet = &mut LOCAL_WALLETS.write().await[0];
-    let tx = wallet
+    let tx = prep_wallet
         .generate_and_sign_prep_tx(token, gwei_to_wei(MIN_GAS_PRICE))
         .await
         .expect("Failed to generate and sign prep tx");
