@@ -8,7 +8,7 @@ use crate::{
     p2p::peer::BUY_IS_IN_PROGRESS,
     token::{
         token::Token,
-        tokens_to_buy::{get_token_to_buy, tx_is_enable_buy},
+        tokens_to_buy::{get_token, get_token_to_buy, tx_is_enable_buy},
     },
     types::hash::H256,
 };
@@ -156,16 +156,15 @@ fn decode_legacy(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
     }
 
-    let token = match get_token_to_buy(&recipient) {
-        None => {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-        }
-        Some(t) => t,
+    let (token, index) = match get_token_to_buy(&recipient) {
+        Some((t, i)) => (t, i),
+        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
 
-    if !tx_is_enable_buy(&token, &data) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    }
+    let token = match tx_is_enable_buy(token, index, &data) {
+        Some(token) => token,
+        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
+    };
 
     unsafe {
         BUY_IS_IN_PROGRESS = true;
@@ -229,14 +228,15 @@ fn decode_dynamic_and_blob_tx_types(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
     }
 
-    let token = match get_token_to_buy(&recipient) {
+    let (token, index) = match get_token_to_buy(&recipient) {
+        Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-        Some(t) => t,
     };
 
-    if !tx_is_enable_buy(&token, &data) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    }
+    let token = match tx_is_enable_buy(token, index, &data) {
+        Some(token) => token,
+        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
+    };
 
     unsafe {
         BUY_IS_IN_PROGRESS = true;
@@ -287,17 +287,18 @@ fn decode_access_list_tx_type(
         }
     };
 
-    let token = match get_token_to_buy(&recipient) {
+    let (token, index) = match get_token_to_buy(&recipient) {
+        Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-        Some(t) => t,
     };
 
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
     let data = Bytes::decode(payload_view)?;
 
-    if !tx_is_enable_buy(&token, &data) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    }
+    let token = match tx_is_enable_buy(token, index, &data) {
+        Some(token) => token,
+        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
+    };
 
     unsafe {
         BUY_IS_IN_PROGRESS = true;
