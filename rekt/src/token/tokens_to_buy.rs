@@ -65,13 +65,13 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
     }
 }
 #[inline(always)]
-pub fn get_token_to_buy(address: &TokenAddress) -> Option<Token> {
+pub fn get_token_to_buy(address: &TokenAddress) -> Option<(&Token, usize)> {
     unsafe {
         let idx = TOKENS_TO_BUY
             .iter()
             .position(|v| &v.enable_buy_config.tx_to == address)?;
 
-        Some(TOKENS_TO_BUY.remove(idx))
+        Some((&TOKENS_TO_BUY[idx], idx))
     }
 }
 
@@ -94,8 +94,16 @@ pub fn get_token_by_address(address: &TokenAddress) -> Option<&Token> {
 }
 
 #[inline(always)]
-pub fn tx_is_enable_buy(token: &Token, tx_data: &[u8]) -> bool {
-    tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref())
+pub fn tx_is_enable_buy(
+    token: &Token,
+    index_of_token_in_buy_list: usize,
+    tx_data: &[u8],
+) -> Option<Token> {
+    if tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+        unsafe { return Some(TOKENS_TO_BUY.swap_remove(index_of_token_in_buy_list)) }
+    }
+
+    None
 }
 
 async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {
