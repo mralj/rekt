@@ -1,11 +1,11 @@
-use ethers::types::Address;
+use ethers::types::{Address, U256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     eth::eth_message::EthMessage,
     utils::wei_gwei_converter::{
-        get_default_gas_price_range, gwei_to_wei, gwei_to_wei_with_decimals,
-        DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
+        gas_price_is_in_supported_range, gas_price_to_index, get_default_gas_price_range,
+        gwei_to_wei, gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
         generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
@@ -66,30 +66,6 @@ pub struct SellConfig {
     pub percent_to_keep: u16,
 }
 
-fn default_gas_price() -> u64 {
-    MIN_GAS_PRICE
-}
-
-fn default_sell_count() -> u16 {
-    1
-}
-
-fn default_first_sell_percent() -> u16 {
-    100
-}
-
-impl Default for SellConfig {
-    fn default() -> Self {
-        Self {
-            gas_price: default_gas_price(),
-            sell_count: default_sell_count(),
-            first_sell_percent: default_first_sell_percent(),
-            transfer_instead_of_selling: false,
-            percent_to_keep: 0,
-        }
-    }
-}
-
 impl Token {
     pub fn get_key(&self) -> Address {
         self.enable_buy_config.tx_to
@@ -112,6 +88,47 @@ impl Token {
 
         self.buy_txs = Some(buy_txs);
     }
+
+    pub fn get_buy_txs(&mut self, gas_price_in_wei: u64) -> Option<EthMessage> {
+        let gas_price_in_wei = U256::from(gas_price_in_wei);
+        if !gas_price_is_in_supported_range(gas_price_in_wei) {
+            color_print::cprintln!(
+                "<red>Gas price is not in supported range: {}</>",
+                gas_price_in_wei
+            );
+            return None;
+        }
+
+        self.buy_txs.as_mut().map(|txs| {
+            let index = gas_price_to_index(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
+            println!("index: {}", index);
+            txs.swap_remove(index)
+        })
+    }
+}
+
+impl Default for SellConfig {
+    fn default() -> Self {
+        Self {
+            gas_price: default_gas_price(),
+            sell_count: default_sell_count(),
+            first_sell_percent: default_first_sell_percent(),
+            transfer_instead_of_selling: false,
+            percent_to_keep: 0,
+        }
+    }
+}
+
+fn default_gas_price() -> u64 {
+    MIN_GAS_PRICE
+}
+
+fn default_sell_count() -> u16 {
+    1
+}
+
+fn default_first_sell_percent() -> u16 {
+    100
 }
 
 #[cfg(test)]

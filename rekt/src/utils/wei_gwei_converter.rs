@@ -28,7 +28,7 @@ pub fn wei_to_gwei_with_decimals(wei: U256, decimal_precision: usize) -> usize {
     gwei.as_usize()
 }
 
-pub fn gwei_to_index(wei: U256, decimal_precision: usize) -> usize {
+pub fn gas_price_to_index(wei: U256, decimal_precision: usize) -> usize {
     let minimal_gwei = (U256::from(MIN_GAS_PRICE) * U256::exp10(decimal_precision)).as_usize();
     let gwei = (wei / U256::exp10(DEFAULT_GWEI_PRECISION - decimal_precision)).as_usize();
     gwei - minimal_gwei
@@ -44,6 +44,11 @@ pub fn get_gas_price_range(
 ) -> RangeInclusive<u64> {
     MIN_GAS_PRICE * 10u64.pow(decimal_precision as u32)
         ..=max_supported_gas_price * 10u64.pow(decimal_precision as u32)
+}
+
+pub fn gas_price_is_in_supported_range(gas_price_in_wei: U256) -> bool {
+    let gwei = wei_to_gwei_with_decimals(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
+    get_default_gas_price_range().contains(&(gwei as u64))
 }
 
 #[cfg(test)]
@@ -79,14 +84,14 @@ mod test {
     #[test]
     fn get_index_test() {
         // index of 3gwei is always 0
-        assert_eq!(gwei_to_index(U256::from(3000000000usize), 2), 0);
-        assert_eq!(gwei_to_index(U256::from(3000000000usize), 5), 0);
-        assert_eq!(gwei_to_index(U256::from(3000000000usize), 9), 0);
+        assert_eq!(gas_price_to_index(U256::from(3000000000usize), 2), 0);
+        assert_eq!(gas_price_to_index(U256::from(3000000000usize), 5), 0);
+        assert_eq!(gas_price_to_index(U256::from(3000000000usize), 9), 0);
 
-        assert_eq!(gwei_to_index(U256::from(5000000000usize), 0), 2);
+        assert_eq!(gas_price_to_index(U256::from(5000000000usize), 0), 2);
 
-        assert_eq!(gwei_to_index(U256::from(3010000000usize), 2), 1);
-        assert_eq!(gwei_to_index(U256::from(5001000000usize), 3), 2001);
+        assert_eq!(gas_price_to_index(U256::from(3010000000usize), 2), 1);
+        assert_eq!(gas_price_to_index(U256::from(5001000000usize), 3), 2001);
     }
 
     #[test]
@@ -102,10 +107,16 @@ mod test {
 
         assert_eq!(test_vec.len(), 12_001);
         let test_gas_price = 5001000000usize;
-        assert_eq!(test_vec[gwei_to_index(U256::from(test_gas_price), 3)], 5001);
+        assert_eq!(
+            test_vec[gas_price_to_index(U256::from(test_gas_price), 3)],
+            5001
+        );
         assert_eq!(
             gwei_to_wei_with_decimals(
-                test_vec[gwei_to_index(U256::from(test_gas_price), DEFAULT_GWEI_DECIMAL_PRECISION)],
+                test_vec[gas_price_to_index(
+                    U256::from(test_gas_price),
+                    DEFAULT_GWEI_DECIMAL_PRECISION
+                )],
                 DEFAULT_GWEI_DECIMAL_PRECISION
             ),
             test_gas_price.into()

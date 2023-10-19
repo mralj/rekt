@@ -4,25 +4,31 @@ use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
-use super::transactions::decoder::{decode_txs, decode_txs_request};
+use super::transactions::decoder::{decode_txs, decode_txs_request, BuyTokenInfo};
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 
-pub fn handle_eth_message(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
+pub enum EthMessageHandler {
+    Response(EthMessage),
+    Buy(BuyTokenInfo),
+    None,
+}
+
+pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     if there_are_no_tokens_to_buy() {
-        return Ok(None);
+        return Ok(EthMessageHandler::None);
     }
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
-        _ => Ok(None),
+        _ => Ok(EthMessageHandler::None),
     }
 }
 
-fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
-    //NOTE: we can optimize this here is how this works "under the hood":
+fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
+    //TODO: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
     //     let h = Header::decode(buf)?;
@@ -48,18 +54,22 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
-    Ok(Some(EthMessage {
+    Ok(EthMessageHandler::Response(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
         data: TransactionsRequest::new(hashes).rlp_encode(),
     }))
 }
 
-fn handle_txs(msg: EthMessage) -> Result<Option<EthMessage>, ETHError> {
-    let _ = match msg.id {
+fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
+    let buy_info = match msg.id {
         EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
         EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
-        _ => Ok(()),
+        _ => Ok(None),
     };
 
-    Ok(None)
+    if let Ok(Some(buy_info)) = buy_info {
+        return Ok(EthMessageHandler::Buy(buy_info));
+    }
+
+    Ok(EthMessageHandler::None)
 }

@@ -60,8 +60,18 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
             .iter()
             .position(|v| v.buy_token_address == buy_token_address)
         {
-            TOKENS_TO_BUY.remove(index);
+            TOKENS_TO_BUY.swap_remove(index);
         }
+    }
+}
+#[inline(always)]
+pub fn get_token_to_buy(address: &TokenAddress) -> Option<Token> {
+    unsafe {
+        let idx = TOKENS_TO_BUY
+            .iter()
+            .position(|v| &v.enable_buy_config.tx_to == address)?;
+
+        Some(TOKENS_TO_BUY.remove(idx))
     }
 }
 
