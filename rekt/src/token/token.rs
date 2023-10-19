@@ -5,7 +5,7 @@ use crate::{
     eth::eth_message::EthMessage,
     utils::wei_gwei_converter::{
         get_default_gas_price_range, gwei_to_wei, gwei_to_wei_with_decimals,
-        DEFAULT_GWEI_DECIMAL_PRECISION,
+        DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
         generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
@@ -34,6 +34,9 @@ pub struct Token {
     #[serde(rename = "enableBuyConfig")]
     pub enable_buy_config: EnableBuyConfig,
 
+    #[serde(rename = "sellConfig", default)]
+    pub sell_config: SellConfig,
+
     #[serde(skip)]
     pub buy_txs: Option<Vec<EthMessage>>,
 }
@@ -44,6 +47,44 @@ pub struct EnableBuyConfig {
     pub tx_to: TokenAddress,
     #[serde(rename = "txHash")]
     pub enable_buy_tx_hash: TxSignatureHash,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SellConfig {
+    #[serde(rename = "gasPrice", default = "default_gas_price")]
+    pub gas_price: u64,
+    #[serde(rename = "doNotSell", default)]
+    pub transfer_instead_of_selling: bool,
+    #[serde(rename = "sellCount", default = "default_sell_count")]
+    pub sell_count: u16,
+    #[serde(rename = "firstSellPercent", default = "default_first_sell_percent")]
+    pub first_sell_percent: u16,
+    #[serde(rename = "percentToKeep", default)]
+    pub percent_to_keep: u16,
+}
+
+fn default_gas_price() -> u64 {
+    MIN_GAS_PRICE
+}
+
+fn default_sell_count() -> u16 {
+    1
+}
+
+fn default_first_sell_percent() -> u16 {
+    100
+}
+
+impl Default for SellConfig {
+    fn default() -> Self {
+        Self {
+            gas_price: default_gas_price(),
+            sell_count: default_sell_count(),
+            first_sell_percent: default_first_sell_percent(),
+            transfer_instead_of_selling: false,
+            percent_to_keep: 0,
+        }
+    }
 }
 
 impl Token {
@@ -86,6 +127,9 @@ mod test {
         "enableBuyConfig": {
             "to": "0xCF4217DB0Ea759118d5218eFdCE88B5822859D62",
             "txHash": "0x7d315a2e"
+        },
+        "sellConfig": {
+             "sellCount": 2
         }
       }"#;
 
@@ -106,6 +150,10 @@ mod test {
                 enable_buy_config: EnableBuyConfig {
                     tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                     enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
+                },
+                sell_config: SellConfig {
+                    sell_count: 2,
+                    ..SellConfig::default()
                 },
                 skip_protection: false,
                 buy_txs: None,
