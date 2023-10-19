@@ -4,14 +4,14 @@ use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
-use super::transactions::decoder::{decode_txs, decode_txs_request};
+use super::transactions::decoder::{decode_txs, decode_txs_request, BuyTokenInfo};
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 
 pub enum EthMessageHandler {
     Response(EthMessage),
-    Buy,
+    Buy(BuyTokenInfo),
     None,
 }
 
@@ -28,7 +28,7 @@ pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError
 }
 
 fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
-    //NOTE: we can optimize this here is how this works "under the hood":
+    //TODO: we can optimize this here is how this works "under the hood":
     //
     // fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
     //     let h = Header::decode(buf)?;
@@ -61,11 +61,15 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 }
 
 fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
-    let _ = match msg.id {
+    let buy_info = match msg.id {
         EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
         EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
-        _ => Ok(()),
+        _ => Ok(None),
     };
+
+    if let Ok(Some(buy_info)) = buy_info {
+        return Ok(EthMessageHandler::Buy(buy_info));
+    }
 
     Ok(EthMessageHandler::None)
 }

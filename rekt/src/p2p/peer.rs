@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
+use std::time::Duration;
 
+use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
@@ -18,6 +20,7 @@ use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
+use crate::token::tokens_to_buy::mark_token_as_bought;
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
@@ -87,8 +90,28 @@ impl Peer {
                 },
                 msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS}=> {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(EthMessageHandler::Response(msg)) = eth::msg_handler::handle_eth_message(msg) {
-                       self.connection.send(msg).await?;
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                        match handler_resp {
+                            EthMessageHandler::Response(msg) => {
+                                self.connection.send(msg).await?;
+                            },
+                            EthMessageHandler::Buy(buy_info) => {
+                                if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
+                                    let _ = self.send_txs_channel.send(buy_txs_eth_message);
+
+                                    //TODO: handle this properly without timer
+                                    // propbably I'lluse Barier to wait for all txs to be sent
+                                    tokio::time::sleep(Duration::from_secs(1)).await;
+                                    mark_token_as_bought(buy_info.token.buy_token_address);
+                                    cprintln!("<b><green>Bought token: https://bscscan.com/token/{:#x}</></>\n
+                                               liq TX: https://bscscan.com/tx/{:#x} ", buy_info.token.buy_token_address, buy_info.hash);
+                                    unsafe {
+                                        BUY_IS_IN_PROGRESS = false;
+                                    }
+                                }
+                            },
+                            EthMessageHandler::None => {},
+                        }
                     }
                 },
             }
