@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use color_print::cprintln;
 use derive_more::Display;
 use ethers::types::Address;
 use tokio::sync::broadcast;
@@ -20,25 +21,34 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
                 async move {
                     let token_address = match Address::from_str(&token_address) {
                         Ok(t_a) => t_a,
-                        Err(_) => {
-                            return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress))
+                        Err(e) => {
+                            cprintln!("<red>Invalid token address</>: {}", e);
+                            return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress));
                         }
                     };
 
                     let token = get_token_by_address(&token_address);
                     if token.is_none() {
+                        cprintln!("<red>Token not found</>");
                         return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
                     }
                     let token = token.unwrap();
                     let tx = generate_and_rlp_encode_prep_tx(token).await;
                     match send_txs_channel.send(EthMessage::new_tx_message(tx)) {
                         Ok(_) => {
+                            cprintln!(
+                                "<yellow>Prep sent successfully: {}</>",
+                                token.buy_token_address
+                            );
                             return Ok(format!(
                                 "Prep sent successfully: {}",
                                 token.buy_token_address
-                            ))
+                            ));
                         }
-                        Err(_) => return Err(warp::reject::custom(LocalServerErr::TokenNotFound)),
+                        Err(e) => {
+                            cprintln!("<red> Channel error: {e}</>");
+                            return Err(warp::reject::custom(LocalServerErr::TxChannelError));
+                        }
                     }
                 }
             }
@@ -51,6 +61,7 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
 enum LocalServerErr {
     InvalidTokenAddress,
     TokenNotFound,
+    TxChannelError,
 }
 
 impl Reject for LocalServerErr {}
