@@ -1,9 +1,11 @@
+use dashmap::mapref::entry::Entry;
 use open_fastrlp::Decodable;
 
 use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
+use super::transactions::cache::{TxFetchStatus, CACHE};
 use super::transactions::decoder::{decode_txs, decode_txs_request, BuyTokenInfo};
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
@@ -54,9 +56,25 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
 
+    let hashes_to_request = hashes
+        .into_iter()
+        .filter(|hash| match CACHE.entry(*hash) {
+            Entry::Occupied(mut entry) => entry.get_mut().should_send_request(),
+            Entry::Vacant(entry) => {
+                entry.insert(TxFetchStatus::InProgress(1));
+                true
+            }
+        })
+        .take(1_000)
+        .collect::<Vec<_>>();
+
+    if hashes_to_request.is_empty() {
+        return Ok(EthMessageHandler::None);
+    }
+
     Ok(EthMessageHandler::Response(EthMessage {
         id: EthProtocol::GetPooledTransactionsMsg,
-        data: TransactionsRequest::new(hashes).rlp_encode(),
+        data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
     }))
 }
 
