@@ -25,6 +25,7 @@ use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
+use crate::wallets::local_wallets::update_nonces_for_local_wallets;
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 const BLOCK_DURATION_IN_SECS: u64 = 3;
@@ -178,6 +179,7 @@ impl Peer {
             // this will refresh token list with proper nonces
             // sleep for a while to make sure public nodes have latest nonces
             tokio::time::sleep(Duration::from_secs(3 * BLOCK_DURATION_IN_SECS)).await;
+            update_nonces_for_local_wallets().await;
             remove_all_tokens_to_buy();
         });
     }

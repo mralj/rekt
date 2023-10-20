@@ -9,7 +9,9 @@ use ethers::{
 };
 
 use crate::{
-    contracts::caesar_bot::{encode_buy_method, encode_prep_method, CAESAR_BOT_ADDRESS},
+    contracts::caesar_bot::{
+        encode_buy_method, encode_prep_method, encode_sell_method, CAESAR_BOT_ADDRESS,
+    },
     public_nodes::nodes::get_nonce,
     token::token::Token,
 };
@@ -38,6 +40,19 @@ impl WalletWithNonce {
         self.nonce
     }
 
+    pub fn update_nonce_locally(&mut self) -> U256 {
+        match self.nonce() {
+            Some(n) => {
+                self.nonce = Some(n + 1);
+                n + 1
+            }
+            None => {
+                self.nonce = Some(U256::zero());
+                U256::zero()
+            }
+        }
+    }
+
     pub async fn update_nonce(&mut self) -> Option<U256> {
         // NOTE: we update nocne only if we were able to get the value
         // this protects us from the following scenario:
@@ -56,6 +71,17 @@ impl WalletWithNonce {
         gas_price: WeiGasPrice,
     ) -> Result<Bytes, WalletError> {
         let data = encode_buy_method();
+        let tx = self.generate_tx_to_bot(data, gas_price).await;
+        let signature = self.sign_tx(&tx)?;
+
+        Ok(tx.rlp_signed(&signature))
+    }
+
+    pub async fn generate_and_sign_sell_tx(
+        &mut self,
+        gas_price: WeiGasPrice,
+    ) -> Result<Bytes, WalletError> {
+        let data = encode_sell_method();
         let tx = self.generate_tx_to_bot(data, gas_price).await;
         let signature = self.sign_tx(&tx)?;
 
