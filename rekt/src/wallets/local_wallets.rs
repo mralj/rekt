@@ -110,8 +110,11 @@ pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
     rlp_encode_list_of_bytes(&vec![tx])
 }
 
-pub async fn generate_and_rlp_encode_sell_tx() -> BytesMut {
+pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {
     let sell_wallet = &mut SELL_WALLET.write().await;
+    if should_increment_nocne_locally {
+        sell_wallet.update_nonce_locally();
+    }
     let tx = sell_wallet
         .generate_and_sign_sell_tx(gwei_to_wei(MIN_GAS_PRICE))
         .await

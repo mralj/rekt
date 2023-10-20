@@ -25,7 +25,9 @@ use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
-use crate::wallets::local_wallets::update_nonces_for_local_wallets;
+use crate::wallets::local_wallets::{
+    generate_and_rlp_encode_sell_tx, update_nonces_for_local_wallets,
+};
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 const BLOCK_DURATION_IN_SECS: u64 = 3;
@@ -156,24 +158,32 @@ impl Peer {
         Ok(())
     }
 
-    //TODO:
-    //1. token versioning
-    //2. selling the token
-    fn sell(token: Token, _send_txs_channel: broadcast::Sender<EthMessage>) {
+    fn sell(token: Token, send_txs_channel: broadcast::Sender<EthMessage>) {
         //TODO: handle transfer instead of selling scenario
         tokio::spawn(async move {
             // sleep so that we don't sell immediately
             tokio::time::sleep(Duration::from_millis(200)).await;
             for i in 0..token.sell_config.sell_count {
-                //TODO: generate sell message
-                // send sell message
-                // NOTE: nonce must be updated locally (ie. just incremented by one)
-                //
-                // wait for sell tx to be mined before sending the next one
-                println!(
-                    "[{i}/{}]Selling token: {:#x}",
-                    token.sell_config.sell_count, token.buy_token_address
+                //this is because for the first sell the nonce is up to date with blockchain
+                //only after first sell we need to "update it manually"
+                let increment_sell_nonce_after_first_sell = i > 0;
+                let sell_tx = EthMessage::new_tx_message(
+                    generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
                 );
+
+                match send_txs_channel.send(sell_tx) {
+                    Ok(_) => {
+                        cprintln!(
+                            "<blue>[{i}/{}]Selling token: {:#x}</>",
+                            token.sell_config.sell_count,
+                            token.buy_token_address
+                        );
+                    }
+                    Err(e) => {
+                        cprintln!("<red> Channel error: {e}</>");
+                    }
+                }
+                // wait for sell tx to be mined before sending the next one
                 tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
             }
             // this will refresh token list with proper nonces
