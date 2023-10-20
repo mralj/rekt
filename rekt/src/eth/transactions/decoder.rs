@@ -11,6 +11,7 @@ use crate::{
         tokens_to_buy::{get_token_to_buy, tx_is_enable_buy},
     },
     types::hash::H256,
+    utils::helpers::{get_bsc_token_url, get_bsc_tx_url},
 };
 
 use super::{
@@ -147,10 +148,10 @@ fn decode_legacy(
     let data = Bytes::decode(payload_view)?;
 
     if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         println!(
-            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/{:#x}",
-            nonce, gas_price, recipient, token, hash
+            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
+            nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
         );
 
         return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
@@ -219,10 +220,10 @@ fn decode_dynamic_and_blob_tx_types(
     let data = Bytes::decode(payload_view)?;
 
     if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S.6f");
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         println!(
-            "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {}, \n  token: https://bscscan.com/token/{:#x}, tx: https://bscscan.com/tx/{:#x}",
-            nonce, gas_price, recipient, token, hash
+            "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
+            nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
         );
 
         return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));

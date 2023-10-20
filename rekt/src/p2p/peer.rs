@@ -25,6 +25,7 @@ use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
+use crate::utils::helpers::{get_bsc_token_url, get_bsc_tx_url};
 use crate::wallets::local_wallets::{
     generate_and_rlp_encode_sell_tx, update_nonces_for_local_wallets,
 };
@@ -107,7 +108,9 @@ impl Peer {
                                     //TODO: handle this properly
                                     // probably I'll use Barrier to wait for all txs to be sent
                                     mark_token_as_bought(buy_info.token.buy_token_address);
-                                    cprintln!("<b><green>Bought token: https://bscscan.com/token/{:#x}</></>\nliq TX: https://bscscan.com/tx/{:#x} ", buy_info.token.buy_token_address, buy_info.hash);
+                                    cprintln!("<b><green>Bought token: {}</></>\nliq TX: {} ",
+                                              get_bsc_token_url(buy_info.token.buy_token_address),
+                                              get_bsc_tx_url(buy_info.hash));
                                     unsafe {
                                         BUY_IS_IN_PROGRESS = false;
                                     }
@@ -174,7 +177,8 @@ impl Peer {
                 match send_txs_channel.send(sell_tx) {
                     Ok(_) => {
                         cprintln!(
-                            "<blue>[{i}/{}]Selling token: {:#x}</>",
+                            "<blue>[{}/{}]Selling token: {:#x}</>",
+                            i + 1,
                             token.sell_config.sell_count,
                             token.buy_token_address
                         );
@@ -186,6 +190,12 @@ impl Peer {
                 // wait for sell tx to be mined before sending the next one
                 tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
             }
+
+            cprintln!(
+                "Done selling token: {}",
+                get_bsc_token_url(token.buy_token_address)
+            );
+
             // this will refresh token list with proper nonces
             // sleep for a while to make sure public nodes have latest nonces
             tokio::time::sleep(Duration::from_secs(3 * BLOCK_DURATION_IN_SECS)).await;

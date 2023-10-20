@@ -3,6 +3,8 @@ use futures::StreamExt;
 use once_cell::sync::Lazy;
 use tokio::time::interval;
 
+use crate::utils::helpers::get_bsc_token_url;
+
 use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
@@ -41,7 +43,10 @@ pub fn import_tokens_to_buy() {
                         }
 
                         token.prepare_buy_txs_per_gas_price().await;
-                        println!("Added token to buy: {}", token.buy_token_address);
+                        println!(
+                            "Added token to buy: {}",
+                            get_bsc_token_url(token.buy_token_address)
+                        );
                         TOKENS_TO_BUY.push(token);
                     }
                 }
