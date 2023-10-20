@@ -4,10 +4,10 @@ use color_print::cprintln;
 use derive_more::Display;
 use ethers::types::Address;
 use tokio::sync::broadcast;
-use warp::{reject::Reject, Filter};
+use warp::{filters::path::end, reject::Reject, Filter};
 
 use crate::{
-    eth::eth_message::EthMessage, token::tokens_to_buy::get_token_by_address,
+    eth::eth_message::EthMessage, server::peers::PEERS, token::tokens_to_buy::get_token_by_address,
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
@@ -54,7 +54,13 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
                 }
             }
         });
-        warp::serve(prep).run(([0, 0, 0, 0], 6060)).await;
+
+        let peer_count = warp::path!("peercount")
+            .and(end())
+            .map(|| format!("Peer count: {}\n", PEERS.len()));
+
+        let routes = prep.or(peer_count);
+        warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }
 

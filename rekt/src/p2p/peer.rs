@@ -192,7 +192,7 @@ impl Peer {
             }
 
             cprintln!(
-                "Done selling token: {}",
+                "<rgb(255,165,0)>Done selling token: {}</>",
                 get_bsc_token_url(token.buy_token_address)
             );
 
