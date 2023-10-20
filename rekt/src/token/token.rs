@@ -5,7 +5,7 @@ use crate::{
     eth::eth_message::EthMessage,
     utils::wei_gwei_converter::{
         gas_price_is_in_supported_range, gas_price_to_index, get_default_gas_price_range,
-        gwei_to_wei, gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
+        gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
         generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
@@ -17,6 +17,8 @@ pub type TxSignatureHash = ethers::types::H32;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Token {
+    #[serde(rename = "v", default)]
+    pub version: u8,
     #[serde(rename = "buyToken")]
     pub buy_token_address: TokenAddress,
     #[serde(rename = "liqToken")]
@@ -157,6 +159,7 @@ mod test {
         assert_eq!(
             token,
             Token {
+                version: 0,
                 buy_token_address: TokenAddress::from_str(
                     "0xaE01f96CB9ce103A6A1297CC19EC0d0814Cf4c7F"
                 )
