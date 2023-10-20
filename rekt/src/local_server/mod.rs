@@ -57,7 +57,7 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
 
         let peer_count = warp::path!("peercount")
             .and(end())
-            .map(|| format!("Peer count: {}", PEERS.len()));
+            .map(|| format!("Peer count: {}\n", PEERS.len()));
 
         let routes = prep.or(peer_count);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
