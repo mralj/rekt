@@ -8,7 +8,7 @@ use crate::{
     p2p::peer::BUY_IS_IN_PROGRESS,
     token::{
         token::Token,
-        tokens_to_buy::{get_token, get_token_to_buy, tx_is_enable_buy},
+        tokens_to_buy::{get_token_to_buy, tx_is_enable_buy},
     },
     types::hash::H256,
 };
