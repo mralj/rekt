@@ -3,6 +3,8 @@ use futures::StreamExt;
 use once_cell::sync::Lazy;
 use tokio::time::interval;
 
+use crate::utils::helpers::get_bsc_token_url;
+
 use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
@@ -20,29 +22,36 @@ pub fn import_tokens_to_buy() {
             std::time::Duration::from_secs(REFRESH_TOKENS_INTERVAL),
         ));
 
-        while let Some(_) = read_tokens_ticker.next().await {
-            match read_tokens_to_buy_from_file().await {
-                Ok(tokens) => {
-                    for mut token in tokens {
-                        if BOUGHT_TOKENS.contains(&token.buy_token_address) {
-                            continue;
-                        }
-                        unsafe {
-                            if TOKENS_TO_BUY
-                                .iter()
-                                .any(|v| v.buy_token_address == token.buy_token_address)
-                            {
+        while read_tokens_ticker.next().await.is_some() {
+            if let Ok(tokens) = read_tokens_to_buy_from_file().await {
+                for mut token in tokens {
+                    if BOUGHT_TOKENS.contains(&token.buy_token_address) {
+                        continue;
+                    }
+                    unsafe {
+                        // If a newer version of the token is in the file,
+                        // update the in-memory list by removing and re-adding the token.
+                        if let Some(token_index) = TOKENS_TO_BUY
+                            .iter()
+                            .position(|t| t.buy_token_address == token.buy_token_address)
+                        {
+                            if TOKENS_TO_BUY[token_index].version < token.version {
+                                TOKENS_TO_BUY.swap_remove(token_index);
+                            } else {
                                 continue;
                             }
-                            token.prepare_buy_txs_per_gas_price().await;
-                            println!("Added token to buy: {}", token.buy_token_address);
-                            TOKENS_TO_BUY.push(token);
                         }
+
+                        token.prepare_buy_txs_per_gas_price().await;
+                        println!(
+                            "Added token to buy: {}",
+                            get_bsc_token_url(token.buy_token_address)
+                        );
+                        TOKENS_TO_BUY.push(token);
                     }
                 }
-                Err(e) => {
-                    println!("Error reading tokens to buy from file: {}", e);
-                }
+            } else {
+                println!("Error while reading tokens to buy from file");
             }
         }
     });
@@ -104,6 +113,12 @@ pub fn tx_is_enable_buy(
     }
 
     None
+}
+
+pub fn remove_all_tokens_to_buy() {
+    unsafe {
+        TOKENS_TO_BUY.clear();
+    }
 }
 
 async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {

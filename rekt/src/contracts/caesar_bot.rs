@@ -25,6 +25,14 @@ pub fn encode_buy_method() -> Bytes {
     buy_tx
 }
 
+pub fn encode_sell_method() -> Bytes {
+    let sell_tx = CAESAR_BOT
+        .encode("sell", ())
+        .expect("Failed to encode sell tx");
+
+    sell_tx
+}
+
 pub fn encode_prep_method(token: &Token) -> Bytes {
     let prep_tx = CAESAR_BOT
         .encode(

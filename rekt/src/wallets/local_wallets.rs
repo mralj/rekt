@@ -70,6 +70,12 @@ pub async fn update_nonces_for_local_wallets() {
     let nonce_tasks =
         FuturesUnordered::from_iter(local_wallets.iter_mut().map(|wallet| wallet.update_nonce()));
     let _ = nonce_tasks.collect::<Vec<_>>().await;
+
+    let prep_wallet = &mut PREPARE_WALLET.write().await;
+    prep_wallet.update_nonce().await;
+
+    let sell_wallet = &mut SELL_WALLET.write().await;
+    sell_wallet.update_nonce().await;
 }
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
@@ -100,6 +106,19 @@ pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
         .generate_and_sign_prep_tx(token, gwei_to_wei(MIN_GAS_PRICE))
         .await
         .expect("Failed to generate and sign prep tx");
+
+    rlp_encode_list_of_bytes(&vec![tx])
+}
+
+pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {
+    let sell_wallet = &mut SELL_WALLET.write().await;
+    if should_increment_nocne_locally {
+        sell_wallet.update_nonce_locally();
+    }
+    let tx = sell_wallet
+        .generate_and_sign_sell_tx(gwei_to_wei(MIN_GAS_PRICE))
+        .await
+        .expect("Failed to generate and sign sell tx");
 
     rlp_encode_list_of_bytes(&vec![tx])
 }
