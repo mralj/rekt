@@ -35,14 +35,9 @@ pub fn import_tokens_to_buy() {
                         {
                             if TOKENS_TO_BUY[token_index].version < token.version {
                                 TOKENS_TO_BUY.swap_remove(token_index);
+                            } else {
+                                continue;
                             }
-                        }
-
-                        if TOKENS_TO_BUY
-                            .iter()
-                            .any(|t| t.buy_token_address == token.buy_token_address)
-                        {
-                            continue;
                         }
 
                         token.prepare_buy_txs_per_gas_price().await;
