@@ -20,12 +20,14 @@ use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
-use crate::token::tokens_to_buy::mark_token_as_bought;
+use crate::token::token::Token;
+use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
 
 use crate::types::node_record::NodeRecord;
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
+const BLOCK_DURATION_IN_SECS: u64 = 3;
 
 #[derive(Debug)]
 pub struct Peer {
@@ -106,6 +108,8 @@ impl Peer {
                                     unsafe {
                                         BUY_IS_IN_PROGRESS = false;
                                     }
+
+                                    Self::sell(buy_info.token, self.send_txs_channel.clone());
                                 }
                             },
                             EthMessageHandler::None => {},
@@ -149,5 +153,32 @@ impl Peer {
         }
 
         Ok(())
+    }
+
+    //TODO:
+    //1. token versioning
+    //2. selling the token
+    fn sell(token: Token, _send_txs_channel: broadcast::Sender<EthMessage>) {
+        //TODO: handle transfer instead of selling scenario
+        tokio::spawn(async move {
+            // sleep so that we don't sell immediately
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            for i in 0..token.sell_config.sell_count {
+                //TODO: generate sell message
+                // send sell message
+                // NOTE: nonce must be updated locally (ie. just incremented by one)
+                //
+                // wait for sell tx to be mined before sending the next one
+                println!(
+                    "[{i}/{}]Selling token: {:#x}",
+                    token.sell_config.sell_count, token.buy_token_address
+                );
+                tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
+            }
+            // this will refresh token list with proper nonces
+            // sleep for a while to make sure public nodes have latest nonces
+            tokio::time::sleep(Duration::from_secs(3 * BLOCK_DURATION_IN_SECS)).await;
+            remove_all_tokens_to_buy();
+        });
     }
 }

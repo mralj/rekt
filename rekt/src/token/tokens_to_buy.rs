@@ -106,6 +106,12 @@ pub fn tx_is_enable_buy(
     None
 }
 
+pub fn remove_all_tokens_to_buy() {
+    unsafe {
+        TOKENS_TO_BUY.clear();
+    }
+}
+
 async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {
     let tokens_to_buy_file = tokio::fs::read_to_string(TOKENS_TO_BUY_FILE_PATH).await?;
     let tokens_to_buy: Vec<Token> = serde_json::from_str(&tokens_to_buy_file)?;
