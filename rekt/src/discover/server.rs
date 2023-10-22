@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use dashmap::{DashMap, DashSet};
+use dashmap::{DashMap};
 use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
@@ -18,8 +18,8 @@ use crate::types::node_record::NodeRecord;
 use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::discover_node::DiscoverNode;
 use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRATION};
-use super::messages::enr::EnrRequest;
-use super::messages::find_node::FindNode;
+
+
 use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {

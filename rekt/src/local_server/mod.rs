@@ -7,7 +7,9 @@ use tokio::sync::broadcast;
 use warp::{filters::path::end, reject::Reject, Filter};
 
 use crate::{
-    eth::eth_message::EthMessage, server::peers::PEERS, token::tokens_to_buy::get_token_by_address,
+    eth::eth_message::EthMessage,
+    server::peers::PEERS,
+    token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
@@ -59,7 +61,15 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
             .and(end())
             .map(|| format!("Peer count: {}\n", PEERS.len()));
 
-        let routes = prep.or(peer_count);
+        let refresh_tokens = warp::path("refreshtokens").and(end()).map(|| {
+            tokio::task::spawn(async move {
+                remove_all_tokens_to_buy();
+                cprintln!("<yellow>Tokens refreshed</>");
+            });
+            format!("Tokens refreshed\n")
+        });
+
+        let routes = prep.or(peer_count).or(refresh_tokens);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }

@@ -6,6 +6,12 @@ authors = ["mralj"]
 description = "Quick way to lose $$$"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
 
 [dependencies]
 aes = "0.8.2"
@@ -29,7 +35,7 @@ sha3 = "0.10.6"
 thiserror = "1.0.38"
 tokio = { version = "1.25.0",  features = ["full"] }
 tokio-util = { version = "0.7.7", features = ["io", "codec"] }
-tracing = "0.1.37"
+tracing = { version = "0.1.37", features = ["release_max_level_off"] }
 tracing-subscriber = "0.3.16"
 url = "2.3.1"
 num-traits = "0.2"

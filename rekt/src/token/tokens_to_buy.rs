@@ -3,7 +3,7 @@ use futures::StreamExt;
 use once_cell::sync::Lazy;
 use tokio::time::interval;
 
-use crate::utils::helpers::get_bsc_token_url;
+use crate::{p2p::peer::BUY_IS_IN_PROGRESS, utils::helpers::get_bsc_token_url};
 
 use super::token::{Token, TokenAddress};
 
@@ -23,6 +23,12 @@ pub fn import_tokens_to_buy() {
         ));
 
         while read_tokens_ticker.next().await.is_some() {
+            unsafe {
+                if BUY_IS_IN_PROGRESS {
+                    continue;
+                }
+            }
+
             if let Ok(tokens) = read_tokens_to_buy_from_file().await {
                 for mut token in tokens {
                     if BOUGHT_TOKENS.contains(&token.buy_token_address) {
