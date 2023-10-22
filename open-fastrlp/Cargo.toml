@@ -6,6 +6,15 @@ license = "Apache-2.0"
 description = "Fast RLP serialization library. This crate is a yanked version of FastRLP 0.1.2 which was Apache licensed"
 repository = "https://github.com/gakonst/open-fastrlp"
 
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
+
+
+
 [dependencies]
 arrayvec = { version = "0.7", default-features = false }
 auto_impl = "1"
