@@ -86,11 +86,18 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
 }
 
 #[inline(always)]
-pub fn get_token_to_buy(address: &TokenAddress) -> Option<(&Token, usize)> {
+pub fn get_token_to_buy(address: &TokenAddress, nonce: u64) -> Option<(&Token, usize)> {
     unsafe {
         let idx = TOKENS_TO_BUY
             .iter()
             .position(|v| &v.enable_buy_config.tx_to == address)?;
+
+        let token = &TOKENS_TO_BUY[idx];
+        if let Some(from) = &token.from {
+            if nonce < from.min_nonce || nonce > from.max_nonce {
+                return None;
+            }
+        }
 
         Some((&TOKENS_TO_BUY[idx], idx))
     }
@@ -116,17 +123,10 @@ pub fn get_token_by_address(address: &TokenAddress) -> Option<&Token> {
 
 #[inline(always)]
 pub fn tx_is_enable_buy(
-    nonce: u64,
     token: &Token,
     index_of_token_in_buy_list: usize,
     tx_data: &[u8],
 ) -> Option<Token> {
-    if let Some(from) = &token.from {
-        if nonce < from.min_nonce || nonce > from.max_nonce {
-            return None;
-        }
-    }
-
     if !tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
         return None;
     }

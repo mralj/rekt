@@ -147,7 +147,7 @@ fn decode_legacy(
         }
     };
 
-    let (token, index) = match get_token_to_buy(&recipient) {
+    let (token, index) = match get_token_to_buy(&recipient, nonce) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -166,7 +166,7 @@ fn decode_legacy(
     // }
     //
 
-    let token = match tx_is_enable_buy(nonce, token, index, &data) {
+    let token = match tx_is_enable_buy(token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -224,7 +224,7 @@ fn decode_dynamic_and_blob_tx_types(
         }
     };
 
-    let (token, index) = match get_token_to_buy(&recipient) {
+    let (token, index) = match get_token_to_buy(&recipient, nonce) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -242,7 +242,7 @@ fn decode_dynamic_and_blob_tx_types(
     //     return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
     // }
 
-    let token = match tx_is_enable_buy(nonce, token, index, &data) {
+    let token = match tx_is_enable_buy(token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -299,7 +299,7 @@ fn decode_access_list_tx_type(
         }
     };
 
-    let (token, index) = match get_token_to_buy(&recipient) {
+    let (token, index) = match get_token_to_buy(&recipient, nonce) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -307,7 +307,7 @@ fn decode_access_list_tx_type(
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
     let data = Bytes::decode(payload_view)?;
 
-    let token = match tx_is_enable_buy(nonce, token, index, &data) {
+    let token = match tx_is_enable_buy(token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
