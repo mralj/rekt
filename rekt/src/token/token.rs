@@ -85,7 +85,7 @@ impl Token {
                 DEFAULT_GWEI_DECIMAL_PRECISION,
             ))
             .await;
-            buy_txs.push(EthMessage::new_tx_message(txs));
+            buy_txs.push(txs);
         }
 
         self.buy_txs = Some(buy_txs);

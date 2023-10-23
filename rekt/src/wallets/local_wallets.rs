@@ -8,6 +8,10 @@ use tokio::sync::RwLock;
 
 use crate::{
     cli::Cli,
+    eth::{
+        eth_message::EthMessage,
+        types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET},
+    },
     token::token::Token,
     utils::wei_gwei_converter::{gwei_to_wei, MIN_GAS_PRICE},
 };
@@ -80,7 +84,7 @@ pub async fn update_nonces_for_local_wallets() {
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     gas_price_in_wei: WeiGasPrice,
-) -> BytesMut {
+) -> EthMessage {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
     let generate_buy_txs_tasks = FuturesUnordered::from_iter(
@@ -94,11 +98,12 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
         .collect::<Vec<_>>()
         .await;
 
-    let rlp_encoded_buy_txs = rlp_encode_list_of_bytes(&buy_txs);
-    rlp_encoded_buy_txs
+    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
+        &buy_txs,
+    )))
 }
 
-pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
+pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> EthMessage {
     let prep_wallet = &mut PREPARE_WALLET.write().await;
     prep_wallet.update_nonce().await;
 
@@ -107,7 +112,9 @@ pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
         .await
         .expect("Failed to generate and sign prep tx");
 
-    rlp_encode_list_of_bytes(&vec![tx])
+    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
+        &vec![tx],
+    )))
 }
 
 pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {
@@ -135,4 +142,17 @@ fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::
         .for_each(|tx| out.extend_from_slice(tx));
 
     out
+}
+
+fn snappy_compress_rlp_bytes(rlp_tx: BytesMut) -> BytesMut {
+    let mut snappy_encoder = snap::raw::Encoder::new();
+    let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_tx.len()));
+    let compressed_size = snappy_encoder
+        .compress(&rlp_tx, &mut compressed[1..])
+        .expect("Failed to snappy compress tx");
+
+    compressed[0] = EthProtocol::TransactionsMsg as u8 + ETH_PROTOCOL_OFFSET;
+    compressed.truncate(compressed_size + 1);
+
+    compressed
 }

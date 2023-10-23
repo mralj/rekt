@@ -72,10 +72,10 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
         return Ok(EthMessageHandler::None);
     }
 
-    Ok(EthMessageHandler::Response(EthMessage {
-        id: EthProtocol::GetPooledTransactionsMsg,
-        data: TransactionsRequest::new(hashes_to_request).rlp_encode(),
-    }))
+    Ok(EthMessageHandler::Response(EthMessage::new(
+        EthProtocol::GetPooledTransactionsMsg,
+        TransactionsRequest::new(hashes_to_request).rlp_encode(),
+    )))
 }
 
 fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
