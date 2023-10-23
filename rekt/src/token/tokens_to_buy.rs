@@ -8,7 +8,7 @@ use crate::{p2p::peer::BUY_IS_IN_PROGRESS, utils::helpers::get_bsc_token_url};
 use super::token::{Token, TokenAddress};
 
 const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
-const REFRESH_TOKENS_INTERVAL: u64 = 20;
+const REFRESH_TOKENS_INTERVAL: u64 = 10;
 
 pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
