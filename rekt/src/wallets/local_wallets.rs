@@ -84,7 +84,7 @@ pub async fn update_nonces_for_local_wallets() {
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     gas_price_in_wei: WeiGasPrice,
-) -> BytesMut {
+) -> EthMessage {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
     let generate_buy_txs_tasks = FuturesUnordered::from_iter(
@@ -98,8 +98,9 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
         .collect::<Vec<_>>()
         .await;
 
-    let rlp_encoded_buy_txs = rlp_encode_list_of_bytes(&buy_txs);
-    rlp_encoded_buy_txs
+    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
+        &buy_txs,
+    )))
 }
 
 pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> EthMessage {
