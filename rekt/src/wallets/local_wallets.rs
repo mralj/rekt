@@ -103,7 +103,10 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     if token.prep_in_flight {
         let prep_wallet = &mut PREPARE_WALLET.write().await;
         let prep_tx = prep_wallet
-            .generate_and_sign_prep_tx(token, (gas_price_in_gwei + 1).into())
+            .generate_and_sign_prep_tx(
+                token,
+                gwei_to_wei_with_decimals(gas_price_in_gwei + 1, DEFAULT_GWEI_DECIMAL_PRECISION),
+            )
             .await
             .expect("Failed to generate and sign prep tx");
 
