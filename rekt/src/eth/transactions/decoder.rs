@@ -8,7 +8,7 @@ use crate::{
     p2p::peer::BUY_IS_IN_PROGRESS,
     token::{
         token::Token,
-        tokens_to_buy::{get_token_to_buy, tx_is_enable_buy},
+        tokens_to_buy::{get_token_to_buy, tx_is_enable_buy, tx_nonce_is_ok},
     },
     types::hash::H256,
     utils::helpers::{get_bsc_token_url, get_bsc_tx_url},
@@ -133,8 +133,11 @@ fn decode_legacy(
     let payload_view = &mut &buf[..tx_metadata.payload_length];
 
     let nonce = u64::decode(payload_view)?;
-    let gas_price = u64::decode(payload_view)?;
+    if !tx_nonce_is_ok(nonce) {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+    }
 
+    let gas_price = u64::decode(payload_view)?;
     let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
     let recipient = match ethers::types::H160::decode(payload_view) {
@@ -144,25 +147,26 @@ fn decode_legacy(
         }
     };
 
-    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
-    let data = Bytes::decode(payload_view)?;
-
-    if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-        println!(
-            "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
-            nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
-        );
-
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    }
-
     let (token, index) = match get_token_to_buy(&recipient) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
 
-    let token = match tx_is_enable_buy(token, index, &data) {
+    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
+    let data = Bytes::decode(payload_view)?;
+
+    // if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
+    //     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    //     println!(
+    //         "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
+    //         nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
+    //     );
+    //
+    //     return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+    // }
+    //
+
+    let token = match tx_is_enable_buy(nonce, token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -204,6 +208,10 @@ fn decode_dynamic_and_blob_tx_types(
     let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
     let nonce = u64::decode(payload_view)?;
+    if !tx_nonce_is_ok(nonce) {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+    }
+
     let gas_price = u64::decode(payload_view)?;
     let _max_price_per_gas = u64::decode(payload_view)?;
 
@@ -216,25 +224,25 @@ fn decode_dynamic_and_blob_tx_types(
         }
     };
 
-    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
-    let data = Bytes::decode(payload_view)?;
-
-    if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-        println!(
-            "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
-            nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
-        );
-
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    }
-
     let (token, index) = match get_token_to_buy(&recipient) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
 
-    let token = match tx_is_enable_buy(token, index, &data) {
+    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
+    let data = Bytes::decode(payload_view)?;
+
+    // if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
+    //     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    //     println!(
+    //         "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
+    //         nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
+    //     );
+    //
+    //     return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+    // }
+
+    let token = match tx_is_enable_buy(nonce, token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };
@@ -276,9 +284,12 @@ fn decode_access_list_tx_type(
 
     let _skip_decoding_chain_id = HeaderInfo::skip_next_item(payload_view)?;
 
-    let _nonce = u64::decode(payload_view)?;
-    let gas_price = u64::decode(payload_view)?;
+    let nonce = u64::decode(payload_view)?;
+    if !tx_nonce_is_ok(nonce) {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+    }
 
+    let gas_price = u64::decode(payload_view)?;
     let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
     let recipient = match ethers::types::H160::decode(payload_view) {
@@ -296,7 +307,7 @@ fn decode_access_list_tx_type(
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
     let data = Bytes::decode(payload_view)?;
 
-    let token = match tx_is_enable_buy(token, index, &data) {
+    let token = match tx_is_enable_buy(nonce, token, index, &data) {
         Some(token) => token,
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
     };

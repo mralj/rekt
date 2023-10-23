@@ -43,6 +43,9 @@ pub struct Token {
     #[serde(rename = "sellConfig", default)]
     pub sell_config: SellConfig,
 
+    #[serde(default)]
+    pub from: Option<FromConfig>,
+
     #[serde(skip)]
     pub buy_txs: Option<Vec<EthMessage>>,
 }
@@ -69,6 +72,14 @@ pub struct SellConfig {
     pub first_sell_percent: u16,
     #[serde(rename = "percentToKeep", default)]
     pub percent_to_keep: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FromConfig {
+    #[serde(rename = "minNonce", default)]
+    pub min_nonce: u64,
+    #[serde(rename = "maxNonce", default)]
+    pub max_nonce: u64,
 }
 
 impl Token {

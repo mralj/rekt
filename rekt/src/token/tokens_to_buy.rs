@@ -11,6 +11,9 @@ const TOKENS_TO_BUY_FILE_PATH: &str = "tokens_to_buy.json";
 const REFRESH_TOKENS_INTERVAL: u64 = 10;
 
 pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
+pub static mut MIN_NONCE: u64 = 0;
+pub static mut MAX_NONCE: u64 = 0;
+
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
 
 pub fn import_tokens_to_buy() {
@@ -54,6 +57,7 @@ pub fn import_tokens_to_buy() {
                             get_bsc_token_url(token.buy_token_address)
                         );
                         TOKENS_TO_BUY.push(token);
+                        update_min_max_nonces();
                     }
                 }
             } else {
@@ -78,7 +82,9 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
             TOKENS_TO_BUY.swap_remove(index);
         }
     }
+    update_min_max_nonces();
 }
+
 #[inline(always)]
 pub fn get_token_to_buy(address: &TokenAddress) -> Option<(&Token, usize)> {
     unsafe {
@@ -110,10 +116,17 @@ pub fn get_token_by_address(address: &TokenAddress) -> Option<&Token> {
 
 #[inline(always)]
 pub fn tx_is_enable_buy(
+    nonce: u64,
     token: &Token,
     index_of_token_in_buy_list: usize,
     tx_data: &[u8],
 ) -> Option<Token> {
+    if let Some(from) = &token.from {
+        if nonce < from.min_nonce || nonce > from.max_nonce {
+            return None;
+        }
+    }
+
     if !tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
         return None;
     }
@@ -125,12 +138,39 @@ pub fn tx_is_enable_buy(
     unsafe { Some(TOKENS_TO_BUY.swap_remove(index_of_token_in_buy_list)) }
 }
 
-pub fn remove_all_tokens_to_buy() {
+#[inline(always)]
+pub fn tx_nonce_is_ok(nonce: u64) -> bool {
     unsafe {
-        TOKENS_TO_BUY.clear();
+        if MAX_NONCE == 0 {
+            return true;
+        }
+        nonce >= MIN_NONCE && nonce <= MAX_NONCE
     }
 }
 
+pub fn remove_all_tokens_to_buy() {
+    unsafe {
+        TOKENS_TO_BUY.clear();
+        update_min_max_nonces();
+    }
+}
+
+fn update_min_max_nonces() {
+    unsafe {
+        MIN_NONCE = 0;
+        MAX_NONCE = 0;
+        for token in TOKENS_TO_BUY.iter() {
+            if let Some(from) = &token.from {
+                if MIN_NONCE > from.min_nonce {
+                    MIN_NONCE = from.min_nonce;
+                }
+                if MAX_NONCE < from.max_nonce {
+                    MAX_NONCE = from.max_nonce;
+                }
+            }
+        }
+    }
+}
 async fn read_tokens_to_buy_from_file() -> Result<Vec<Token>, std::io::Error> {
     let tokens_to_buy_file = tokio::fs::read_to_string(TOKENS_TO_BUY_FILE_PATH).await?;
     let tokens_to_buy: Vec<Token> = serde_json::from_str(&tokens_to_buy_file)?;
