@@ -193,6 +193,12 @@ impl Sink<EthMessage> for P2PWire {
         if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
             return Err(P2PError::TooManyMessagesQueued);
         }
+
+        if item.is_compressed() {
+            self.writer_queue.push_back(item.data);
+            return Ok(());
+        }
+
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
         let compressed_size = self
             .snappy_encoder
