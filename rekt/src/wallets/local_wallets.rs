@@ -8,12 +8,11 @@ use tokio::sync::RwLock;
 
 use crate::{
     cli::Cli,
-    eth::{
-        eth_message::EthMessage,
-        types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET},
-    },
+    eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET},
     token::token::Token,
-    utils::wei_gwei_converter::{gwei_to_wei, MIN_GAS_PRICE},
+    utils::wei_gwei_converter::{
+        gwei_to_wei, gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
+    },
 };
 
 use super::{
@@ -83,38 +82,47 @@ pub async fn update_nonces_for_local_wallets() {
 }
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
-    gas_price_in_wei: WeiGasPrice,
-) -> EthMessage {
+    token: &Token,
+    gas_price_in_gwei: u64,
+) -> BytesMut {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
-    let generate_buy_txs_tasks = FuturesUnordered::from_iter(
-        local_wallets
-            .iter_mut()
-            .map(|wallet| wallet.generate_and_sign_buy_tx(gas_price_in_wei)),
-    );
+    let generate_buy_txs_tasks =
+        FuturesUnordered::from_iter(local_wallets.iter_mut().map(|wallet| {
+            wallet.generate_and_sign_buy_tx(gwei_to_wei_with_decimals(
+                gas_price_in_gwei,
+                DEFAULT_GWEI_DECIMAL_PRECISION,
+            ))
+        }));
 
-    let buy_txs = generate_buy_txs_tasks
+    let mut buy_txs = generate_buy_txs_tasks
         .filter_map(|tx| async move { tx.ok() })
         .collect::<Vec<_>>()
         .await;
 
-    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
-        &buy_txs,
-    )))
+    if token.prep_in_flight {
+        let prep_wallet = &mut PREPARE_WALLET.write().await;
+        let prep_tx = prep_wallet
+            .generate_and_sign_prep_tx(token, (gas_price_in_gwei + 1).into())
+            .await
+            .expect("Failed to generate and sign prep tx");
+
+        buy_txs.push(prep_tx);
+    }
+
+    snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&buy_txs))
 }
 
-pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> EthMessage {
+pub async fn generate_and_rlp_encode_prep_tx(token: &Token, gwei_gas_price: u64) -> BytesMut {
     let prep_wallet = &mut PREPARE_WALLET.write().await;
     prep_wallet.update_nonce().await;
 
     let tx = prep_wallet
-        .generate_and_sign_prep_tx(token, gwei_to_wei(MIN_GAS_PRICE))
+        .generate_and_sign_prep_tx(token, gwei_to_wei(gwei_gas_price))
         .await
         .expect("Failed to generate and sign prep tx");
 
-    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
-        &vec![tx],
-    )))
+    snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&vec![tx]))
 }
 
 pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {
