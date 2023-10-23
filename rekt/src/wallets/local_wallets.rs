@@ -8,7 +8,10 @@ use tokio::sync::RwLock;
 
 use crate::{
     cli::Cli,
-    eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET},
+    eth::{
+        eth_message::EthMessage,
+        types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET},
+    },
     token::token::Token,
     utils::wei_gwei_converter::{gwei_to_wei, MIN_GAS_PRICE},
 };
@@ -99,7 +102,7 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     rlp_encoded_buy_txs
 }
 
-pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
+pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> EthMessage {
     let prep_wallet = &mut PREPARE_WALLET.write().await;
     prep_wallet.update_nonce().await;
 
@@ -108,7 +111,9 @@ pub async fn generate_and_rlp_encode_prep_tx(token: &Token) -> BytesMut {
         .await
         .expect("Failed to generate and sign prep tx");
 
-    snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&vec![tx]))
+    EthMessage::new_compressed_tx_message(snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(
+        &vec![tx],
+    )))
 }
 
 pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {

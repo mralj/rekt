@@ -35,9 +35,7 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
                         return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
                     }
                     let token = token.unwrap();
-                    match send_txs_channel.send(EthMessage::new_tx_message(
-                        generate_and_rlp_encode_prep_tx(token).await,
-                    )) {
+                    match send_txs_channel.send(generate_and_rlp_encode_prep_tx(token).await) {
                         Ok(_) => {
                             cprintln!(
                                 "<yellow>Prep sent successfully: {}</>",
