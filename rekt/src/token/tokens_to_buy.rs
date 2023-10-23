@@ -114,11 +114,15 @@ pub fn tx_is_enable_buy(
     index_of_token_in_buy_list: usize,
     tx_data: &[u8],
 ) -> Option<Token> {
-    if tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
-        unsafe { return Some(TOKENS_TO_BUY.swap_remove(index_of_token_in_buy_list)) }
+    if !tx_data.starts_with(token.enable_buy_config.enable_buy_tx_hash.as_ref()) {
+        return None;
     }
 
-    None
+    if !token.trade_status_is_enable(tx_data) {
+        return None;
+    }
+
+    unsafe { Some(TOKENS_TO_BUY.swap_remove(index_of_token_in_buy_list)) }
 }
 
 pub fn remove_all_tokens_to_buy() {
