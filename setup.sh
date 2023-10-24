@@ -59,6 +59,18 @@ echo "====== STARTING THE NODE ==========="
 sudo chmod -R 777 $HOME/rekt
 
 
+echo "====== STARTING LINUX KERNEL TUNING ==========="
+# List all network interfaces and apply ethtool settings, excluding 'lo'
+for iface in $(ls /sys/class/net | grep -v '^lo$'); do
+    sudo ethtool -C $iface adaptive-rx off rx-usecs 0 tx-usecs 0
+    sudo ethtool -A $iface rx off tx off
+    sudo ethtool -K $iface gso off gro off
+    sudo ethtool -K $iface tso off lro off
+done
+sudo sysctl -w net.core.busy_poll=300
+sudo sysctl -w net.core.busy_read=100
+
+
 echo -e "${GREEN} DONE :D ${NC}"
 
 
