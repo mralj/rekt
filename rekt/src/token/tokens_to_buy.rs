@@ -13,6 +13,7 @@ const REFRESH_TOKENS_INTERVAL: u64 = 10;
 pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
 pub static mut MIN_NONCE: u64 = 0;
 pub static mut MAX_NONCE: u64 = 0;
+pub static mut PCS_LIQ: bool = false;
 
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
 
@@ -57,7 +58,7 @@ pub fn import_tokens_to_buy() {
                             get_bsc_token_url(token.buy_token_address)
                         );
                         TOKENS_TO_BUY.push(token);
-                        update_min_max_nonces();
+                        update_global_liq_setting();
                     }
                 }
             } else {
@@ -82,7 +83,7 @@ pub fn mark_token_as_bought(buy_token_address: TokenAddress) {
             TOKENS_TO_BUY.swap_remove(index);
         }
     }
-    update_min_max_nonces();
+    update_global_liq_setting();
 }
 
 #[inline(always)]
@@ -151,15 +152,19 @@ pub fn tx_nonce_is_ok(nonce: u64) -> bool {
 pub fn remove_all_tokens_to_buy() {
     unsafe {
         TOKENS_TO_BUY.clear();
-        update_min_max_nonces();
+        update_global_liq_setting();
     }
 }
 
-fn update_min_max_nonces() {
+fn update_global_liq_setting() {
     unsafe {
         MIN_NONCE = 0;
         MAX_NONCE = 0;
+        PCS_LIQ = false;
         for token in TOKENS_TO_BUY.iter() {
+            if token.liq_will_be_added_via_pcs {
+                PCS_LIQ = true;
+            }
             if let Some(from) = &token.from {
                 if MIN_NONCE > from.min_nonce {
                     MIN_NONCE = from.min_nonce;
