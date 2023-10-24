@@ -323,7 +323,7 @@ fn handle_pcs(
         return handle_pcs_v2(tx_metadata, payload_view, hash, gas_price);
     }
 
-    return handle_pcs_v3(tx_metadata, payload_view, hash);
+    return handle_pcs_v3(tx_metadata, payload_view, hash, gas_price);
 }
 
 fn handle_pcs_v2(
@@ -337,7 +337,12 @@ fn handle_pcs_v2(
 
     if data.starts_with(&[0xe8, 0xe3, 0x37, 0x00]) {
         let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
-        if let Some((_, index)) = get_token_to_buy(&Address::from_slice(first_position_token), 0) {
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
             }
@@ -352,7 +357,12 @@ fn handle_pcs_v2(
         let second_position_token = &data
             [TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2..TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2];
 
-        if let Some((_, index)) = get_token_to_buy(&Address::from_slice(second_position_token), 0) {
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(second_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
             }
@@ -367,7 +377,12 @@ fn handle_pcs_v2(
 
     if data.starts_with(&[0xf3, 0x05, 0xd7, 0x19]) {
         let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
-        if let Some((_, index)) = get_token_to_buy(&Address::from_slice(first_position_token), 0) {
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
             }
@@ -387,12 +402,84 @@ fn handle_pcs_v3(
     tx_metadata: Header,
     payload_view: &mut &[u8],
     hash: H256,
+    gas_price: u64,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
     let data = Bytes::decode(payload_view)?;
+
+    if data.starts_with(&[0x88, 0x31, 0x64, 0x56]) {
+        let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+
+        let second_position_token = &data
+            [TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2..TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2];
+
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(second_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+    }
+
+    if data.starts_with(&[0xac, 0x96, 0x50, 0xd8]) {
+        if !contains(&data, &[0x13, 0xea, 0xd5, 0x62]) {
+            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        }
+
+        if !contains(&data, &[0x88, 0x31, 0x64, 0x56]) {
+            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        }
+
+        unsafe {
+            for (i, t) in TOKENS_TO_BUY.iter().enumerate() {
+                if !t.liq_will_be_added_via_pcs {
+                    continue;
+                }
+
+                if contains(&data, t.buy_token_address.as_bytes()) {
+                    BUY_IS_IN_PROGRESS = true;
+                    let token = TOKENS_TO_BUY.swap_remove(i);
+                    return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                        token, gas_price, hash,
+                    )));
+                }
+            }
+        }
+    }
+
     Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length))
 }
 
 fn recipient_is_to_pcs(recipient: &ethers::types::H160) -> bool {
     *recipient == *PCS_V2_ROUTER || *recipient == *PCS_V3_LIQ_CONTRACT
+}
+
+fn contains(bytes: &Bytes, slice: &[u8]) -> bool {
+    bytes.windows(slice.len()).any(|window| window == slice)
 }
