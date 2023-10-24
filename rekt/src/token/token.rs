@@ -9,7 +9,8 @@ use crate::{
         gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
-        generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
+        generate_and_rlp_encode_buy_txs_for_local_wallets, generate_and_rlp_encode_prep_tx,
+        update_nonces_for_local_wallets,
     },
 };
 
@@ -42,6 +43,11 @@ pub struct Token {
 
     #[serde(rename = "sellConfig", default)]
     pub sell_config: SellConfig,
+
+    /// This means we won't do manual prep so prep tx
+    /// needs to be sent alongside  buy txs
+    #[serde(rename = "doPrep", default)]
+    pub prep_in_flight: bool,
 
     #[serde(default)]
     pub from: Option<FromConfig>,
@@ -94,12 +100,9 @@ impl Token {
             Vec::with_capacity((gas_price_range.end() - gas_price_range.start() + 1) as usize);
 
         for gwei in gas_price_range {
-            let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(gwei_to_wei_with_decimals(
-                gwei,
-                DEFAULT_GWEI_DECIMAL_PRECISION,
-            ))
-            .await;
-            buy_txs.push(txs);
+            let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(&self, gwei).await;
+
+            buy_txs.push(EthMessage::new_compressed_tx_message(txs));
         }
 
         self.buy_txs = Some(buy_txs);
@@ -210,7 +213,9 @@ mod test {
                 },
                 skip_protection: false,
                 buy_txs: None,
-                max_token_buy_limit: 0
+                max_token_buy_limit: 0,
+                prep_in_flight: false,
+                from: None,
             }
         );
     }
@@ -239,6 +244,8 @@ mod test {
             skip_protection: false,
             buy_txs: None,
             max_token_buy_limit: 0,
+            from: None,
+            prep_in_flight: false,
         };
 
         let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");

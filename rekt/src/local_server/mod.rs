@@ -10,6 +10,7 @@ use crate::{
     eth::eth_message::EthMessage,
     server::peers::PEERS,
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
+    utils::wei_gwei_converter::MIN_GAS_PRICE,
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
@@ -35,7 +36,9 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
                         return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
                     }
                     let token = token.unwrap();
-                    match send_txs_channel.send(generate_and_rlp_encode_prep_tx(token).await) {
+                    match send_txs_channel.send(EthMessage::new_compressed_tx_message(
+                        generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
+                    )) {
                         Ok(_) => {
                             cprintln!(
                                 "<yellow>Prep sent successfully: {}</>",
