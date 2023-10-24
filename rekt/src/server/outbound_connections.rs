@@ -8,6 +8,7 @@ use tokio::time::interval;
 
 use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
+use crate::p2p::peer::BUY_IS_IN_PROGRESS;
 use crate::p2p::DisconnectReason;
 use crate::rlpx::RLPXSessionError;
 
@@ -98,6 +99,11 @@ impl OutboundConnections {
     async fn run_retirer(&self) {
         loop {
             let task_r = self.retry_rx.recv().await;
+            unsafe {
+                if BUY_IS_IN_PROGRESS {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                }
+            }
             if task_r.is_err() {
                 continue;
             }
