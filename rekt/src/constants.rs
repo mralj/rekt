@@ -35,3 +35,5 @@ pub const TX_ARG_LEN_OF_ADDRESS: usize = 20;
 
 pub const TOKEN_IN_TX_STARTS_AT: usize = 16;
 pub const TOKEN_IN_TX_ENDS_AT: usize = TOKEN_IN_TX_STARTS_AT + TX_ARG_LEN_OF_ADDRESS;
+pub const TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2: usize = 48;
+pub const TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2: usize = 68;

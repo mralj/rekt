@@ -49,6 +49,9 @@ pub struct Token {
     #[serde(rename = "doPrep", default)]
     pub prep_in_flight: bool,
 
+    #[serde(rename = "isPcs", default)]
+    pub liq_will_be_added_via_pcs: bool,
+
     #[serde(default)]
     pub from: Option<FromConfig>,
 
@@ -246,6 +249,7 @@ mod test {
             max_token_buy_limit: 0,
             from: None,
             prep_in_flight: false,
+            liq_will_be_added_via_pcs: false,
         };
 
         let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");

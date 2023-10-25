@@ -1,17 +1,26 @@
+use std::str::FromStr;
+
 use bytes::{Buf, Bytes};
 use dashmap::mapref::entry::Entry;
+use ethers::types::Address;
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
 use sha3::{Digest, Keccak256};
+use static_init::dynamic;
 
 use crate::{
-    enemies::enemy::Enemy,
+    constants::{
+        TOKEN_IN_TX_ENDS_AT, TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2, TOKEN_IN_TX_STARTS_AT,
+        TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2,
+    },
     p2p::peer::BUY_IS_IN_PROGRESS,
     token::{
         token::Token,
-        tokens_to_buy::{get_token_to_buy, tx_is_enable_buy, tx_nonce_is_ok},
+        tokens_to_buy::{
+            get_token_to_buy, tx_is_enable_buy, tx_nonce_is_ok, PCS_LIQ, TOKENS_TO_BUY,
+        },
     },
     types::hash::H256,
-    utils::helpers::{get_bsc_token_url, get_bsc_tx_url},
+    utils::helpers::get_bsc_tx_url,
 };
 
 use super::{
@@ -19,6 +28,18 @@ use super::{
     errors::DecodeTxError,
     types::TxType,
 };
+
+// PNS_ROUTER          = common.HexToAddress("0x10ED43C718714eb63d5aA57B78B54704E256024E")
+// PNS_V3_LIQ_CONTRACT = common.HexToAddress("0x46A15B0b27311cedF172AB29E4f4766fbE7F4364")
+
+#[dynamic]
+pub static PCS_V2_ROUTER: Address = Address::from_str("0x10ED43C718714eb63d5aA57B78B54704E256024E")
+    .expect("Invalid PCS V2 router address");
+
+#[dynamic]
+pub static PCS_V3_LIQ_CONTRACT: Address =
+    Address::from_str("0x46A15B0b27311cedF172AB29E4f4766fbE7F4364")
+        .expect("Invalid PCS V2 router address");
 
 pub enum TxDecodingResult {
     NoBuy(usize),
@@ -147,37 +168,10 @@ fn decode_legacy(
         }
     };
 
-    let (token, index) = match get_token_to_buy(&recipient, nonce) {
-        Some((t, i)) => (t, i),
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-    };
-
-    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view)?;
-    let data = Bytes::decode(payload_view)?;
-
-    // if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-    //     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-    //     println!(
-    //         "[{now}] OLD TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
-    //         nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
-    //     );
-    //
-    //     return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    // }
-    //
-
-    let token = match tx_is_enable_buy(token, index, &data) {
-        Some(token) => token,
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-    };
-
-    unsafe {
-        BUY_IS_IN_PROGRESS = true;
+    if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
+        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
     }
-
-    Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-        token, gas_price, hash,
-    )))
+    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
 }
 
 fn decode_dynamic_and_blob_tx_types(
@@ -224,36 +218,10 @@ fn decode_dynamic_and_blob_tx_types(
         }
     };
 
-    let (token, index) = match get_token_to_buy(&recipient, nonce) {
-        Some((t, i)) => (t, i),
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-    };
-
-    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
-    let data = Bytes::decode(payload_view)?;
-
-    // if let Some((bot, token)) = Enemy::enemy_is_preparing_to_buy_token(&data) {
-    //     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-    //     println!(
-    //         "[{now}] NEW TX BOT {bot} PREPARED: nonce: {}, gas_price: {}, to: {} \n token: {}, tx: {}",
-    //         nonce, gas_price, recipient, get_bsc_token_url(token), get_bsc_tx_url(hash)
-    //     );
-    //
-    //     return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
-    // }
-
-    let token = match tx_is_enable_buy(token, index, &data) {
-        Some(token) => token,
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
-    };
-
-    unsafe {
-        BUY_IS_IN_PROGRESS = true;
+    if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
+        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
     }
-
-    Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-        token, gas_price, hash,
-    )))
+    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
 }
 
 fn decode_access_list_tx_type(
@@ -299,6 +267,29 @@ fn decode_access_list_tx_type(
         }
     };
 
+    if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
+        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
+    }
+    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
+}
+
+fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> H256 {
+    let mut hasher = Keccak256::new();
+    if tx_type != TxType::Legacy {
+        hasher.update(&[tx_type as u8]);
+    }
+    hasher.update(raw_tx);
+    H256::from_slice(&hasher.finalize())
+}
+
+fn handle_token(
+    tx_metadata: Header,
+    payload_view: &mut &[u8],
+    hash: H256,
+    nonce: u64,
+    gas_price: u64,
+    recipient: ethers::types::H160,
+) -> Result<TxDecodingResult, DecodeTxError> {
     let (token, index) = match get_token_to_buy(&recipient, nonce) {
         Some((t, i)) => (t, i),
         None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
@@ -321,11 +312,174 @@ fn decode_access_list_tx_type(
     )))
 }
 
-fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> H256 {
-    let mut hasher = Keccak256::new();
-    if tx_type != TxType::Legacy {
-        hasher.update(&[tx_type as u8]);
+fn handle_pcs(
+    tx_metadata: Header,
+    payload_view: &mut &[u8],
+    hash: H256,
+    recipient: ethers::types::H160,
+    gas_price: u64,
+) -> Result<TxDecodingResult, DecodeTxError> {
+    if recipient == *PCS_V2_ROUTER {
+        return handle_pcs_v2(tx_metadata, payload_view, hash, gas_price);
     }
-    hasher.update(raw_tx);
-    H256::from_slice(&hasher.finalize())
+
+    return handle_pcs_v3(tx_metadata, payload_view, hash, gas_price);
+}
+
+fn handle_pcs_v2(
+    tx_metadata: Header,
+    payload_view: &mut &[u8],
+    hash: H256,
+    gas_price: u64,
+) -> Result<TxDecodingResult, DecodeTxError> {
+    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
+    let data = Bytes::decode(payload_view)?;
+
+    if data.starts_with(&[0xe8, 0xe3, 0x37, 0x00]) {
+        let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+
+        let second_position_token = &data
+            [TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2..TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2];
+
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(second_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+    }
+
+    if data.starts_with(&[0xf3, 0x05, 0xd7, 0x19]) {
+        let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+    }
+
+    Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length))
+}
+
+fn handle_pcs_v3(
+    tx_metadata: Header,
+    payload_view: &mut &[u8],
+    hash: H256,
+    gas_price: u64,
+) -> Result<TxDecodingResult, DecodeTxError> {
+    let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
+    let data = Bytes::decode(payload_view)?;
+
+    if data.starts_with(&[0x88, 0x31, 0x64, 0x56]) {
+        let first_position_token = &data[TOKEN_IN_TX_STARTS_AT..TOKEN_IN_TX_ENDS_AT];
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(first_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+
+        let second_position_token = &data
+            [TOKEN_IN_TX_STARTS_AT_POSSIBLE_POSITION_2..TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2];
+
+        if let Some((token, index)) =
+            get_token_to_buy(&Address::from_slice(second_position_token), 0)
+        {
+            if !token.liq_will_be_added_via_pcs {
+                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            }
+            unsafe {
+                BUY_IS_IN_PROGRESS = true;
+            }
+
+            let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
+
+            return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                token, gas_price, hash,
+            )));
+        }
+    }
+
+    if data.starts_with(&[0xac, 0x96, 0x50, 0xd8]) {
+        if !contains(&data, &[0x13, 0xea, 0xd5, 0x62]) {
+            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        }
+
+        if !contains(&data, &[0x88, 0x31, 0x64, 0x56]) {
+            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        }
+
+        unsafe {
+            for (i, t) in TOKENS_TO_BUY.iter().enumerate() {
+                if !t.liq_will_be_added_via_pcs {
+                    continue;
+                }
+
+                if contains(&data, t.buy_token_address.as_bytes()) {
+                    BUY_IS_IN_PROGRESS = true;
+                    let token = TOKENS_TO_BUY.swap_remove(i);
+                    return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
+                        token, gas_price, hash,
+                    )));
+                }
+            }
+        }
+    }
+
+    Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length))
+}
+
+fn recipient_is_to_pcs(recipient: &ethers::types::H160) -> bool {
+    *recipient == *PCS_V2_ROUTER || *recipient == *PCS_V3_LIQ_CONTRACT
+}
+
+fn contains(bytes: &Bytes, slice: &[u8]) -> bool {
+    bytes.windows(slice.len()).any(|window| window == slice)
 }
