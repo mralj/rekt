@@ -65,8 +65,31 @@ pub struct EnableBuyConfig {
     pub tx_to: TokenAddress,
     #[serde(rename = "txHash")]
     pub enable_buy_tx_hash: TxSignatureHash,
+    /// TX to enable buy has argument which controls if buy is enabled
+    /// eg. enable_trade(is_enabled: bool)
+    /// but this argument can be in any place eg.
+    /// enable_trade(some_other_arg: u8, is_enabled: bool)
     #[serde(rename = "tradeStatusArgPos", default)]
     pub trade_status_arg_position: usize,
+
+    /// TX to enable buy has argument which controls if buy is enabled
+    /// but argument can be of any value, eg.
+    /// enable_trade(some_other_arg: u8, is_disabled: bool)
+    /// in this case we want to buy if is_disabled is 0
+    /// it's important that we know upfront which value will be used to enable buy
+    #[serde(rename = "tradeStatusArgValue", default = "default_trade_status_value")]
+    pub trade_status_arg_value: u8,
+
+    /// TX to enable buy has argument which controls if buy is enabled
+    /// but argument can be of any value, eg. and we don't know which value will be used to enable buy
+    /// but we know itn won't be 0, eg.
+    /// startTrade(address[] addresses,uint256 r)
+    /// in this concrete scenario (specified in token contract)
+    /// we want to buy if addresses.len() > 0
+    /// the way arrays are encoded in TX data is that before array values
+    /// we have array length, so we can check if array length is > 0
+    #[serde(rename = "tradeStatusArgValueNoZero", default)]
+    pub trade_status_arg_value_any_bigger_than_0: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,7 +163,14 @@ impl Token {
             return false;
         }
 
-        tx_data[arg_position - 1] == 0x01
+        if self
+            .enable_buy_config
+            .trade_status_arg_value_any_bigger_than_0
+        {
+            return tx_data[arg_position - 1] > 0;
+        }
+
+        tx_data[arg_position - 1] == self.enable_buy_config.trade_status_arg_value
     }
 }
 
@@ -154,6 +184,10 @@ impl Default for SellConfig {
             percent_to_keep: 0,
         }
     }
+}
+
+fn default_trade_status_value() -> u8 {
+    1
 }
 
 fn default_gas_price() -> u64 {
@@ -208,7 +242,9 @@ mod test {
                 enable_buy_config: EnableBuyConfig {
                     tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                     enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
-                    trade_status_arg_position: 0
+                    trade_status_arg_position: 0,
+                    trade_status_arg_value: 1,
+                    trade_status_arg_value_any_bigger_than_0: false,
                 },
                 sell_config: SellConfig {
                     sell_count: 2,
@@ -219,6 +255,7 @@ mod test {
                 max_token_buy_limit: 0,
                 prep_in_flight: false,
                 from: None,
+                liq_will_be_added_via_pcs: false
             }
         );
     }
@@ -239,6 +276,8 @@ mod test {
                 tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                 enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
                 trade_status_arg_position: 2,
+                trade_status_arg_value: 1,
+                trade_status_arg_value_any_bigger_than_0: false,
             },
             sell_config: SellConfig {
                 sell_count: 2,
@@ -264,11 +303,38 @@ mod test {
                 tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
                 enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
                 trade_status_arg_position: 1,
+                trade_status_arg_value: 1,
+                trade_status_arg_value_any_bigger_than_0: false,
             },
             ..token
         };
-
         let tx_data = hex::decode("177a634e00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002");
+        assert_eq!(token.trade_status_is_enable(&tx_data.unwrap()), true);
+
+        let token = Token {
+            enable_buy_config: EnableBuyConfig {
+                tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
+                enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
+                trade_status_arg_position: 2,
+                trade_status_arg_value: 4,
+                trade_status_arg_value_any_bigger_than_0: false,
+            },
+            ..token
+        };
+        let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004");
+        assert_eq!(token.trade_status_is_enable(&tx_data.unwrap()), true);
+
+        let token = Token {
+            enable_buy_config: EnableBuyConfig {
+                tx_to: Address::from_str("0xCF4217DB0Ea759118d5218eFdCE88B5822859D62").unwrap(),
+                enable_buy_tx_hash: ethers::types::H32::from_str("0x7d315a2e").unwrap(),
+                trade_status_arg_position: 2,
+                trade_status_arg_value: 4,
+                trade_status_arg_value_any_bigger_than_0: true,
+            },
+            ..token
+        };
+        let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003");
         assert_eq!(token.trade_status_is_enable(&tx_data.unwrap()), true);
     }
 }
