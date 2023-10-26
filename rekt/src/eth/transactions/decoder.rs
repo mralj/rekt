@@ -7,6 +7,7 @@ use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
 use sha3::{Digest, Keccak256};
 use static_init::dynamic;
 
+use super::{cache, errors::DecodeTxError, types::TxType};
 use crate::{
     constants::{
         TOKEN_IN_TX_ENDS_AT, TOKEN_IN_TX_ENDS_AT_POSSIBLE_POSITION_2, TOKEN_IN_TX_STARTS_AT,
@@ -20,17 +21,7 @@ use crate::{
         },
     },
     types::hash::H256,
-    utils::helpers::get_bsc_tx_url,
 };
-
-use super::{
-    cache::{TxFetchStatus, CACHE},
-    errors::DecodeTxError,
-    types::TxType,
-};
-
-// PNS_ROUTER          = common.HexToAddress("0x10ED43C718714eb63d5aA57B78B54704E256024E")
-// PNS_V3_LIQ_CONTRACT = common.HexToAddress("0x46A15B0b27311cedF172AB29E4f4766fbE7F4364")
 
 #[dynamic]
 pub static PCS_V2_ROUTER: Address = Address::from_str("0x10ED43C718714eb63d5aA57B78B54704E256024E")
@@ -137,16 +128,8 @@ fn decode_legacy(
     tx_metadata: HeaderInfo,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_metadata.total_len]);
-    match CACHE.entry(hash) {
-        Entry::Occupied(mut entry) => {
-            if entry.get().is_fetched() {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
-            }
-            entry.insert(TxFetchStatus::Fetched);
-        }
-        Entry::Vacant(entry) => {
-            entry.insert(TxFetchStatus::Fetched);
-        }
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
@@ -180,17 +163,8 @@ fn decode_dynamic_and_blob_tx_types(
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let tx_metadata = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
-
-    match CACHE.entry(hash) {
-        Entry::Occupied(mut entry) => {
-            if entry.get().is_fetched() {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
-            }
-            entry.insert(TxFetchStatus::Fetched);
-        }
-        Entry::Vacant(entry) => {
-            entry.insert(TxFetchStatus::Fetched);
-        }
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
@@ -231,16 +205,8 @@ fn decode_access_list_tx_type(
     let tx_metadata = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
 
-    match CACHE.entry(hash) {
-        Entry::Occupied(mut entry) => {
-            if entry.get().is_fetched() {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
-            }
-            entry.insert(TxFetchStatus::Fetched);
-        }
-        Entry::Vacant(entry) => {
-            entry.insert(TxFetchStatus::Fetched);
-        }
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
