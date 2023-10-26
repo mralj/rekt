@@ -112,12 +112,20 @@ impl Peer {
                         {
                             //let _ = self.send_txs_channel.send(buy_txs_eth_message);
 
+                            let mut success = 0;
                             unsafe {
                                 let sell_tasks =
                                     FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
                                         (*p.value().0).connection.send(buy_txs_eth_message.clone())
                                     }));
-                                let _ = sell_tasks.collect::<Vec<_>>().await;
+                                let x = sell_tasks.collect::<Vec<_>>().await;
+                                for i in x {
+                                    if let Err(e) = i {
+                                        cprintln!("<red> Sell error: {e}</>");
+                                    } else {
+                                        success += 1;
+                                    }
+                                }
                             }
 
                             //TODO: handle this properly
@@ -128,7 +136,7 @@ impl Peer {
                             }
 
                             cprintln!(
-                                "<b><green>Bought token: {}</></>\nliq TX: {} ",
+                                "<b><green>[{success}] Bought token: {}</></>\nliq TX: {} ",
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );
@@ -200,7 +208,7 @@ impl Peer {
                         );
                     }
                     Err(e) => {
-                        cprintln!("<red> Channel error: {e}</>");
+                        cprintln!("<red> Sell Channel error: {e}</>");
                     }
                 }
                 // wait for sell tx to be mined before sending the next one
