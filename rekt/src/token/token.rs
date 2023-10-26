@@ -146,7 +146,6 @@ impl Token {
 
         self.buy_txs.as_mut().map(|txs| {
             let index = gas_price_to_index(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
-            println!("index: {}", index);
             txs.swap_remove(index)
         })
     }
