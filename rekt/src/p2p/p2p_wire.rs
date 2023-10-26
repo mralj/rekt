@@ -27,6 +27,8 @@ pub struct P2PWire {
     snappy_encoder: snap::raw::Encoder,
 }
 
+unsafe impl Send for P2PWire {}
+
 /*
 * These are the facts about the "system" we are building:
 * Only P2P messages we care for are:
