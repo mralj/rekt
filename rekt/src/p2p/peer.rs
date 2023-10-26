@@ -46,7 +46,7 @@ unsafe impl<T> Sync for UnsafeSyncPtr<T> {}
 unsafe impl<T> Send for UnsafeSyncPtr<T> {}
 
 #[dynamic]
-pub static PEERS_SELL: Mutex<HashMap<H512, Arc<UnsafeSyncPtr<Peer>>>> = Mutex::new(HashMap::new());
+pub static PEERS_SELL: Mutex<HashMap<H512, UnsafeSyncPtr<Peer>>> = Mutex::new(HashMap::new());
 
 #[derive(Debug)]
 pub struct Peer {
@@ -100,9 +100,9 @@ impl Peer {
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
-        let peer_ptr = Arc::new(UnsafeSyncPtr {
+        let peer_ptr = UnsafeSyncPtr {
             peer: self as *mut _,
-        });
+        };
         PEERS_SELL
             .lock()
             .await
@@ -131,23 +131,39 @@ impl Peer {
                             //     }));
                             // let x = sell_tasks.collect::<Vec<_>>().await;
 
+                            let mut tasks = Vec::with_capacity(500);
                             for (_, p) in PEERS_SELL.lock().await.iter() {
-                                let peer_ptr =
-                                    unsafe { &mut p.clone().peer.as_mut().unwrap().connection };
+                                let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
                                 let message = buy_txs_eth_message.clone();
-                                tokio::task::spawn(async move {
+                                let t = tokio::task::spawn(async move {
                                     match peer_ptr.send(message).await {
+                                        Ok(_) => Ok(()),
+                                        Err(e) => {
+                                            cprintln!("<red>Buy error: {e}</>",);
+                                            Err(e)
+                                        }
+                                    }
+                                });
+                                tasks.push(t);
+                            }
+
+                            let tasks = futures::future::join_all(tasks).await;
+                            println!("sending took: {:?}", start.elapsed());
+                            for t in tasks {
+                                match t {
+                                    Ok(t) => match t {
                                         Ok(_) => {
                                             success += 1;
                                         }
                                         Err(e) => {
                                             cprintln!("<red>Buy error: {e}</>",);
                                         }
+                                    },
+                                    Err(e) => {
+                                        cprintln!("<red>Buy handle error: {e}</>",);
                                     }
-                                });
+                                }
                             }
-
-                            println!("sending took: {:?}", start.elapsed());
 
                             //TODO: handle this properly
                             // probably I'll use Barrier to wait for all txs to be sent
