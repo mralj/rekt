@@ -8,7 +8,7 @@ use tokio::time::interval;
 
 use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
-use crate::p2p::peer::BUY_IS_IN_PROGRESS;
+use crate::p2p::peer::{BUY_IS_IN_PROGRESS, PEERS_SELL};
 use crate::p2p::DisconnectReason;
 use crate::rlpx::RLPXSessionError;
 
@@ -140,12 +140,13 @@ impl OutboundConnections {
     }
 
     async fn run_logger(&self) {
-        let mut info_interval = interval(Duration::from_secs(5 * 60));
+        let mut info_interval = interval(Duration::from_secs(30));
 
         loop {
             info_interval.tick().await;
-            tracing::info!("==================== ==========================  ==========");
-            tracing::info!("PEER COUNT: {}", PEERS.len());
+            let start = Instant::now();
+            let _peers = PEERS_SELL.iter().map(|k| k.key().clone()).count();
+            println!("Peer iteration took {:?}", start.elapsed());
         }
     }
 }

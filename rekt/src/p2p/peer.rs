@@ -113,12 +113,15 @@ impl Peer {
                             //let _ = self.send_txs_channel.send(buy_txs_eth_message);
 
                             let mut success = 0;
+                            let start = std::time::Instant::now();
                             unsafe {
                                 let sell_tasks =
                                     FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
                                         (*p.value().0).connection.send(buy_txs_eth_message.clone())
                                     }));
+                                println!("Itertion took: {:?}", start.elapsed());
                                 let x = sell_tasks.collect::<Vec<_>>().await;
+                                println!("sending took: {:?}", start.elapsed());
                                 for i in x {
                                     if let Err(e) = i {
                                         cprintln!("<red> Sell error: {e}</>");
