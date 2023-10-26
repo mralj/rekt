@@ -145,7 +145,12 @@ impl OutboundConnections {
         loop {
             info_interval.tick().await;
             let start = Instant::now();
-            let _peers = PEERS_SELL.iter().map(|k| k.key().clone()).count();
+            let _peers = PEERS_SELL
+                .lock()
+                .await
+                .iter()
+                .map(|(k, _)| k.clone())
+                .count();
             println!("Peer iteration took {:?}", start.elapsed());
         }
     }

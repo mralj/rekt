@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ptr::NonNull;
+use std::sync::Arc;
 use std::time::Duration;
 
 use color_print::cprintln;
 use dashmap::DashMap;
 use futures::stream::FuturesUnordered;
-use futures::{SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
 use static_init::dynamic;
 use tokio::select;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, Mutex};
 use tracing::error;
 
 use super::errors::P2PError;
@@ -37,12 +39,14 @@ use crate::wallets::local_wallets::{
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 const BLOCK_DURATION_IN_SECS: u64 = 3;
 
-pub struct UnsafeSyncPtr<T>(*mut T);
+pub struct UnsafeSyncPtr<T> {
+    peer: *mut T,
+}
 unsafe impl<T> Sync for UnsafeSyncPtr<T> {}
 unsafe impl<T> Send for UnsafeSyncPtr<T> {}
 
 #[dynamic]
-pub static PEERS_SELL: DashMap<H512, UnsafeSyncPtr<Peer>> = DashMap::new();
+pub static PEERS_SELL: Mutex<HashMap<H512, Arc<UnsafeSyncPtr<Peer>>>> = Mutex::new(HashMap::new());
 
 #[derive(Debug)]
 pub struct Peer {
@@ -95,7 +99,14 @@ impl Peer {
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
-        PEERS_SELL.insert(self.node_record.id, UnsafeSyncPtr(self as *mut _));
+
+        let peer_ptr = Arc::new(UnsafeSyncPtr {
+            peer: self as *mut _,
+        });
+        PEERS_SELL
+            .lock()
+            .await
+            .insert(self.node_record.id, peer_ptr);
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
@@ -114,22 +125,29 @@ impl Peer {
 
                             let mut success = 0;
                             let start = std::time::Instant::now();
-                            unsafe {
-                                let sell_tasks =
-                                    FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
-                                        (*p.value().0).connection.send(buy_txs_eth_message.clone())
-                                    }));
-                                println!("Itertion took: {:?}", start.elapsed());
-                                let x = sell_tasks.collect::<Vec<_>>().await;
-                                println!("sending took: {:?}", start.elapsed());
-                                for i in x {
-                                    if let Err(e) = i {
-                                        cprintln!("<red> Sell error: {e}</>");
-                                    } else {
-                                        success += 1;
+                            // let sell_tasks =
+                            //     FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
+                            //         (*p.value().0).connection.send(buy_txs_eth_message.clone())
+                            //     }));
+                            // let x = sell_tasks.collect::<Vec<_>>().await;
+
+                            for (_, p) in PEERS_SELL.lock().await.iter() {
+                                let peer_ptr =
+                                    unsafe { &mut p.clone().peer.as_mut().unwrap().connection };
+                                let message = buy_txs_eth_message.clone();
+                                tokio::task::spawn(async move {
+                                    match peer_ptr.send(message).await {
+                                        Ok(_) => {
+                                            success += 1;
+                                        }
+                                        Err(e) => {
+                                            cprintln!("<red>Buy error: {e}</>",);
+                                        }
                                     }
-                                }
+                                });
                             }
+
+                            println!("sending took: {:?}", start.elapsed());
 
                             //TODO: handle this properly
                             // probably I'll use Barrier to wait for all txs to be sent

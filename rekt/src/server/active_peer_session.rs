@@ -112,7 +112,7 @@ pub fn connect_to_node(
 
         let task_result = p.run().await;
         PEERS.remove(&node.id);
-        PEERS_SELL.remove(&node.id);
+        PEERS_SELL.lock().await.remove(&node.id);
 
         // In case we got already connected to same ip error we do not remove the IP from the set
         // of already connected ips
