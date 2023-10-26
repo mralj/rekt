@@ -1,10 +1,14 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
 use color_print::cprintln;
+use dashmap::DashMap;
+use futures::stream::FuturesUnordered;
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
+use static_init::dynamic;
 use tokio::select;
 use tokio::sync::broadcast;
 use tracing::error;
@@ -32,6 +36,13 @@ use crate::wallets::local_wallets::{
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 const BLOCK_DURATION_IN_SECS: u64 = 3;
+
+pub struct UnsafeSyncPtr<T>(*mut T);
+unsafe impl<T> Sync for UnsafeSyncPtr<T> {}
+unsafe impl<T> Send for UnsafeSyncPtr<T> {}
+
+#[dynamic]
+pub static PEERS_SELL: DashMap<H512, UnsafeSyncPtr<Peer>> = DashMap::new();
 
 #[derive(Debug)]
 pub struct Peer {
@@ -84,44 +95,49 @@ impl Peer {
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
+        PEERS_SELL.insert(self.node_record.id, UnsafeSyncPtr(self as *mut _));
 
-        let mut txs_to_send_receiver = self.send_txs_channel.subscribe();
         loop {
-            select! {
-                biased;
-                msg_to_send = txs_to_send_receiver.recv() => {
-                    if let Ok(msg) = msg_to_send {
+            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+
+            //        let msg = msg.ok_or(P2PError::NoMessage)??;
+            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                match handler_resp {
+                    EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
                     }
-                },
-                msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS} => {
-                    let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                        match handler_resp {
-                            EthMessageHandler::Response(msg) => {
-                                self.connection.send(msg).await?;
-                            },
-                            EthMessageHandler::Buy(mut buy_info) => {
-                                if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
-                                    let _ = self.send_txs_channel.send(buy_txs_eth_message);
+                    EthMessageHandler::Buy(mut buy_info) => {
+                        if let Some(buy_txs_eth_message) =
+                            buy_info.token.get_buy_txs(buy_info.gas_price)
+                        {
+                            //let _ = self.send_txs_channel.send(buy_txs_eth_message);
 
-                                    //TODO: handle this properly
-                                    // probably I'll use Barrier to wait for all txs to be sent
-                                    mark_token_as_bought(buy_info.token.buy_token_address);
-                                    cprintln!("<b><green>Bought token: {}</></>\nliq TX: {} ",
-                                              get_bsc_token_url(buy_info.token.buy_token_address),
-                                              get_bsc_tx_url(buy_info.hash));
-                                    unsafe {
-                                        BUY_IS_IN_PROGRESS = false;
-                                    }
+                            unsafe {
+                                let sell_tasks =
+                                    FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
+                                        (*p.value().0).connection.send(buy_txs_eth_message.clone())
+                                    }));
+                                let _ = sell_tasks.collect::<Vec<_>>().await;
+                            }
 
-                                    Self::sell(buy_info.token, self.send_txs_channel.clone());
-                                }
-                            },
-                            EthMessageHandler::None => {},
+                            //TODO: handle this properly
+                            // probably I'll use Barrier to wait for all txs to be sent
+                            mark_token_as_bought(buy_info.token.buy_token_address);
+                            unsafe {
+                                BUY_IS_IN_PROGRESS = false;
+                            }
+
+                            cprintln!(
+                                "<b><green>Bought token: {}</></>\nliq TX: {} ",
+                                get_bsc_token_url(buy_info.token.buy_token_address),
+                                get_bsc_tx_url(buy_info.hash)
+                            );
+
+                            Self::sell(buy_info.token, self.send_txs_channel.clone());
                         }
                     }
-                },
+                    EthMessageHandler::None => {}
+                }
             }
         }
     }
