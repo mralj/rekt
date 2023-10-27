@@ -1,9 +1,10 @@
 use std::{collections::HashMap, usize};
 
 use color_print::cprintln;
-use futures::SinkExt;
+use futures::{stream::FuturesUnordered, SinkExt};
 use static_init::dynamic;
 use tokio::sync::Mutex;
+use tokio_stream::StreamExt;
 
 use crate::{eth::eth_message::EthMessage, types::hash::H512};
 
@@ -22,23 +23,28 @@ impl Peer {
     pub async fn send_tx(msg: EthMessage) -> usize {
         let mut success_count: usize = 0;
         let start = std::time::Instant::now();
-        let mut tasks = Vec::with_capacity(500);
-        for (_, p) in PEERS_SELL.lock().await.iter() {
+        // for (_, p) in PEERS_SELL.lock().await.iter() {
+        //     let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+        //     let message = msg.clone();
+        //     let t = tokio::task::spawn(async move {
+        //         match peer_ptr.send(message).await {
+        //             Ok(_) => Ok(()),
+        //             Err(e) => {
+        //                 cprintln!("<red>Send error: {e}</>",);
+        //                 Err(e)
+        //             }
+        //         }
+        //     });
+        //     tasks.push(t);
+        // }
+
+        let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
             let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
             let message = msg.clone();
-            let t = tokio::task::spawn(async move {
-                match peer_ptr.send(message).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => {
-                        cprintln!("<red>Send error: {e}</>",);
-                        Err(e)
-                    }
-                }
-            });
-            tasks.push(t);
-        }
+            tokio::spawn(async move { peer_ptr.send(message).await })
+        }));
 
-        let tasks = futures::future::join_all(tasks).await;
+        let tasks = tasks.collect::<Vec<_>>().await;
         println!("sending took: {:?}", start.elapsed());
         for t in tasks {
             match t {
