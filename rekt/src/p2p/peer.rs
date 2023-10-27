@@ -1,23 +1,17 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::ptr::NonNull;
-use std::sync::Arc;
 use std::time::Duration;
 
 use color_print::cprintln;
-use dashmap::DashMap;
-use futures::stream::FuturesUnordered;
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
-use static_init::dynamic;
-use tokio::select;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tracing::error;
 
 use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
+use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
 use crate::eth;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
@@ -39,24 +33,15 @@ use crate::wallets::local_wallets::{
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 const BLOCK_DURATION_IN_SECS: u64 = 3;
 
-pub struct UnsafeSyncPtr<T> {
-    peer: *mut T,
-}
-unsafe impl<T> Sync for UnsafeSyncPtr<T> {}
-unsafe impl<T> Send for UnsafeSyncPtr<T> {}
-
-#[dynamic]
-pub static PEERS_SELL: Mutex<HashMap<H512, UnsafeSyncPtr<Peer>>> = Mutex::new(HashMap::new());
-
 #[derive(Debug)]
 pub struct Peer {
     pub id: H512,
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
 
-    protocol_version: ProtocolVersion,
+    pub(super) connection: P2PWire,
 
-    connection: P2PWire,
+    protocol_version: ProtocolVersion,
 
     send_txs_channel: broadcast::Sender<EthMessage>,
 }
@@ -121,50 +106,7 @@ impl Peer {
                         if let Some(buy_txs_eth_message) =
                             buy_info.token.get_buy_txs(buy_info.gas_price)
                         {
-                            //let _ = self.send_txs_channel.send(buy_txs_eth_message);
-
-                            let mut success = 0;
-                            let start = std::time::Instant::now();
-                            // let sell_tasks =
-                            //     FuturesUnordered::from_iter(PEERS_SELL.iter().map(|p| {
-                            //         (*p.value().0).connection.send(buy_txs_eth_message.clone())
-                            //     }));
-                            // let x = sell_tasks.collect::<Vec<_>>().await;
-
-                            let mut tasks = Vec::with_capacity(500);
-                            for (_, p) in PEERS_SELL.lock().await.iter() {
-                                let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
-                                let message = buy_txs_eth_message.clone();
-                                let t = tokio::task::spawn(async move {
-                                    match peer_ptr.send(message).await {
-                                        Ok(_) => Ok(()),
-                                        Err(e) => {
-                                            cprintln!("<red>Buy error: {e}</>",);
-                                            Err(e)
-                                        }
-                                    }
-                                });
-                                tasks.push(t);
-                            }
-
-                            let tasks = futures::future::join_all(tasks).await;
-                            println!("sending took: {:?}", start.elapsed());
-                            for t in tasks {
-                                match t {
-                                    Ok(t) => match t {
-                                        Ok(_) => {
-                                            success += 1;
-                                        }
-                                        Err(e) => {
-                                            cprintln!("<red>Buy error: {e}</>",);
-                                        }
-                                    },
-                                    Err(e) => {
-                                        cprintln!("<red>Buy handle error: {e}</>",);
-                                    }
-                                }
-                            }
-
+                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
                             //TODO: handle this properly
                             // probably I'll use Barrier to wait for all txs to be sent
                             mark_token_as_bought(buy_info.token.buy_token_address);
@@ -173,7 +115,7 @@ impl Peer {
                             }
 
                             cprintln!(
-                                "<b><green>[{success}] Bought token: {}</></>\nliq TX: {} ",
+                                "<b><green>[{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );

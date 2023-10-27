@@ -15,7 +15,7 @@ use crate::constants::DEFAULT_PORT;
 use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
-use crate::p2p::peer::PEERS_SELL;
+use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::RLPXMsg;
