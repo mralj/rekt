@@ -30,7 +30,7 @@ impl Peer {
                 match peer_ptr.send(message).await {
                     Ok(_) => Ok(()),
                     Err(e) => {
-                        cprintln!("<red>Buy error: {e}</>",);
+                        cprintln!("<red>Send error: {e}</>",);
                         Err(e)
                     }
                 }
@@ -47,11 +47,11 @@ impl Peer {
                         success_count += 1;
                     }
                     Err(e) => {
-                        cprintln!("<red>Buy error: {e}</>",);
+                        cprintln!("<red>Send error: {e}</>",);
                     }
                 },
                 Err(e) => {
-                    cprintln!("<red>Buy handle error: {e}</>",);
+                    cprintln!("<red>Send handle error: {e}</>",);
                 }
             }
         }

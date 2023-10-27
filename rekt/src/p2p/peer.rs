@@ -120,7 +120,7 @@ impl Peer {
                                 get_bsc_tx_url(buy_info.hash)
                             );
 
-                            Self::sell(buy_info.token, self.send_txs_channel.clone());
+                            Self::sell(buy_info.token);
                         }
                     }
                     EthMessageHandler::None => {}
@@ -164,7 +164,7 @@ impl Peer {
         Ok(())
     }
 
-    fn sell(token: Token, send_txs_channel: broadcast::Sender<EthMessage>) {
+    fn sell(token: Token) {
         //TODO: handle transfer instead of selling scenario
         tokio::spawn(async move {
             // sleep so that we don't sell immediately
@@ -177,19 +177,15 @@ impl Peer {
                     generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
                 );
 
-                match send_txs_channel.send(sell_tx) {
-                    Ok(_) => {
-                        cprintln!(
-                            "<blue>[{}/{}]Selling token: {:#x}</>",
-                            i + 1,
-                            token.sell_config.sell_count,
-                            token.buy_token_address
-                        );
-                    }
-                    Err(e) => {
-                        cprintln!("<red> Sell Channel error: {e}</>");
-                    }
-                }
+                let count = Peer::send_tx(sell_tx).await;
+
+                cprintln!(
+                    "<blue>[{count}][{}/{}]Selling token: {:#x}</>",
+                    i + 1,
+                    token.sell_config.sell_count,
+                    token.buy_token_address
+                );
+
                 // wait for sell tx to be mined before sending the next one
                 tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
             }
