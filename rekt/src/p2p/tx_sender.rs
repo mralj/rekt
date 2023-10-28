@@ -29,6 +29,7 @@ impl Peer {
             tokio::spawn(async move { peer_ptr.send(message).await })
         }));
 
+        println!("iteration took: {:?}", start.elapsed());
         let tasks = tasks.collect::<Vec<_>>().await;
         println!("sending took: {:?}", start.elapsed());
         for t in tasks {
