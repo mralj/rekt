@@ -1,12 +1,12 @@
 use std::task::{ready, Poll};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use futures::{Sink, Stream};
 use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use tracing::trace;
 
-use super::{Connection, RLPXMsg, RLPXSessionError};
+use super::{codec::RLPXMsgOut, Connection, RLPXMsg, RLPXSessionError};
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -47,7 +47,7 @@ macro_rules! ready_map_err {
     };
 }
 
-impl Sink<BytesMut> for TcpWire {
+impl Sink<Bytes> for TcpWire {
     type Error = RLPXSessionError;
 
     fn poll_ready(
@@ -57,10 +57,10 @@ impl Sink<BytesMut> for TcpWire {
         ready_map_err!(self.project().inner.poll_ready(cx))
     }
 
-    fn start_send(self: std::pin::Pin<&mut Self>, item: BytesMut) -> Result<(), Self::Error> {
+    fn start_send(self: std::pin::Pin<&mut Self>, item: Bytes) -> Result<(), Self::Error> {
         self.project()
             .inner
-            .start_send(RLPXMsg::Message(item))
+            .start_send(RLPXMsgOut::Message(item))
             .map_err(RLPXSessionError::RlpxError)
     }
 

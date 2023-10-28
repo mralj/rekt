@@ -18,7 +18,7 @@ use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
-use crate::rlpx::codec::RLPXMsg;
+use crate::rlpx::codec::{RLPXMsg, RLPXMsgOut};
 use crate::rlpx::errors::{RLPXError, RLPXSessionError};
 use crate::rlpx::TcpWire;
 use crate::rlpx::{utils::pk2id, Connection};
@@ -79,14 +79,14 @@ pub fn connect_to_node(
         });
 
         let mut transport = rlpx_connection.framed(stream);
-        map_err!(transport.send(RLPXMsg::Auth).await);
+        map_err!(transport.send(RLPXMsgOut::Auth).await);
         map_err!(handle_ack_msg(&mut transport).await);
 
         map_err!(
             transport
-                .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
-                    pk2id(&pub_key),
-                )))
+                .send(RLPXMsgOut::Message(
+                    p2p::HelloMessage::get_our_hello_message(pk2id(&pub_key),)
+                ))
                 .await
         );
 

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::task::{ready, Poll};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
@@ -22,7 +22,7 @@ const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for
 pub struct P2PWire {
     #[pin]
     inner: TcpWire,
-    writer_queue: VecDeque<BytesMut>,
+    writer_queue: VecDeque<Bytes>,
     snappy_decoder: snap::raw::Decoder,
     snappy_encoder: snap::raw::Encoder,
 }
@@ -99,7 +99,7 @@ impl P2PWire {
                 let mut buf = BytesMut::new();
                 P2PMessage::Pong.encode(&mut buf);
 
-                self.writer_queue.push_back(buf);
+                self.writer_queue.push_back(buf.freeze());
 
                 // Flushes (writes) sink (maybe writes our Pong message)
                 // To explain "maybe writes" our Pong message:
@@ -210,7 +210,7 @@ impl Sink<EthMessage> for P2PWire {
         compressed[0] = item.id as u8 + ETH_PROTOCOL_OFFSET;
         compressed.truncate(compressed_size + 1);
 
-        self.writer_queue.push_back(compressed);
+        self.writer_queue.push_back(compressed.freeze());
         Ok(())
     }
 

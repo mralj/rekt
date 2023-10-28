@@ -1,6 +1,6 @@
 use crate::types::hash::H256;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use open_fastrlp::{Encodable, RlpEncodable};
 
 #[derive(Debug, Clone, PartialEq, Eq, RlpEncodable)]
@@ -14,9 +14,9 @@ impl TransactionsRequest {
         Self { id: 0, hashes }
     }
 
-    pub fn rlp_encode(&self) -> BytesMut {
+    pub fn rlp_encode(&self) -> Bytes {
         let mut rlp = BytesMut::new();
         self.encode(&mut rlp);
-        rlp
+        rlp.freeze()
     }
 }

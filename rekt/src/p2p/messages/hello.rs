@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use once_cell::sync::OnceCell;
 use open_fastrlp::{Encodable, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use crate::p2p::protocol::Protocol;
 use crate::types::hash::H512;
 
 const DEFAULT_P2P_PROTOCOL_VERSION: usize = 5;
-static OUR_HELLO_MESSAGE_RLP_ENCODED: OnceCell<BytesMut> = OnceCell::new();
+static OUR_HELLO_MESSAGE_RLP_ENCODED: OnceCell<Bytes> = OnceCell::new();
 
 /// Message used in the `p2p` handshake, containing information about the supported RLPx protocol
 /// version and protocols.
@@ -69,7 +69,7 @@ impl HelloMessage {
         }
     }
 
-    pub fn get_our_hello_message(id: H512) -> BytesMut {
+    pub fn get_our_hello_message(id: H512) -> Bytes {
         OUR_HELLO_MESSAGE_RLP_ENCODED
             .get_or_init(|| {
                 let hello = HelloMessage {
@@ -80,10 +80,10 @@ impl HelloMessage {
             })
             .clone()
     }
-    pub fn rlp_encode(&self) -> BytesMut {
+    pub fn rlp_encode(&self) -> Bytes {
         let mut hello_rlp = BytesMut::new();
         super::P2PMessageID::Hello.encode(&mut hello_rlp);
         self.encode(&mut hello_rlp);
-        hello_rlp
+        hello_rlp.freeze()
     }
 }
