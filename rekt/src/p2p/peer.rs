@@ -30,7 +30,7 @@ use crate::wallets::local_wallets::{
 };
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
-const BLOCK_DURATION_IN_SECS: u64 = 3;
+const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
 
 #[derive(Debug)]
 pub struct Peer {
@@ -178,7 +178,8 @@ impl Peer {
                 );
 
                 // wait for sell tx to be mined before sending the next one
-                tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
+                // we also wait bit more before sending new tx since our code is super fast 😅
+                tokio::time::sleep(Duration::from_millis(BLOCK_DURATION_IN_MILLIS + 500)).await;
             }
 
             cprintln!(
@@ -188,7 +189,7 @@ impl Peer {
 
             // this will refresh token list with proper nonces
             // sleep for a while to make sure public nodes have latest nonces
-            tokio::time::sleep(Duration::from_secs(3 * BLOCK_DURATION_IN_SECS)).await;
+            tokio::time::sleep(Duration::from_millis(3 * BLOCK_DURATION_IN_MILLIS)).await;
             update_nonces_for_local_wallets().await;
             remove_all_tokens_to_buy();
         });

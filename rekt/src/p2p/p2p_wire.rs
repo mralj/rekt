@@ -13,6 +13,7 @@ use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
+use super::peer::BUY_IS_IN_PROGRESS;
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
@@ -126,6 +127,12 @@ impl Stream for P2PWire {
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
+        // in case buy is in progress we don't want to read any messages
+        // till we are done with buying
+        if unsafe { BUY_IS_IN_PROGRESS } {
+            return Poll::Pending;
+        }
+
         while let Poll::Ready(bytes_r) = this.inner.poll_next_unpin(cx) {
             let bytes = match bytes_r {
                 None => return Poll::Ready(None),
@@ -192,13 +199,25 @@ impl Sink<EthMessage> for P2PWire {
         // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
         // we should not be in situation where this method was called and queue is full, so smth.
         // bad happened, return err
-        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            return Err(P2PError::TooManyMessagesQueued);
-        }
-
         if item.is_compressed() {
+            // if message is already compressed this is "high-priority" message
+            // remove all queued messages and send this one
+            self.writer_queue.clear();
             self.writer_queue.push_back(item.data);
             return Ok(());
+        }
+
+        // note check !item.is_compressed() is not needed, because of lines above
+        // but in case we move code around or change logic, I think it is better to have it here
+        let we_should_not_send_any_unimportant_messages_during_buy =
+            unsafe { BUY_IS_IN_PROGRESS && !item.is_compressed() };
+
+        if we_should_not_send_any_unimportant_messages_during_buy {
+            return Ok(());
+        }
+
+        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
+            return Err(P2PError::TooManyMessagesQueued);
         }
 
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
