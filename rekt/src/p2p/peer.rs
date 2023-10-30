@@ -5,13 +5,13 @@ use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
-use tokio::select;
 use tokio::sync::broadcast;
 use tracing::error;
 
 use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
+use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
 use crate::eth;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
@@ -39,9 +39,9 @@ pub struct Peer {
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
 
-    protocol_version: ProtocolVersion,
+    pub(super) connection: P2PWire,
 
-    connection: P2PWire,
+    protocol_version: ProtocolVersion,
 
     send_txs_channel: broadcast::Sender<EthMessage>,
 }
@@ -85,43 +85,42 @@ impl Peer {
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
-        let mut txs_to_send_receiver = self.send_txs_channel.subscribe();
+        let peer_ptr = UnsafeSyncPtr {
+            peer: self as *mut _,
+        };
+        PEERS_SELL
+            .lock()
+            .await
+            .insert(self.node_record.id, peer_ptr);
+
         loop {
-            select! {
-                biased;
-                msg_to_send = txs_to_send_receiver.recv() => {
-                    if let Ok(msg) = msg_to_send {
+            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                match handler_resp {
+                    EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
                     }
-                },
-                msg = self.connection.next(), if unsafe {!BUY_IS_IN_PROGRESS} => {
-                    let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                        match handler_resp {
-                            EthMessageHandler::Response(msg) => {
-                                self.connection.send(msg).await?;
-                            },
-                            EthMessageHandler::Buy(mut buy_info) => {
-                                if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
-                                    let _ = self.send_txs_channel.send(buy_txs_eth_message);
+                    EthMessageHandler::Buy(mut buy_info) => {
+                        if let Some(buy_txs_eth_message) =
+                            buy_info.token.get_buy_txs(buy_info.gas_price)
+                        {
+                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
 
-                                    //TODO: handle this properly
-                                    // probably I'll use Barrier to wait for all txs to be sent
-                                    mark_token_as_bought(buy_info.token.buy_token_address);
-                                    cprintln!("<b><green>Bought token: {}</></>\nliq TX: {} ",
-                                              get_bsc_token_url(buy_info.token.buy_token_address),
-                                              get_bsc_tx_url(buy_info.hash));
-                                    unsafe {
-                                        BUY_IS_IN_PROGRESS = false;
-                                    }
+                            mark_token_as_bought(buy_info.token.buy_token_address);
+                            unsafe {
+                                BUY_IS_IN_PROGRESS = false;
+                            }
+                            cprintln!(
+                                "<b><green>[{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
+                                get_bsc_token_url(buy_info.token.buy_token_address),
+                                get_bsc_tx_url(buy_info.hash)
+                            );
 
-                                    Self::sell(buy_info.token, self.send_txs_channel.clone());
-                                }
-                            },
-                            EthMessageHandler::None => {},
+                            Self::sell(buy_info.token);
                         }
                     }
-                },
+                    EthMessageHandler::None => {}
+                }
             }
         }
     }
@@ -161,7 +160,7 @@ impl Peer {
         Ok(())
     }
 
-    fn sell(token: Token, send_txs_channel: broadcast::Sender<EthMessage>) {
+    fn sell(token: Token) {
         //TODO: handle transfer instead of selling scenario
         tokio::spawn(async move {
             // sleep so that we don't sell immediately
@@ -174,19 +173,15 @@ impl Peer {
                     generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
                 );
 
-                match send_txs_channel.send(sell_tx) {
-                    Ok(_) => {
-                        cprintln!(
-                            "<blue>[{}/{}]Selling token: {:#x}</>",
-                            i + 1,
-                            token.sell_config.sell_count,
-                            token.buy_token_address
-                        );
-                    }
-                    Err(e) => {
-                        cprintln!("<red> Channel error: {e}</>");
-                    }
-                }
+                let count = Peer::send_tx(sell_tx).await;
+
+                cprintln!(
+                    "<blue>[{count}][{}/{}]Selling token: {:#x}</>",
+                    i + 1,
+                    token.sell_config.sell_count,
+                    token.buy_token_address
+                );
+
                 // wait for sell tx to be mined before sending the next one
                 tokio::time::sleep(Duration::from_secs(BLOCK_DURATION_IN_SECS)).await;
             }

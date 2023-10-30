@@ -15,7 +15,7 @@ use crate::rlpx::RLPXSessionError;
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
 use super::errors::ConnectionTaskError;
-use super::peers::{BLACKLIST_PEERS_BY_ID, PEERS};
+use super::peers::BLACKLIST_PEERS_BY_ID;
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -64,10 +64,6 @@ impl OutboundConnections {
 
         tokio::task::spawn(async move {
             retry_runner.run_retirer().await;
-        });
-
-        tokio::task::spawn(async move {
-            log_runner.run_logger().await;
         });
 
         for node in self.nodes.iter() {
@@ -136,16 +132,6 @@ impl OutboundConnections {
             }
 
             let _ = self.conn_tx.send(task).await;
-        }
-    }
-
-    async fn run_logger(&self) {
-        let mut info_interval = interval(Duration::from_secs(5 * 60));
-
-        loop {
-            info_interval.tick().await;
-            tracing::info!("==================== ==========================  ==========");
-            tracing::info!("PEER COUNT: {}", PEERS.len());
         }
     }
 }
