@@ -192,13 +192,16 @@ impl Sink<EthMessage> for P2PWire {
         // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
         // we should not be in situation where this method was called and queue is full, so smth.
         // bad happened, return err
-        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            return Err(P2PError::TooManyMessagesQueued);
-        }
-
         if item.is_compressed() {
+            // if message is already compressed this is "high-priority" message
+            // remove all queued messages and send this one
+            self.writer_queue.clear();
             self.writer_queue.push_back(item.data);
             return Ok(());
+        }
+
+        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
+            return Err(P2PError::TooManyMessagesQueued);
         }
 
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
