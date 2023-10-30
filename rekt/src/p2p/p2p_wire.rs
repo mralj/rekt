@@ -207,6 +207,8 @@ impl Sink<EthMessage> for P2PWire {
             return Ok(());
         }
 
+        // note check !item.is_compressed() is not needed, because of lines above
+        // but in case we move code around or change logic, I think it is better to have it here
         let we_should_not_send_any_unimportant_messages_during_buy =
             unsafe { BUY_IS_IN_PROGRESS && !item.is_compressed() };
 
