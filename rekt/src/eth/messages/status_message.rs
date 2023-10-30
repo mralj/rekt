@@ -28,7 +28,7 @@ pub struct StatusMessage {
     pub version: u8,
 
     /// The chain id, as introduced in
-    /// [EIP155](https://eips.ethereum.org/EIPS/eip-154#list-of-chain-ids).
+    /// [EIP155](https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids).
     pub chain: u8,
 
     /// Total difficulty of the best chain.

@@ -5,7 +5,6 @@ use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
 
 use open_fastrlp::Decodable;
-use tokio::sync::broadcast;
 use tracing::error;
 
 use super::errors::P2PError;
@@ -42,8 +41,6 @@ pub struct Peer {
     pub(super) connection: P2PWire,
 
     protocol_version: ProtocolVersion,
-
-    send_txs_channel: broadcast::Sender<EthMessage>,
 }
 
 impl Peer {
@@ -53,7 +50,6 @@ impl Peer {
         protocol: usize,
         info: String,
         connection: TcpWire,
-        send_txs_channel: broadcast::Sender<EthMessage>,
     ) -> Self {
         Self {
             id,
@@ -61,7 +57,6 @@ impl Peer {
             info,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
-            send_txs_channel,
         }
     }
 }

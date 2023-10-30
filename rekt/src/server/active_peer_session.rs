@@ -6,13 +6,11 @@ use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::broadcast;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::constants::DEFAULT_PORT;
-use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::tx_sender::PEERS_SELL;
@@ -31,7 +29,6 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     tx: AsyncSender<ConnectionTaskError>,
-    send_txs_channel: broadcast::Sender<EthMessage>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -107,7 +104,6 @@ pub fn connect_to_node(
             protocol_v,
             hello_msg.client_version,
             TcpWire::new(transport),
-            send_txs_channel,
         );
 
         let task_result = p.run().await;
