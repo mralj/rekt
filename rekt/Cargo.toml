@@ -60,3 +60,4 @@ clap = {version = "4.4.6", features = ["derive"]}
 warp = "0.3.6"
 color-print = "0.3.5"
 static_init = "1.0.3"
+mimalloc = "0.1.39"
