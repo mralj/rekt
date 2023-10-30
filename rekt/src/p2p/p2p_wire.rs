@@ -207,6 +207,13 @@ impl Sink<EthMessage> for P2PWire {
             return Ok(());
         }
 
+        let we_should_not_send_any_unimportant_messages_during_buy =
+            unsafe { BUY_IS_IN_PROGRESS && !item.is_compressed() };
+
+        if we_should_not_send_any_unimportant_messages_during_buy {
+            return Ok(());
+        }
+
         if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
             return Err(P2PError::TooManyMessagesQueued);
         }
