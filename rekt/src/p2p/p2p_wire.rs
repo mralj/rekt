@@ -13,6 +13,7 @@ use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
+use super::peer::BUY_IS_IN_PROGRESS;
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
@@ -125,6 +126,12 @@ impl Stream for P2PWire {
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
+
+        // in case buy is in progress we don't want to read any messages
+        // till we are done with buying
+        if unsafe { BUY_IS_IN_PROGRESS } {
+            return Poll::Pending;
+        }
 
         while let Poll::Ready(bytes_r) = this.inner.poll_next_unpin(cx) {
             let bytes = match bytes_r {
