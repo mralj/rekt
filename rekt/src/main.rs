@@ -22,13 +22,12 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting rekt");
-    init_cache();
-    println!("TX cache initialized");
-
     let args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
+
+    init_cache();
+    println!("TX cache initialized");
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
