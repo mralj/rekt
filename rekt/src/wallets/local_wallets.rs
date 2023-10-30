@@ -37,12 +37,12 @@ pub static SELL_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
 });
 
 pub async fn init_local_wallets(args: &Cli) {
-    let first_wallet_index = if args.is_important_server {
+    let first_wallet_index = if args.is_un_important_server {
         //note server_index is counted from 1 not 0
-        (args.server_index - 1) * args.pings_per_server
-    } else {
         UN_IMPORTANT_WALLETS_START_AT_INDEX
             + (args.server_index - 1) * args.pings_per_unimportant_server
+    } else {
+        (args.server_index - 1) * args.pings_per_server
     };
 
     let mut local_wallets = LOCAL_WALLETS_LIST

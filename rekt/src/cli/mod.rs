@@ -22,12 +22,11 @@ pub struct Cli {
     pub pings_per_server: usize,
 
     #[arg(
-        short = 'm',
+        short = 'u',
         long = "important",
-        default_value = "true",
-        value_name = "Is server important?"
+        value_name = "Is server unimportant important?"
     )]
-    pub is_important_server: bool,
+    pub is_un_important_server: bool,
 
     #[arg(
         long = "pings_unimportant",
@@ -41,8 +40,8 @@ impl Display for Cli {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "server_index: {}, pings_per_server: {}, is_important_server: {}",
-            self.server_index, self.pings_per_server, self.is_important_server
+            "server_index: {}, pings_per_server: {}, is_un_important_server: {}",
+            self.server_index, self.pings_per_server, self.is_un_important_server
         )
     }
 }
