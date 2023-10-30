@@ -1,4 +1,4 @@
-use bytes::BytesMut;
+use bytes::Bytes;
 
 use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::p2p_wire_message::P2pWireMessage;
@@ -13,12 +13,12 @@ pub enum EthMessageCompressionStatus {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EthMessage {
     pub id: EthProtocol,
-    pub data: BytesMut,
+    pub data: Bytes,
     pub compressed: EthMessageCompressionStatus,
 }
 
 impl EthMessage {
-    pub fn new(id: EthProtocol, data: BytesMut) -> Self {
+    pub fn new(id: EthProtocol, data: Bytes) -> Self {
         Self {
             id,
             data,
@@ -26,11 +26,11 @@ impl EthMessage {
         }
     }
 
-    pub fn new_tx_message(data: BytesMut) -> Self {
+    pub fn new_tx_message(data: Bytes) -> Self {
         Self::new(EthProtocol::TransactionsMsg, data)
     }
 
-    pub fn new_compressed_tx_message(data: BytesMut) -> Self {
+    pub fn new_compressed_tx_message(data: Bytes) -> Self {
         Self {
             data,
             id: EthProtocol::TransactionsMsg,
@@ -48,7 +48,7 @@ impl From<P2pWireMessage> for EthMessage {
         let id = msg.id - ETH_PROTOCOL_OFFSET;
         Self {
             id: EthProtocol::from(id),
-            data: msg.data,
+            data: msg.data.freeze(),
             compressed: EthMessageCompressionStatus::Uncompressed,
         }
     }

@@ -18,7 +18,9 @@ use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting rekt");
     init_cache();
+    println!("TX cache initialized");
 
     let args = Cli::parse();
     let mut config = get_config()?;
@@ -32,8 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::subscriber::set_global_default(subscriber).expect("Could not init tracing");
 
-    let (tx_sender, _) = tokio::sync::broadcast::channel(1);
-    run_local_server(tx_sender.clone());
+    run_local_server();
     let our_node = LocalNode::new(public_ip::addr().await);
 
     println!("{:?}", our_node.node_record.str);
@@ -47,7 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         our_node.private_key,
         our_node.public_key,
         get_all_nodes(&mut config.nodes),
-        tx_sender,
     ));
 
     OutboundConnections::start(outbound_connections).await;

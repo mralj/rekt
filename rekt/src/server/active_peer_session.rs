@@ -6,19 +6,17 @@ use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::broadcast;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::constants::DEFAULT_PORT;
-use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
-use crate::rlpx::codec::RLPXMsg;
+use crate::rlpx::codec::{RLPXMsg, RLPXMsgOut};
 use crate::rlpx::errors::{RLPXError, RLPXSessionError};
 use crate::rlpx::TcpWire;
 use crate::rlpx::{utils::pk2id, Connection};
@@ -31,7 +29,6 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     tx: AsyncSender<ConnectionTaskError>,
-    send_txs_channel: broadcast::Sender<EthMessage>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -79,14 +76,14 @@ pub fn connect_to_node(
         });
 
         let mut transport = rlpx_connection.framed(stream);
-        map_err!(transport.send(RLPXMsg::Auth).await);
+        map_err!(transport.send(RLPXMsgOut::Auth).await);
         map_err!(handle_ack_msg(&mut transport).await);
 
         map_err!(
             transport
-                .send(RLPXMsg::Message(p2p::HelloMessage::get_our_hello_message(
-                    pk2id(&pub_key),
-                )))
+                .send(RLPXMsgOut::Message(
+                    p2p::HelloMessage::get_our_hello_message(pk2id(&pub_key),)
+                ))
                 .await
         );
 
@@ -107,7 +104,6 @@ pub fn connect_to_node(
             protocol_v,
             hello_msg.client_version,
             TcpWire::new(transport),
-            send_txs_channel,
         );
 
         let task_result = p.run().await;

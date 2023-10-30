@@ -3,7 +3,6 @@ use std::str::FromStr;
 use color_print::cprintln;
 use derive_more::Display;
 use ethers::types::Address;
-use tokio::sync::broadcast;
 use warp::{filters::path::end, reject::Reject, Filter};
 
 use crate::{
@@ -15,7 +14,7 @@ use crate::{
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
-pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
+pub fn run_local_server() {
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
@@ -37,9 +36,9 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
                 let prep_tx = EthMessage::new_compressed_tx_message(
                     generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
                 );
-                Peer::send_tx(prep_tx).await;
+                let cnt = Peer::send_tx(prep_tx).await;
                 cprintln!(
-                    "<yellow>Prep sent successfully: {}</>",
+                    "<yellow>[{cnt}]Prep sent successfully: {}</>",
                     token.buy_token_address
                 );
                 return Ok(format!(
@@ -70,7 +69,6 @@ pub fn run_local_server(send_txs_channel: broadcast::Sender<EthMessage>) {
 enum LocalServerErr {
     InvalidTokenAddress,
     TokenNotFound,
-    TxChannelError,
 }
 
 impl Reject for LocalServerErr {}

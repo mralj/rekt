@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
 
@@ -27,12 +27,29 @@ pub enum RLPXMsg {
     Message(BytesMut),
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum RLPXMsgOut {
+    Auth,
+    Ack,
+    Message(Bytes),
+}
+
 impl Display for RLPXMsg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RLPXMsg::Auth => write!(f, "Auth"),
             RLPXMsg::Ack => write!(f, "Ack"),
             RLPXMsg::Message(m) => write!(f, "Message: {:?}", m),
+        }
+    }
+}
+
+impl Display for RLPXMsgOut {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RLPXMsgOut::Auth => write!(f, "Auth"),
+            RLPXMsgOut::Ack => write!(f, "Ack"),
+            RLPXMsgOut::Message(m) => write!(f, "Message: {:?}", m),
         }
     }
 }
@@ -111,21 +128,21 @@ impl Decoder for super::Connection {
     }
 }
 
-impl Encoder<RLPXMsg> for super::Connection {
+impl Encoder<RLPXMsgOut> for super::Connection {
     type Error = super::errors::RLPXError;
 
-    fn encode(&mut self, item: RLPXMsg, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: RLPXMsgOut, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
-            RLPXMsg::Auth => {
+            RLPXMsgOut::Auth => {
                 self.write_auth(dst);
                 self.state = RLPXConnectionState::Ack;
                 Ok(())
             }
-            RLPXMsg::Ack => {
+            RLPXMsgOut::Ack => {
                 trace!("Got request to write ack, this is unexpected at this time ");
                 Ok(())
             }
-            RLPXMsg::Message(msg) => {
+            RLPXMsgOut::Message(msg) => {
                 self.write_header(dst, msg.len());
                 self.write_body(dst, &msg);
                 Ok(())

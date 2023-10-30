@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use futures::{stream::FuturesUnordered, StreamExt};
 use once_cell::sync::Lazy;
 use open_fastrlp::Header;
@@ -17,7 +17,7 @@ use crate::{
 
 use super::{
     local_wallets_list::{LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, SELL_WALLET_ADDRESS},
-    wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
+    wallet_with_nonce::WalletWithNonce,
 };
 
 pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
@@ -84,7 +84,7 @@ pub async fn update_nonces_for_local_wallets() {
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     token: &Token,
     gas_price_in_gwei: u64,
-) -> BytesMut {
+) -> Bytes {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
     let generate_buy_txs_tasks =
@@ -116,7 +116,7 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&buy_txs))
 }
 
-pub async fn generate_and_rlp_encode_prep_tx(token: &Token, gwei_gas_price: u64) -> BytesMut {
+pub async fn generate_and_rlp_encode_prep_tx(token: &Token, gwei_gas_price: u64) -> Bytes {
     let prep_wallet = &mut PREPARE_WALLET.write().await;
     prep_wallet.update_nonce().await;
 
@@ -128,7 +128,7 @@ pub async fn generate_and_rlp_encode_prep_tx(token: &Token, gwei_gas_price: u64)
     snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&vec![tx]))
 }
 
-pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> BytesMut {
+pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: bool) -> Bytes {
     let sell_wallet = &mut SELL_WALLET.write().await;
     if should_increment_nocne_locally {
         sell_wallet.update_nonce_locally();
@@ -141,7 +141,7 @@ pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: boo
     rlp_encode_list_of_bytes(&vec![tx])
 }
 
-fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::BytesMut {
+fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::Bytes {
     let mut out = BytesMut::with_capacity(txs_rlp_encoded.len() * 2);
     Header {
         list: true,
@@ -152,10 +152,10 @@ fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::
         .into_iter()
         .for_each(|tx| out.extend_from_slice(tx));
 
-    out
+    out.freeze()
 }
 
-fn snappy_compress_rlp_bytes(rlp_tx: BytesMut) -> BytesMut {
+fn snappy_compress_rlp_bytes(rlp_tx: Bytes) -> Bytes {
     let mut snappy_encoder = snap::raw::Encoder::new();
     let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(rlp_tx.len()));
     let compressed_size = snappy_encoder
@@ -165,5 +165,5 @@ fn snappy_compress_rlp_bytes(rlp_tx: BytesMut) -> BytesMut {
     compressed[0] = EthProtocol::TransactionsMsg as u8 + ETH_PROTOCOL_OFFSET;
     compressed.truncate(compressed_size + 1);
 
-    compressed
+    compressed.freeze()
 }

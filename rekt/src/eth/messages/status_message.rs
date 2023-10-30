@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use derive_more::Display;
 use num_traits::ToPrimitive;
 use once_cell::sync::OnceCell;
@@ -113,7 +113,7 @@ impl StatusMessage {
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                EthMessage::new(EthProtocol::StatusMsg, status_rlp)
+                EthMessage::new(EthProtocol::StatusMsg, status_rlp.freeze())
             }),
             ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
                 let status = Self {
@@ -122,16 +122,16 @@ impl StatusMessage {
                 };
                 let mut status_rlp = BytesMut::new();
                 status.encode(&mut status_rlp);
-                EthMessage::new(EthProtocol::StatusMsg, status_rlp)
+                EthMessage::new(EthProtocol::StatusMsg, status_rlp.freeze())
             }),
         }
         .clone()
     }
 
-    pub fn rlp_encode(&self) -> BytesMut {
+    pub fn rlp_encode(&self) -> Bytes {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
-        status_rlp
+        status_rlp.freeze()
     }
 
     pub fn validate(
@@ -217,9 +217,9 @@ impl UpgradeStatusMessage {
             .clone()
     }
 
-    pub fn rlp_encode(&self) -> BytesMut {
+    pub fn rlp_encode(&self) -> Bytes {
         let mut status_rlp = BytesMut::new();
         self.encode(&mut status_rlp);
-        status_rlp
+        status_rlp.freeze()
     }
 }
