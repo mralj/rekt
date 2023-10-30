@@ -27,6 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("TX cache initialized");
 
     let args = Cli::parse();
+    println!("{}", args);
     let mut config = get_config()?;
 
     let file = File::create("log.txt")?;
