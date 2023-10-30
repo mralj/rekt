@@ -22,16 +22,16 @@ pub static PEERS_SELL: Mutex<HashMap<H512, UnsafeSyncPtr<Peer>>> = Mutex::new(Ha
 impl Peer {
     pub async fn send_tx(msg: EthMessage) -> usize {
         let mut success_count: usize = 0;
-        let start = std::time::Instant::now();
+        //        let start = std::time::Instant::now();
         let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
             let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
             let message = msg.clone();
             tokio::spawn(async move { peer_ptr.send(message).await })
         }));
 
-        println!("iteration took: {:?}", start.elapsed());
+        //       println!("iteration took: {:?}", start.elapsed());
         let tasks = tasks.collect::<Vec<_>>().await;
-        println!("sending took: {:?}", start.elapsed());
+        //      println!("sending took: {:?}", start.elapsed());
         for t in tasks {
             match t {
                 Ok(t) => match t {

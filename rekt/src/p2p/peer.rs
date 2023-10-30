@@ -95,8 +95,6 @@ impl Peer {
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-
-            //        let msg = msg.ok_or(P2PError::NoMessage)??;
             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
@@ -107,13 +105,11 @@ impl Peer {
                             buy_info.token.get_buy_txs(buy_info.gas_price)
                         {
                             let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
-                            //TODO: handle this properly
-                            // probably I'll use Barrier to wait for all txs to be sent
+
                             mark_token_as_bought(buy_info.token.buy_token_address);
                             unsafe {
                                 BUY_IS_IN_PROGRESS = false;
                             }
-
                             cprintln!(
                                 "<b><green>[{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
                                 get_bsc_token_url(buy_info.token.buy_token_address),
