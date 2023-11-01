@@ -13,7 +13,7 @@ use crate::public_nodes::nodes::PUBLIC_NODE_URLS;
 use crate::token::token::Token;
 
 pub const BUY_TX_METHOD: &str = "cure";
-pub const CAESAR_BOT_ADDRESS: &str = "0x92dA9c224b39Da0a03ede8Fb85C0F7798cfF0923";
+pub const CAESAR_BOT_ADDRESS: &str = "0x47Aeb02ba0aa4b432E75f30293CB7C7BF70aafbf";
 
 static CAESAR_BOT: Lazy<Contract<Provider<Http>>> = Lazy::new(|| get_caesar_bot());
 
