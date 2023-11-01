@@ -106,7 +106,8 @@ impl Peer {
                                 BUY_IS_IN_PROGRESS = false;
                             }
                             cprintln!(
-                                "<b><green>[{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
+                                "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
+                                buy_info.time.format("%Y-%m-%d %H:%M:%S%f"),
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );

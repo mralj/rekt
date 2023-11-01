@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bytes::{Buf, Bytes};
-use dashmap::mapref::entry::Entry;
+use chrono::{DateTime, Utc};
 use ethers::types::Address;
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
 use sha3::{Digest, Keccak256};
@@ -41,6 +41,7 @@ pub struct BuyTokenInfo {
     pub token: Token,
     pub gas_price: u64,
     pub hash: H256,
+    pub time: DateTime<Utc>,
 }
 
 impl BuyTokenInfo {
@@ -49,6 +50,7 @@ impl BuyTokenInfo {
             token,
             gas_price,
             hash,
+            time: chrono::Utc::now(),
         }
     }
 }
