@@ -11,9 +11,11 @@ use crate::blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER;
 use crate::discover::messages::find_node::Neighbours;
 use crate::types::hash::{H256, H512};
 
+use super::discover_node::DiscoverNode;
 use super::messages::discover_message::{DiscoverMessage, DiscoverMessageType};
 use super::messages::enr::EnrResponse;
 use super::messages::ping_pong_messages::{PingMessage, PongMessage};
+use super::server::Server;
 
 // The following constants are defined in the "docs"
 // https://github.com/ethereum/devp2p/blob/master/discv4.md
@@ -27,6 +29,7 @@ const HEADER_SIZE: usize = HASH_SIZE + SIGNATURE_SIZE;
 pub const MAX_PACKET_SIZE: usize = 1280;
 
 pub fn decode_msg_and_create_response(
+    server: &Server,
     src: &SocketAddr,
     buf: &[u8],
     enr: &Enr<SecretKey>,
@@ -68,7 +71,7 @@ pub fn decode_msg_and_create_response(
         }
     };
 
-    let _node_id = H512::from_slice(&pk.serialize_uncompressed()[1..]);
+    let node_id = H512::from_slice(&pk.serialize_uncompressed()[1..]);
 
     let msg_type = DiscoverMessageType::try_from(*msg_type).ok()?;
     if !msg_type.discover_msg_should_be_handled() {
@@ -79,6 +82,18 @@ pub fn decode_msg_and_create_response(
     match msg_type {
         DiscoverMessageType::Ping => {
             let ping_msg = PingMessage::decode(msg_data).ok()?;
+
+            match server.nodes.entry(node_id) {
+                dashmap::mapref::entry::Entry::Occupied(mut entry) => {
+                    entry.get_mut().mark_ping_received();
+                }
+                dashmap::mapref::entry::Entry::Vacant(entry) => {
+                    if let Ok(node) = DiscoverNode::from_ping_msg(&ping_msg, node_id) {
+                        entry.insert(node);
+                    }
+                }
+            };
+
             Some(DiscoverMessage::Pong(PongMessage::new(
                 ping_msg,
                 H256::from_slice(hash),

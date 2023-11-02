@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use dashmap::{DashMap};
+use dashmap::DashMap;
 use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
@@ -19,7 +19,6 @@ use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::discover_node::DiscoverNode;
 use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRATION};
 
-
 use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {
@@ -29,7 +28,7 @@ pub struct Server {
     udp_receiver: kanal::AsyncReceiver<(SocketAddr, Bytes)>,
     udp_sender: kanal::AsyncSender<(SocketAddr, Bytes)>,
 
-    nodes: DashMap<H512, DiscoverNode>,
+    pub(super) nodes: DashMap<H512, DiscoverNode>,
 
     pending_pings: DashMap<H512, std::time::Instant>,
 
@@ -101,7 +100,7 @@ impl Server {
                 }
 
                 if let Some(resp) =
-                    decode_msg_and_create_response(&src, &buf[..size], &self.local_node.enr)
+                    decode_msg_and_create_response(&self, &src, &buf[..size], &self.local_node.enr)
                 {
                     let packet =
                         DiscoverMessage::create_disc_v4_packet(resp, &self.local_node.private_key);
