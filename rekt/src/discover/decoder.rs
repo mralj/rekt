@@ -83,7 +83,7 @@ pub fn decode_msg_and_create_response(
         DiscoverMessageType::Ping => {
             let ping_msg = PingMessage::decode(msg_data).ok()?;
 
-            println!("[{}] Ping [{:?}]", now, src);
+            //println!("[{}] Ping [{:?}]", now, src);
             match server.nodes.entry(node_id) {
                 dashmap::mapref::entry::Entry::Occupied(mut entry) => {
                     entry.get_mut().mark_ping_received();
@@ -101,8 +101,15 @@ pub fn decode_msg_and_create_response(
             )))
         }
         DiscoverMessageType::Pong => {
-            let _ = PongMessage::decode(msg_data).ok()?;
-            println!("[{}] Pong [{:?}]", now, src);
+            match PongMessage::decode(msg_data) {
+                Ok(_) => {
+                    println!("[{}] Pong [{:?}]", now, src)
+                }
+                Err(e) => {
+                    println!("Could not decode pong message: {:?}", e);
+                    return None;
+                }
+            }
 
             server.pending_pings.remove(&node_id);
             let node = &mut server.nodes.get_mut(&node_id)?;
