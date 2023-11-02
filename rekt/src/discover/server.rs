@@ -32,14 +32,10 @@ pub struct Server {
     pub(super) nodes: DashMap<H512, DiscoverNode>,
 
     pub(super) pending_pings: DashMap<H512, std::time::Instant>,
-
-    //TODO delete this
-    boot_nodes: Vec<NodeRecord>,
-    static_nodes: Vec<String>,
 }
 
 impl Server {
-    pub async fn new(local_node: LocalNode) -> Result<Self, io::Error> {
+    pub async fn new(local_node: LocalNode, nodes: Vec<String>) -> Result<Self, io::Error> {
         let udp_socket = Arc::new(
             UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
                 Ipv4Addr::UNSPECIFIED,
@@ -48,21 +44,22 @@ impl Server {
             .await?,
         );
 
+        let nodes = DashMap::from_iter(
+            nodes
+                .into_iter()
+                .filter_map(|n| n.parse::<NodeRecord>().ok())
+                .filter_map(|n| DiscoverNode::try_from(n).ok())
+                .map(|n| (n.node_record.id, n)),
+        );
+
         let (sender, receiver) = kanal::unbounded_async();
-        let boot_nodes: Vec<NodeRecord> = BOOTSTRAP_NODES
-            .iter()
-            .copied()
-            .filter_map(|n| NodeRecord::from_str(n).ok())
-            .collect();
 
         Ok(Self {
             local_node,
             udp_socket,
+            nodes,
             udp_sender: sender,
             udp_receiver: receiver,
-            boot_nodes,
-            static_nodes: Vec::new(),
-            nodes: DashMap::with_capacity(10_0000),
             pending_pings: DashMap::with_capacity(10_000),
         })
     }
