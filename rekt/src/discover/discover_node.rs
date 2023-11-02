@@ -4,7 +4,6 @@ use std::time::Instant;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
-use super::messages::discover_message::DEFAULT_MESSAGE_EXPIRATION;
 use super::messages::ping_pong_messages::PingMessage;
 
 pub(super) struct DiscoverNode {
@@ -69,18 +68,22 @@ impl DiscoverNode {
         self.node_record.id
     }
 
-    pub(super) fn re_ping_is_not_needed(&self) -> bool {
-        if let Some(pinged_on) = self.pinged_on {
-            if pinged_on.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION {
-                return true;
-            }
+    pub(super) fn should_ping(&self, time_elapsed_for_ping_in_sec: u64) -> bool {
+        if self.ping_count > 3 {
+            return false;
         }
 
         if self.we_have_authed_this_node() {
-            return true;
+            return false;
         }
 
-        self.ping_count > 3
+        if let Some(pinged_on) = self.pinged_on {
+            if pinged_on.elapsed().as_secs() < time_elapsed_for_ping_in_sec {
+                return false;
+            }
+        }
+
+        true
     }
 
     pub(super) fn from_ping_msg(ping_msg: &PingMessage, id: H512) -> Result<Self, ()> {

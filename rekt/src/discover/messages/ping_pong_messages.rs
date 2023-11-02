@@ -1,7 +1,8 @@
 use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use open_fastrlp::{RlpDecodable, RlpEncodable};
+use bytes::{Buf, BufMut};
+use open_fastrlp::{Decodable, DecodeError, Encodable, Header, RlpDecodable, RlpEncodable};
 use serde::{Deserialize, Serialize};
 
 use crate::local_node::LocalNode;
@@ -65,11 +66,12 @@ impl PingMessage {
     }
 }
 
-#[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PongMessage {
     pub(super) to: Endpoint,
     pub(super) hash: H256,
     pub(super) expires: u64,
+    pub enr_sq: Option<u64>,
 }
 
 impl PongMessage {
@@ -84,6 +86,59 @@ impl PongMessage {
             hash,
             expires,
             to: ping_msg.to,
+            enr_sq: None,
         }
+    }
+}
+
+impl Encodable for PongMessage {
+    fn encode(&self, out: &mut dyn BufMut) {
+        #[derive(RlpEncodable)]
+        struct PongMessage<'a> {
+            to: &'a Endpoint,
+            hash: &'a H256,
+            expires: u64,
+        }
+
+        PongMessage {
+            to: &self.to,
+            hash: &self.hash,
+            expires: self.expires,
+        }
+        .encode(out);
+    }
+}
+
+impl Decodable for PongMessage {
+    fn decode(buf: &mut &[u8]) -> Result<Self, DecodeError> {
+        let b = &mut &**buf;
+        let rlp_head = Header::decode(b)?;
+        if !rlp_head.list {
+            return Err(DecodeError::UnexpectedString);
+        }
+        let started_len = b.len();
+        let mut this = Self {
+            to: Decodable::decode(b)?,
+            hash: Decodable::decode(b)?,
+            expires: Decodable::decode(b)?,
+            enr_sq: None,
+        };
+
+        if b.has_remaining() {
+            this.enr_sq = Some(Decodable::decode(b)?);
+        }
+
+        let consumed = started_len - b.len();
+        if consumed > rlp_head.payload_length {
+            return Err(DecodeError::ListLengthMismatch {
+                expected: rlp_head.payload_length,
+                got: consumed,
+            });
+        }
+        let rem = rlp_head.payload_length - consumed;
+        b.advance(rem);
+        *buf = *b;
+
+        Ok(this)
     }
 }

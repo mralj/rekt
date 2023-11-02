@@ -99,6 +99,15 @@ pub fn decode_msg_and_create_response(
                 H256::from_slice(hash),
             )))
         }
+        DiscoverMessageType::Pong => {
+            let _ = PongMessage::decode(msg_data).ok()?;
+
+            server.pending_pings.remove(&node_id);
+            let node = &mut server.nodes.get_mut(&node_id)?;
+            node.mark_pong_received();
+
+            None
+        }
         DiscoverMessageType::EnrRequest => Some(DiscoverMessage::EnrResponse(EnrResponse::new(
             H256::from_slice(hash),
             enr.clone(),

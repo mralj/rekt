@@ -41,6 +41,7 @@ impl DiscoverMessageType {
     pub fn discover_msg_should_be_handled(&self) -> bool {
         match self {
             DiscoverMessageType::Ping => true,
+            DiscoverMessageType::Pong => true,
             DiscoverMessageType::EnrRequest => true,
             DiscoverMessageType::EnrResponse => true,
             DiscoverMessageType::Neighbors => true,

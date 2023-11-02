@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use dashmap::DashMap;
+use futures::stream::FuturesUnordered;
 use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
@@ -30,15 +31,11 @@ pub struct Server {
 
     pub(super) nodes: DashMap<H512, DiscoverNode>,
 
-    pending_pings: DashMap<H512, std::time::Instant>,
-
-    //TODO delete this
-    boot_nodes: Vec<NodeRecord>,
-    static_nodes: Vec<String>,
+    pub(super) pending_pings: DashMap<H512, std::time::Instant>,
 }
 
 impl Server {
-    pub async fn new(local_node: LocalNode) -> Result<Self, io::Error> {
+    pub async fn new(local_node: LocalNode, nodes: Vec<String>) -> Result<Self, io::Error> {
         let udp_socket = Arc::new(
             UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
                 Ipv4Addr::UNSPECIFIED,
@@ -47,21 +44,22 @@ impl Server {
             .await?,
         );
 
+        let nodes = DashMap::from_iter(
+            nodes
+                .into_iter()
+                .filter_map(|n| n.parse::<NodeRecord>().ok())
+                .filter_map(|n| DiscoverNode::try_from(n).ok())
+                .map(|n| (n.node_record.id, n)),
+        );
+
         let (sender, receiver) = kanal::unbounded_async();
-        let boot_nodes: Vec<NodeRecord> = BOOTSTRAP_NODES
-            .iter()
-            .copied()
-            .filter_map(|n| NodeRecord::from_str(n).ok())
-            .collect();
 
         Ok(Self {
             local_node,
             udp_socket,
+            nodes,
             udp_sender: sender,
             udp_receiver: receiver,
-            boot_nodes,
-            static_nodes: Vec::new(),
-            nodes: DashMap::with_capacity(10_0000),
             pending_pings: DashMap::with_capacity(10_000),
         })
     }
@@ -69,6 +67,7 @@ impl Server {
     pub fn start(this: Arc<Self>) {
         let writer = this.clone();
         let reader = this.clone();
+        let pinger = this.clone();
 
         tokio::spawn(async move {
             let _ = writer.run_writer().await;
@@ -76,6 +75,10 @@ impl Server {
 
         tokio::spawn(async move {
             let _ = reader.run_reader().await;
+        });
+
+        tokio::spawn(async move {
+            let _ = pinger.run_pinger().await;
         });
     }
 
@@ -110,43 +113,65 @@ impl Server {
         }
     }
 
-    async fn send_ping_packet(&self, node: &DiscoverNode) {
-        if self.pending_pings.contains_key(&node.id()) {
+    async fn send_ping_packet(&self, node: (H512, NodeRecord, Ipv4Addr, u16)) {
+        let (id, node_record, ip, udp) = node;
+        if self.pending_pings.contains_key(&id) {
             return;
         }
 
-        if let Some(mut n) = self.nodes.get_mut(&node.id()) {
-            if n.re_ping_is_not_needed() {
+        if let Some(mut n) = self.nodes.get_mut(&id) {
+            if !n.should_ping(DEFAULT_MESSAGE_EXPIRATION) {
                 return;
             }
 
             n.mark_ping_attempt();
         }
 
-        self.pending_pings
-            .insert(node.id(), std::time::Instant::now());
+        self.pending_pings.insert(id, std::time::Instant::now());
         let packet = DiscoverMessage::create_disc_v4_packet(
-            DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node.node_record)),
+            DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node_record)),
             &self.local_node.private_key,
         );
 
         let _ = self
             .udp_sender
-            .send((
-                SocketAddr::V4(SocketAddrV4::new(node.ip_v4_addr, node.udp_port())),
-                packet,
-            ))
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
             .await;
     }
 
-    async fn purge_stale_pings(&self) {
+    async fn run_pinger(&self) -> anyhow::Result<()> {
+        let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
+            self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
+        }));
+
+        let _result = tasks.collect::<Vec<_>>().await;
+
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
             std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
         ));
 
         while let Some(_) = stream.next().await {
-            self.pending_pings
-                .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+            while let Some(_) = stream.next().await {
+                self.pending_pings
+                    .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+            }
+
+            let tasks = FuturesUnordered::from_iter(
+                self.nodes
+                    .iter()
+                    .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
+                    .map(|n| {
+                        self.send_ping_packet((
+                            n.id(),
+                            n.node_record.clone(),
+                            n.ip_v4_addr,
+                            n.udp_port(),
+                        ))
+                    }),
+            );
+            let _result = tasks.collect::<Vec<_>>().await;
         }
+
+        Ok(())
     }
 }
