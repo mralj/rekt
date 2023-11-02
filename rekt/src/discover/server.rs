@@ -129,7 +129,8 @@ impl Server {
     //so to ping we could have smaller clonable struct
     async fn run_pinger(&self) -> anyhow::Result<()> {
         for n in self.nodes.iter() {
-            self.send_ping_packet(&n).await;
+            self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
+                .await;
         }
 
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
@@ -142,19 +143,21 @@ impl Server {
                 .iter()
                 .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
             {
-                self.send_ping_packet(&n).await;
+                self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
+                    .await;
             }
         }
 
         Ok(())
     }
 
-    async fn send_ping_packet(&self, node: &DiscoverNode) {
-        if self.pending_pings.contains_key(&node.id()) {
+    async fn send_ping_packet(&self, node: (H512, NodeRecord, Ipv4Addr, u16)) {
+        let (id, node_record, ip, udp) = node;
+        if self.pending_pings.contains_key(&id) {
             return;
         }
 
-        if let Some(mut n) = self.nodes.get_mut(&node.id()) {
+        if let Some(mut n) = self.nodes.get_mut(&id) {
             if !n.should_ping(DEFAULT_MESSAGE_EXPIRATION) {
                 return;
             }
@@ -162,19 +165,15 @@ impl Server {
             n.mark_ping_attempt();
         }
 
-        self.pending_pings
-            .insert(node.id(), std::time::Instant::now());
+        self.pending_pings.insert(id, std::time::Instant::now());
         let packet = DiscoverMessage::create_disc_v4_packet(
-            DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node.node_record)),
+            DiscoverMessage::Ping(PingMessage::new(&self.local_node, &node_record)),
             &self.local_node.private_key,
         );
 
         let _ = self
             .udp_sender
-            .send((
-                SocketAddr::V4(SocketAddrV4::new(node.ip_v4_addr, node.udp_port())),
-                packet,
-            ))
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
             .await;
     }
 
