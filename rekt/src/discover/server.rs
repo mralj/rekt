@@ -68,7 +68,6 @@ impl Server {
         let writer = this.clone();
         let reader = this.clone();
         let pinger = this.clone();
-        let purger = this.clone();
 
         tokio::spawn(async move {
             let _ = writer.run_writer().await;
@@ -80,10 +79,6 @@ impl Server {
 
         tokio::spawn(async move {
             let _ = pinger.run_pinger().await;
-        });
-
-        tokio::spawn(async move {
-            let _ = purger.purge_stale_pings().await;
         });
     }
 
@@ -118,41 +113,6 @@ impl Server {
         }
     }
 
-    //TODO: optimize this, we have await in each loop iteration
-    //what we want is FuturesUnordered (or. smth like that)
-    //the issue is borrowing node from DashMap
-    //so to ping we could have smaller clonable struct
-    async fn run_pinger(&self) -> anyhow::Result<()> {
-        let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
-            self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
-        }));
-
-        let _result = tasks.collect::<Vec<_>>().await;
-
-        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
-            std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
-        ));
-
-        while let Some(_) = stream.next().await {
-            let tasks = FuturesUnordered::from_iter(
-                self.nodes
-                    .iter()
-                    .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
-                    .map(|n| {
-                        self.send_ping_packet((
-                            n.id(),
-                            n.node_record.clone(),
-                            n.ip_v4_addr,
-                            n.udp_port(),
-                        ))
-                    }),
-            );
-            let _result = tasks.collect::<Vec<_>>().await;
-        }
-
-        Ok(())
-    }
-
     async fn send_ping_packet(&self, node: (H512, NodeRecord, Ipv4Addr, u16)) {
         let (id, node_record, ip, udp) = node;
         if self.pending_pings.contains_key(&id) {
@@ -179,14 +139,39 @@ impl Server {
             .await;
     }
 
-    async fn purge_stale_pings(&self) {
+    async fn run_pinger(&self) -> anyhow::Result<()> {
+        let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
+            self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
+        }));
+
+        let _result = tasks.collect::<Vec<_>>().await;
+
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
             std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
         ));
 
         while let Some(_) = stream.next().await {
-            self.pending_pings
-                .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+            while let Some(_) = stream.next().await {
+                self.pending_pings
+                    .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+            }
+
+            let tasks = FuturesUnordered::from_iter(
+                self.nodes
+                    .iter()
+                    .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
+                    .map(|n| {
+                        self.send_ping_packet((
+                            n.id(),
+                            n.node_record.clone(),
+                            n.ip_v4_addr,
+                            n.udp_port(),
+                        ))
+                    }),
+            );
+            let _result = tasks.collect::<Vec<_>>().await;
         }
+
+        Ok(())
     }
 }
