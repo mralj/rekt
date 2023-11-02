@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if our_node.public_ip_retrieved {
         let discover_server =
             Arc::new(rekt::discover::server::Server::new(our_node, all_nodes).await?);
-        rekt::discover::server::Server::start(discover_server);
+        rekt::discover::server::Server::start(discover_server).await;
     } else {
         println!("Failed to retrieve public ip, discovery server not started");
     }

@@ -1,6 +1,5 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -10,7 +9,7 @@ use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
 
-use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
+use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
 use crate::types::hash::H512;
@@ -64,7 +63,7 @@ impl Server {
         })
     }
 
-    pub fn start(this: Arc<Self>) {
+    pub async fn start(this: Arc<Self>) {
         let writer = this.clone();
         let reader = this.clone();
         let pinger = this.clone();
@@ -78,6 +77,12 @@ impl Server {
         tokio::spawn(async move {
             let _ = reader.run_reader().await;
         });
+
+        let tasks = FuturesUnordered::from_iter(this.nodes.iter().map(|n| {
+            this.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
+        }));
+
+        let _result = tasks.collect::<Vec<_>>().await;
 
         tokio::spawn(async move {
             let _ = pinger.run_pinger().await;
@@ -128,12 +133,6 @@ impl Server {
     //the issue is borrowing node from DashMap
     //so to ping we could have smaller clonable struct
     async fn run_pinger(&self) -> anyhow::Result<()> {
-        let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
-            self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
-        }));
-
-        let _result = tasks.collect::<Vec<_>>().await;
-
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
             std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
         ));
@@ -201,6 +200,7 @@ impl Server {
         ));
 
         while let Some(_) = stream.next().await {
+            let total = self.nodes.len();
             let we_auth = self
                 .nodes
                 .iter()
@@ -221,12 +221,12 @@ impl Server {
 
             println!(
                 "[DISC]Total: {}, We authed: {}, they authed: {}, should remove: {}",
-                they_out, we_auth, they_out, should_remove
+                total, we_auth, they_out, should_remove
             );
 
             tracing::info!(
                 "[DISC]Total: {}, We authed: {}, they authed: {}, should remove: {}",
-                they_out,
+                total,
                 we_auth,
                 they_out,
                 should_remove
