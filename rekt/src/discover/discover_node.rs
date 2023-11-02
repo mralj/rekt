@@ -30,6 +30,17 @@ impl DiscoverNode {
         false
     }
 
+    pub(super) fn this_node_has_authed_us(&self) -> bool {
+        if let Some(ping_received_on) = self.ping_received_on {
+            const HOURS_12: u64 = 60 * 60 * 12;
+            if ping_received_on.elapsed().as_secs() < HOURS_12 {
+                return true;
+            }
+        }
+
+        false
+    }
+
     #[inline(always)]
     pub(super) fn mark_ping_attempt(&mut self) {
         self.pinged_on = Some(Instant::now());
