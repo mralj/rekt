@@ -123,24 +123,31 @@ impl Server {
     //the issue is borrowing node from DashMap
     //so to ping we could have smaller clonable struct
     async fn run_pinger(&self) -> anyhow::Result<()> {
-        for n in self.nodes.iter() {
+        let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
             self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
-                .await;
-        }
+        }));
+
+        let _result = tasks.collect::<Vec<_>>().await;
 
         let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
             std::time::Duration::from_secs(DEFAULT_MESSAGE_EXPIRATION),
         ));
 
         while let Some(_) = stream.next().await {
-            for n in self
-                .nodes
-                .iter()
-                .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
-            {
-                self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
-                    .await;
-            }
+            let tasks = FuturesUnordered::from_iter(
+                self.nodes
+                    .iter()
+                    .filter(|n| n.should_ping(10 * DEFAULT_MESSAGE_EXPIRATION))
+                    .map(|n| {
+                        self.send_ping_packet((
+                            n.id(),
+                            n.node_record.clone(),
+                            n.ip_v4_addr,
+                            n.udp_port(),
+                        ))
+                    }),
+            );
+            let _result = tasks.collect::<Vec<_>>().await;
         }
 
         Ok(())
