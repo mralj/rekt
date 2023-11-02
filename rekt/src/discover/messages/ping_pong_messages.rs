@@ -17,9 +17,9 @@ const DEFAULT_IP_PACKET_V: u8 = 4;
 
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct Endpoint {
-    pub(super) ip: IpAddr,
-    pub(super) udp: u16,
-    pub(super) tcp: u16,
+    pub(crate) ip: IpAddr,
+    pub(crate) udp: u16,
+    pub(crate) tcp: u16,
 }
 
 impl Endpoint {
@@ -41,7 +41,7 @@ impl From<&NodeRecord> for Endpoint {
 #[derive(Debug, Clone, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
 pub struct PingMessage {
     pub(super) version: u8,
-    pub(super) from: Endpoint,
+    pub(crate) from: Endpoint,
     pub(super) to: Endpoint,
     pub(super) expiration: u64,
     pub(super) enr_seq: u64,

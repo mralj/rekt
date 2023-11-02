@@ -61,6 +61,23 @@ impl NodeRecord {
         }
     }
 
+    pub fn new_with_id(
+        address: IpAddr,
+        tcp_port: u16,
+        udp_port: u16,
+        id: H512,
+    ) -> Result<Self, secp256k1::Error> {
+        Ok(Self {
+            tcp_port,
+            id,
+            address,
+            udp_port,
+            pub_key: id2pk(id)?,
+            ip: address.to_string(),
+            str: format!("enode://{:02x}@{}:{}", id, address, tcp_port),
+        })
+    }
+
     pub fn ip_v4_address(&self) -> Option<Ipv4Addr> {
         match self.address {
             IpAddr::V4(ip) => Some(ip),
