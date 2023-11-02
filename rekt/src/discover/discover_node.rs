@@ -86,6 +86,10 @@ impl DiscoverNode {
         true
     }
 
+    pub(super) fn should_remove(&self) -> bool {
+        self.ping_count >= 3 && !self.we_have_authed_this_node()
+    }
+
     pub(super) fn from_ping_msg(ping_msg: &PingMessage, id: H512) -> Result<Self, ()> {
         let node_record =
             NodeRecord::new_with_id(ping_msg.from.ip, ping_msg.from.tcp, ping_msg.from.udp, id)

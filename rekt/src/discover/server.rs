@@ -72,6 +72,7 @@ impl Server {
         let reader = this.clone();
         let pinger = this.clone();
         let purger = this.clone();
+        let logger = this.clone();
 
         tokio::spawn(async move {
             let _ = writer.run_writer().await;
@@ -87,6 +88,10 @@ impl Server {
 
         tokio::spawn(async move {
             let _ = purger.purge_stale_pings().await;
+        });
+
+        tokio::spawn(async move {
+            let _ = logger.run_logger().await;
         });
     }
 
@@ -184,6 +189,45 @@ impl Server {
         while let Some(_) = stream.next().await {
             self.pending_pings
                 .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+        }
+    }
+
+    async fn run_logger(&self) {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(60),
+        ));
+
+        while let Some(_) = stream.next().await {
+            let we_auth = self
+                .nodes
+                .iter()
+                .filter(|n| n.value().we_have_authed_this_node())
+                .count();
+
+            let they_out = self
+                .nodes
+                .iter()
+                .filter(|n| n.value().this_node_has_authed_us())
+                .count();
+
+            let should_remove = self
+                .nodes
+                .iter()
+                .filter(|n| n.value().should_remove())
+                .count();
+
+            println!(
+                "[DISC]Total: {}, We authed: {}, they authed: {}, should remove: {}",
+                they_out, we_auth, they_out, should_remove
+            );
+
+            tracing::info!(
+                "[DISC]Total: {}, We authed: {}, they authed: {}, should remove: {}",
+                they_out,
+                we_auth,
+                they_out,
+                should_remove
+            );
         }
     }
 }
