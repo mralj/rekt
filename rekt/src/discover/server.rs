@@ -78,11 +78,14 @@ impl Server {
             let _ = reader.run_reader().await;
         });
 
+        let start = std::time::Instant::now();
         let tasks = FuturesUnordered::from_iter(this.nodes.iter().map(|n| {
             this.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
         }));
 
         let _result = tasks.collect::<Vec<_>>().await;
+        println!("Pinged all nodes in {:?}", start.elapsed());
+        tracing::info!("Pinged all nodes in {:?}", start.elapsed());
 
         tokio::spawn(async move {
             let _ = pinger.run_pinger().await;
