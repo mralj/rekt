@@ -146,10 +146,8 @@ impl Server {
         ));
 
         while let Some(_) = stream.next().await {
-            while let Some(_) = stream.next().await {
-                self.pending_pings
-                    .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
-            }
+            self.pending_pings
+                .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
 
             let tasks = FuturesUnordered::from_iter(
                 self.nodes
