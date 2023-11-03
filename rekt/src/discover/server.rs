@@ -22,11 +22,11 @@ use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRAT
 use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {
-    local_node: LocalNode,
+    pub(super) local_node: LocalNode,
     udp_socket: Arc<UdpSocket>,
 
+    pub(super) udp_sender: kanal::AsyncSender<(SocketAddr, Bytes)>,
     udp_receiver: kanal::AsyncReceiver<(SocketAddr, Bytes)>,
-    udp_sender: kanal::AsyncSender<(SocketAddr, Bytes)>,
 
     pub(super) nodes: DashMap<H512, DiscoverNode>,
 
@@ -101,12 +101,8 @@ impl Server {
                     continue;
                 }
 
-                if let Ok(msg) =
-                    decode_msg_and_create_response(&self, &src, &buf[..size], &self.local_node.enr)
-                {
-                    // let packet =
-                    //     DiscoverMessage::create_disc_v4_packet(resp, &self.local_node.private_key);
-                    // let _ = self.udp_sender.send((src, packet)).await;
+                if let Ok(msg) = decode_msg_and_create_response(src, &buf[..size]) {
+                    self.handle_received_msg(msg).await;
                 }
             }
         }
