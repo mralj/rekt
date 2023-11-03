@@ -1,6 +1,5 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -10,7 +9,7 @@ use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
 
-use crate::constants::{BOOTSTRAP_NODES, DEFAULT_PORT};
+use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::local_node::LocalNode;
 use crate::types::hash::H512;
@@ -102,12 +101,12 @@ impl Server {
                     continue;
                 }
 
-                if let Some(resp) =
+                if let Ok(msg) =
                     decode_msg_and_create_response(&self, &src, &buf[..size], &self.local_node.enr)
                 {
-                    let packet =
-                        DiscoverMessage::create_disc_v4_packet(resp, &self.local_node.private_key);
-                    let _ = self.udp_sender.send((src, packet)).await;
+                    // let packet =
+                    //     DiscoverMessage::create_disc_v4_packet(resp, &self.local_node.private_key);
+                    // let _ = self.udp_sender.send((src, packet)).await;
                 }
             }
         }

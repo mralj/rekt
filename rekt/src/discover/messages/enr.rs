@@ -6,7 +6,7 @@ use crate::{blockchain::fork::ForkId, types::hash::H256};
 
 use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
 
-#[derive(Debug, Clone, RlpEncodable)]
+#[derive(Debug, Clone, RlpEncodable, RlpDecodable)]
 pub struct EnrRequest {
     pub expiration: u64,
 }

@@ -1,4 +1,5 @@
 use bytes::{BufMut, Bytes, BytesMut};
+use derive_more::Display;
 use ethers::utils::keccak256;
 use open_fastrlp::Encodable;
 use secp256k1::ecdsa::RecoverableSignature;
@@ -8,11 +9,12 @@ use crate::discover::decoder::MAX_PACKET_SIZE;
 use crate::types::hash::H256;
 
 use super::enr::{EnrRequest, EnrResponse};
-use super::find_node::FindNode;
+use super::find_node::{FindNode, Neighbours};
 use super::ping_pong_messages::{PingMessage, PongMessage};
 
 pub(crate) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
 
+#[derive(Debug, Clone, Copy, Display)]
 pub enum DiscoverMessageType {
     Ping = 1,
     Pong = 2,
@@ -23,7 +25,7 @@ pub enum DiscoverMessageType {
 }
 
 impl TryFrom<u8> for DiscoverMessageType {
-    type Error = ();
+    type Error = String;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(DiscoverMessageType::Ping),
@@ -32,7 +34,7 @@ impl TryFrom<u8> for DiscoverMessageType {
             4 => Ok(DiscoverMessageType::Neighbors),
             5 => Ok(DiscoverMessageType::EnrRequest),
             6 => Ok(DiscoverMessageType::EnrResponse),
-            _ => Err(()),
+            _ => Err("Unknown message type".to_string()),
         }
     }
 }
@@ -55,6 +57,7 @@ pub enum DiscoverMessage {
     Pong(PongMessage),
     EnrRequest(EnrRequest),
     EnrResponse(EnrResponse),
+    Neighbours(Neighbours),
     FindNode(FindNode),
 }
 
@@ -64,6 +67,7 @@ impl DiscoverMessage {
             DiscoverMessage::Ping(_) => 1,
             DiscoverMessage::Pong(_) => 2,
             DiscoverMessage::FindNode(_) => 3,
+            DiscoverMessage::Neighbours(_) => 4,
             DiscoverMessage::EnrRequest(_) => 5,
             DiscoverMessage::EnrResponse(_) => 6,
         }
@@ -78,6 +82,7 @@ impl Encodable for DiscoverMessage {
             DiscoverMessage::FindNode(msg) => msg.encode(out),
             DiscoverMessage::EnrRequest(msg) => msg.encode(out),
             DiscoverMessage::EnrResponse(msg) => msg.encode(out),
+            DiscoverMessage::Neighbours(msg) => msg.encode(out),
         }
     }
 }
