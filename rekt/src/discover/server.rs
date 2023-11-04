@@ -11,6 +11,7 @@ use tokio_stream::StreamExt;
 
 use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
+use crate::discover::discover_node::{AuthStatus, DiscoverNodeType};
 use crate::local_node::LocalNode;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
@@ -197,6 +198,7 @@ impl Server {
             let _result = tasks.collect::<Vec<_>>().await;
 
             if self.pending_lookups.is_empty() || self.pending_neighbours_req.is_empty() {
+                println!("Starting new lookup");
                 let next_lookup_id = self.get_next_lookup_id();
                 let closest_nodes = self.get_closest_nodes(next_lookup_id);
                 self.pending_lookups.insert(
@@ -213,5 +215,52 @@ impl Server {
         }
 
         Ok(())
+    }
+
+    async fn run_logger(&self) {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(60),
+        ));
+
+        while let Some(_) = stream.next().await {
+            let mut len = 0;
+            let mut we_auth = 0;
+            let mut they_auth = 0;
+            let mut not_authed = 0;
+            let mut auth = 0;
+            let mut conn_in = 0;
+            let mut conn_out = 0;
+
+            for n in self.nodes.iter() {
+                len += 1;
+                match n.auth_status() {
+                    AuthStatus::Authed => {
+                        auth += 1;
+                    }
+                    AuthStatus::TheyAuthedUs => {
+                        they_auth += 1;
+                    }
+                    AuthStatus::WeAuthedThem => {
+                        we_auth += 1;
+                    }
+                    AuthStatus::NotAuthed => {
+                        not_authed += 1;
+                    }
+                }
+
+                match n.node_type {
+                    DiscoverNodeType::WeDiscoveredThem => {
+                        conn_out += 1;
+                    }
+                    DiscoverNodeType::TheyDiscoveredUs => {
+                        conn_in += 1;
+                    }
+                    _ => {}
+                }
+            }
+            println!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}");
+
+            tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}");
+        }
     }
 }
