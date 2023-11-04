@@ -41,6 +41,7 @@ impl Server {
                         return;
                     }
 
+                    println!("Sending find node packet via ping");
                     self.send_neighbours_packet(req.lookup_id, (req.ip, req.udp))
                         .await;
                 }
@@ -146,6 +147,7 @@ impl Server {
                     );
                     let _result = tasks.collect::<Vec<_>>().await;
 
+                    println!("Sending find node via neighbours direct");
                     let tasks = FuturesUnordered::from_iter(
                         nex_query_batch
                             .iter()

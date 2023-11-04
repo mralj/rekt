@@ -202,7 +202,6 @@ impl Server {
             let _result = tasks.collect::<Vec<_>>().await;
 
             if self.pending_lookups.is_empty() || self.pending_neighbours_req.is_empty() {
-                println!("Starting new lookup");
                 let next_lookup_id = self.get_next_lookup_id();
                 let closest_nodes = self.get_closest_nodes(next_lookup_id);
                 self.pending_lookups.insert(
@@ -210,6 +209,7 @@ impl Server {
                     Lookup::new(next_lookup_id, closest_nodes.clone()),
                 );
 
+                println!("Sending find node via new lookup");
                 for n in closest_nodes.iter() {
                     self.pending_neighbours_req
                         .insert(next_lookup_id, PendingNeighboursReq::new(next_lookup_id, n));
