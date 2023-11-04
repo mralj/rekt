@@ -64,17 +64,6 @@ impl Lookup {
         }
     }
 
-    pub fn mark_node_queried(&mut self, node_id: H512) {
-        if let Some((_k, node)) = self
-            .closest_nodes
-            .iter_mut()
-            .find(|(_, n)| n.node.id() == node_id)
-        {
-            node.request_sent = true;
-            node.last_lookup = Some(std::time::Instant::now());
-        }
-    }
-
     pub fn mark_node_responded(&mut self, node_id: H512) {
         if let Some((_k, node)) = self
             .closest_nodes
@@ -121,7 +110,6 @@ impl Lookup {
 
 pub struct LookupNode {
     pub node: DiscoverNode,
-    pub last_lookup: Option<std::time::Instant>,
     pub request_sent: bool,
     pub responded: bool,
 }
@@ -130,7 +118,6 @@ impl From<DiscoverNode> for LookupNode {
     fn from(node: DiscoverNode) -> Self {
         Self {
             node,
-            last_lookup: None,
             request_sent: false,
             responded: false,
         }

@@ -209,7 +209,7 @@ impl Server {
                     Lookup::new(next_lookup_id, closest_nodes.clone()),
                 );
 
-                println!("Sending find node via new lookup");
+                println!("Sending find node via new lookup: {}", closest_nodes.len());
                 for n in closest_nodes.iter() {
                     self.pending_neighbours_req
                         .insert(next_lookup_id, PendingNeighboursReq::new(next_lookup_id, n));

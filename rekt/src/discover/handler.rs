@@ -36,6 +36,7 @@ impl Server {
                 //TODO: if we received pig from node that has pending lookup
                 // and this node is not authed we can now send find node message
                 // as will it be authed after pong message we just sent
+                println!("[PING], pending find nodes: {}", self.pending_neighbours_req.len());
                 if let Some(req) = self.pending_neighbours_req.get(&msg.node_id) {
                     if req.was_authed {
                         return;
@@ -79,6 +80,7 @@ impl Server {
                 // );
             }
             DiscoverMessage::Neighbours(neighbours) => {
+                println!("Response received");
                 let req = self.pending_neighbours_req.remove(&msg.node_id);
                 if req.is_none() {
                     return;
