@@ -105,6 +105,12 @@ impl Server {
                         }
                     }
 
+                    println!(
+                        "Received {} nodes, {} are new",
+                        all_nodes.len(),
+                        unknown_nodes.len()
+                    );
+
                     unknown_nodes.into_iter().for_each(|n| {
                         self.nodes.insert(n.id(), n);
                     });
