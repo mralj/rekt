@@ -206,7 +206,7 @@ impl Server {
 
                 for n in closest_nodes.iter() {
                     self.pending_neighbours_req
-                        .insert(next_lookup_id, PendingNeighboursReq::new(next_lookup_id, n));
+                        .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
                 }
 
                 let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
