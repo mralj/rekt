@@ -23,3 +23,15 @@ construct_fixed_hash! {
 construct_fixed_hash! {
     pub struct H128(16);
 }
+
+impl H512 {
+    pub fn distance(&self, other: &H512) -> H512 {
+        let mut distance = [0u8; 64];
+
+        for i in 0..64 {
+            distance[i] = self[i] ^ other[i];
+        }
+
+        H512::from(distance)
+    }
+}
