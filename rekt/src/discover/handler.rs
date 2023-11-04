@@ -81,7 +81,6 @@ impl Server {
             DiscoverMessage::Neighbours(neighbours) => {
                 let req = self.pending_neighbours_req.remove(&msg.node_id);
                 if req.is_none() {
-                    println!("Received neighbours message from unknown node");
                     return;
                 }
                 let req = req.unwrap().1;

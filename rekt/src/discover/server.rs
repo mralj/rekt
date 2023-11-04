@@ -212,7 +212,7 @@ impl Server {
                 println!("Sending find node via new lookup: {}", closest_nodes.len());
                 for n in closest_nodes.iter() {
                     self.pending_neighbours_req
-                        .insert(next_lookup_id, PendingNeighboursReq::new(next_lookup_id, n));
+                        .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
                 }
                 let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
                     self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
