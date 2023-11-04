@@ -7,7 +7,7 @@ use crate::types::node_record::NodeRecord;
 use super::messages::find_node::NeighborNodeRecord;
 use super::messages::ping_pong_messages::PingMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DiscoverNodeType {
     Unknown,
     Static,
@@ -28,6 +28,7 @@ pub struct DiscoverNode {
     pub node_record: NodeRecord,
     pub ip_v4_addr: Ipv4Addr,
     pub node_type: DiscoverNodeType,
+    pub is_bsc_node: Option<bool>,
 
     pinged_on: Option<Instant>,
     ping_count: u8,
@@ -113,6 +114,7 @@ impl DiscoverNode {
                 ping_count: 0,
                 pinged_on: None,
                 pong_received_on: None,
+                is_bsc_node: None,
             });
         }
 
@@ -155,6 +157,7 @@ impl TryFrom<NodeRecord> for DiscoverNode {
             ping_count: 0,
             pong_received_on: None,
             ping_received_on: None,
+            is_bsc_node: Some(true),
         })
     }
 }
@@ -175,6 +178,7 @@ impl TryFrom<NeighborNodeRecord> for DiscoverNode {
                 ping_count: 0,
                 pong_received_on: None,
                 ping_received_on: None,
+                is_bsc_node: None,
             });
         }
 

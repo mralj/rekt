@@ -20,6 +20,7 @@ use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::discover_node::DiscoverNode;
 use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRATION};
 
+use super::messages::enr::EnrRequest;
 use super::messages::find_node::{FindNode, Neighbours};
 use super::messages::lookup::{Lookup, PendingNeighboursReq};
 use super::messages::ping_pong_messages::PingMessage;
@@ -159,6 +160,19 @@ impl Server {
             .await;
     }
 
+    pub(super) async fn send_enr_req_packet(&self, to: (Ipv4Addr, u16)) {
+        let packet = DiscoverMessage::create_disc_v4_packet(
+            DiscoverMessage::EnrRequest(EnrRequest::new()),
+            &self.local_node.private_key,
+        );
+
+        let (ip, udp) = to;
+        let _ = self
+            .udp_sender
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
+            .await;
+    }
+
     async fn run_worker(&self) -> anyhow::Result<()> {
         let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
             self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
@@ -220,6 +234,18 @@ impl Server {
 
                 let _result = tasks.collect::<Vec<_>>().await;
             }
+
+            let tasks = FuturesUnordered::from_iter(
+                self.nodes
+                    .iter()
+                    .filter(|n| {
+                        n.is_bsc_node.is_none() && n.auth_status() == AuthStatus::Authed
+                            || n.auth_status() == AuthStatus::TheyAuthedUs
+                    })
+                    .map(|n| self.send_enr_req_packet((n.ip_v4_addr, n.udp_port()))),
+            );
+
+            let _result = tasks.collect::<Vec<_>>().await;
         }
 
         Ok(())
@@ -238,6 +264,9 @@ impl Server {
             let mut auth = 0;
             let mut conn_in = 0;
             let mut conn_out = 0;
+            let mut bsc_nodes = 0;
+            let mut non_bsc_nodes = 0;
+            let mut unknown_nodes = 0;
 
             for n in self.nodes.iter() {
                 len += 1;
@@ -265,10 +294,18 @@ impl Server {
                     }
                     _ => {}
                 }
-            }
-            println!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}");
 
-            tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}");
+                if let Some(is_bsc_node) = n.is_bsc_node {
+                    if is_bsc_node && n.node_type != DiscoverNodeType::Static {
+                        bsc_nodes += 1;
+                    } else if !is_bsc_node {
+                        non_bsc_nodes += 1;
+                    }
+                }
+            }
+            println!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
+
+            tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
         }
     }
 }
