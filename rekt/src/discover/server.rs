@@ -204,6 +204,11 @@ impl Server {
                     Lookup::new(next_lookup_id, closest_nodes.clone()),
                 );
 
+                for n in closest_nodes.iter() {
+                    self.pending_neighbours_req
+                        .insert(next_lookup_id, PendingNeighboursReq::new(next_lookup_id, n));
+                }
+
                 let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
                     self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
                 }));
