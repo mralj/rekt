@@ -121,6 +121,10 @@ impl DiscoverNode {
         Err(())
     }
 
+    pub fn set_is_bsc(&mut self, is_bsc: bool) {
+        self.is_bsc_node = Some(is_bsc);
+    }
+
     fn we_have_authed_this_node(&self) -> bool {
         if let Some(pong_received_on) = self.pong_received_on {
             const HOURS_12: u64 = 60 * 60 * 12;

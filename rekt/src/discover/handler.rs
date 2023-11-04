@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use crate::types::hash::H512;
+use crate::{blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, types::hash::H512};
 
 use super::{
     discover_node::{AuthStatus, DiscoverNode},
@@ -62,20 +62,20 @@ impl Server {
                 );
                 let _ = self.udp_sender.send((msg.from, packet)).await;
             }
-            DiscoverMessage::EnrResponse(_) => {
+            DiscoverMessage::EnrResponse(resp) => {
                 //TODO: IMPLEMENT THIS
                 //
-                // let forks_match = {
-                //     if let Some(fork_id) = enr_response.eth_fork_id() {
-                //         BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
-                //     } else {
-                //         false
-                //     }
-                // };
-                // println!(
-                //     "[{}] ENR Response message [{:?}]: {:?}, is match: {}",
-                //     now, src, enr_response, forks_match
-                // );
+                let forks_match = {
+                    if let Some(fork_id) = resp.eth_fork_id() {
+                        BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
+                    } else {
+                        false
+                    }
+                };
+
+                if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
+                    node.set_is_bsc(forks_match);
+                }
             }
             DiscoverMessage::Neighbours(neighbours) => {
                 let req = self.pending_neighbours_req.remove(&msg.node_id);
