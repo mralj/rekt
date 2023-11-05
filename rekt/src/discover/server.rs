@@ -239,8 +239,9 @@ impl Server {
                 self.nodes
                     .iter()
                     .filter(|n| {
-                        n.is_bsc_node.is_none() && n.auth_status() == AuthStatus::Authed
-                            || n.auth_status() == AuthStatus::TheyAuthedUs
+                        n.is_bsc_node.is_none()
+                            && (n.auth_status() == AuthStatus::Authed
+                                || n.auth_status() == AuthStatus::TheyAuthedUs)
                     })
                     .map(|n| self.send_enr_req_packet((n.ip_v4_addr, n.udp_port()))),
             );
