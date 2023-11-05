@@ -246,6 +246,8 @@ impl Server {
                     .map(|n| self.send_enr_req_packet((n.ip_v4_addr, n.udp_port()))),
             );
 
+            println!("Sending enr req: {}", tasks.len());
+
             let _result = tasks.collect::<Vec<_>>().await;
         }
 
