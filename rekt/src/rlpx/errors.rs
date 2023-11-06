@@ -12,6 +12,8 @@ pub enum RLPXError {
     /// Error when parsing ACK data
     #[error("invalid ack data")]
     InvalidAckData,
+    #[error("expected ack data")]
+    ExpectedAckData,
     #[error("invalid msg data")]
     InvalidMsgData,
     /// Error when checking the HMAC tag against the tag on the message being decrypted
