@@ -51,12 +51,20 @@ impl Protocol {
 
     pub fn match_protocols(peer_protocols: &mut [Protocol]) -> Option<Protocol> {
         peer_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
-        let proto = peer_protocols.first();
-
-        match proto {
-            Some(p) if p.version == 67 && p.name == ETH_PROTOCOL => proto.cloned(),
-            Some(p) if p.version == 66 && p.name == ETH_PROTOCOL => proto.cloned(),
-            _ => None,
+        let mut proto = peer_protocols.first()?;
+        if proto.name != ETH_PROTOCOL {
+            return None;
         }
+
+        //we don't yet support ETH68 so advance to ETH67/66
+        if proto.version == 68 {
+            proto = peer_protocols.get(1)?;
+        }
+
+        if proto.version == 66 || proto.version == 67 {
+            return Some(proto.clone());
+        }
+
+        None
     }
 }
