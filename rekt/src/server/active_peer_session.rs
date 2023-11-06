@@ -124,22 +124,13 @@ pub fn connect_to_node(
 async fn handle_ack_msg(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<(), RLPXSessionError> {
-    let msg = transport.try_next().await;
-    let msg = match msg {
-        Err(e) => {
-            tracing::info!("ACK Error: {}", e);
-            return Err(RLPXSessionError::RlpxError(RLPXError::ExpectedAckData));
-        }
-        Ok(None) => {
-            tracing::info!("ACK Error: No message received");
-            return Err(RLPXSessionError::RlpxError(RLPXError::ExpectedAckData));
-        }
-        Ok(Some(msg)) => msg,
-    };
-
-    //.ok_or(RLPXError::ExpectedAckData)?;
+    let msg = transport
+        .try_next()
+        .await?
+        .ok_or(RLPXError::InvalidAckData)?;
 
     if !matches!(msg, RLPXMsg::Ack) {
+        error!("Got unexpected message: {:?}", msg);
         return Err(RLPXSessionError::UnexpectedMessage {
             received: msg,
             expected: RLPXMsg::Ack,
@@ -176,5 +167,6 @@ async fn handle_hello_msg(
         };
     }
 
+    error!("Not RLPX: Got unexpected message: {:?}", rlpx_msg);
     Err(RLPXSessionError::ExpectedRLPXMessage)
 }
