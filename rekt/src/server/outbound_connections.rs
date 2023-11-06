@@ -101,6 +101,12 @@ impl OutboundConnections {
                         tracing::info!("{}", task.err);
                     }
                 },
+                RLPXSessionError::RlpxError(ref err) => match err {
+                    crate::rlpx::RLPXError::InvalidAckData => {}
+                    _ => {
+                        tracing::info!("{}", task.err);
+                    }
+                },
                 _ => {
                     tracing::info!("{}", task.err);
                 }
