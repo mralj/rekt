@@ -56,7 +56,13 @@ impl Protocol {
         match proto {
             Some(p) if p.version == 67 && p.name == ETH_PROTOCOL => proto.cloned(),
             Some(p) if p.version == 66 && p.name == ETH_PROTOCOL => proto.cloned(),
-            _ => None,
+            _ => {
+                tracing::info!("No matching protocol found");
+                let _ = peer_protocols
+                    .iter()
+                    .for_each(|p| tracing::info!("Peer protocol: {:?}", p));
+                None
+            }
         }
     }
 }
