@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
@@ -29,6 +30,7 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     tx: AsyncSender<ConnectionTaskError>,
+    semaphore: Arc<tokio::sync::Semaphore>,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -47,6 +49,9 @@ pub fn connect_to_node(
                 }
             };
         }
+
+        let _ = semaphore.acquire().await.unwrap();
+
         map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
@@ -105,6 +110,8 @@ pub fn connect_to_node(
             hello_msg.client_version,
             TcpWire::new(transport),
         );
+
+        drop(semaphore);
 
         let task_result = p.run().await;
         PEERS.remove(&node.id);

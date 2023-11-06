@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use dashmap::DashSet;
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
+use tokio::sync::Semaphore;
 
 use crate::p2p::errors::P2PError;
 use crate::p2p::peer::BUY_IS_IN_PROGRESS;
@@ -30,6 +31,7 @@ pub struct OutboundConnections {
     retry_rx: AsyncReceiver<ConnectionTaskError>,
     retry_tx: AsyncSender<ConnectionTaskError>,
 
+    semaphore: Arc<tokio::sync::Semaphore>,
     peer_err: DashSet<H512>,
 }
 
@@ -47,6 +49,7 @@ impl OutboundConnections {
             retry_rx,
             retry_tx,
             peer_err: DashSet::with_capacity(1000),
+            semaphore: Arc::new(Semaphore::new(1024)),
         }
     }
 
@@ -76,6 +79,7 @@ impl OutboundConnections {
                     self.our_private_key,
                     self.our_pub_key,
                     self.retry_tx.clone(),
+                    self.semaphore.clone(),
                 );
             }
         }
