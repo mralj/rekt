@@ -66,10 +66,6 @@ impl OutboundConnections {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
-                if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
-                    continue;
-                }
-
                 connect_to_node(
                     task,
                     self.our_private_key,
@@ -92,7 +88,23 @@ impl OutboundConnections {
                 continue;
             }
             let task = task_r.unwrap();
-            tracing::info!("{}", task.err);
+            match task.err {
+                RLPXSessionError::DisconnectRequested(reason) => match reason {
+                    DisconnectReason::TooManyPeers => {}
+                    _ => {
+                        tracing::info!("{}", task.err);
+                    }
+                },
+                RLPXSessionError::P2PError(err) => match err {
+                    P2PError::AlreadyConnected | P2PError::AlreadyConnectedToSameIp => {}
+                    _ => {
+                        tracing::info!("{}", task.err);
+                    }
+                },
+                _ => {
+                    tracing::info!("{}", task.err);
+                }
+            }
             let task = task.conn_task;
             let it_is_not_yet_time_to_retry = !task
                 .next_attempt

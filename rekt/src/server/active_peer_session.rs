@@ -62,7 +62,7 @@ pub fn connect_to_node(
         ))));
 
         let stream = map_err!(match timeout(
-            Duration::from_secs(5),
+            Duration::from_secs(10),
             socket.connect(node.get_socket_addr()),
         )
         .await
