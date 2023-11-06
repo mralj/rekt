@@ -89,6 +89,7 @@ impl OutboundConnections {
             }
             let task = task_r.unwrap();
             match task.err {
+                RLPXSessionError::TcpError(_) => {}
                 RLPXSessionError::DisconnectRequested(reason) => match reason {
                     DisconnectReason::TooManyPeers => {}
                     _ => {
