@@ -30,7 +30,7 @@ pub struct OutboundConnections {
     retry_rx: AsyncReceiver<ConnectionTaskError>,
     retry_tx: AsyncSender<ConnectionTaskError>,
 
-    identity_err: DashSet<H512>,
+    peer_err: DashSet<H512>,
 }
 
 impl OutboundConnections {
@@ -46,7 +46,7 @@ impl OutboundConnections {
             conn_tx,
             retry_rx,
             retry_tx,
-            identity_err: DashSet::with_capacity(1000),
+            peer_err: DashSet::with_capacity(1000),
         }
     }
 
@@ -105,11 +105,9 @@ impl OutboundConnections {
                     P2PError::AlreadyConnected | P2PError::AlreadyConnectedToSameIp => {}
                     P2PError::DisconnectRequested(DisconnectReason::TooManyPeers) => {}
                     P2PError::DisconnectRequested(DisconnectReason::DisconnectRequested) => {}
-                    P2PError::DisconnectRequested(
-                        DisconnectReason::UnexpectedHandshakeIdentity,
-                    ) => {
-                        self.identity_err.insert(task.conn_task.node.id);
-                        tracing::info!("identity_err : {}", self.identity_err.len());
+                    P2PError::DisconnectRequested(DisconnectReason::UselessPeer) => {
+                        self.peer_err.insert(task.conn_task.node.id);
+                        tracing::info!("Useless: {}", self.peer_err.len());
                     }
                     _ => {
                         tracing::info!("{}", task.err);
