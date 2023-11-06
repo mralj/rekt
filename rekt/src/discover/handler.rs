@@ -79,8 +79,11 @@ impl Server {
                 if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
                     node.set_is_bsc(forks_match);
 
-                    let conn_task = ConnectionTask::new(&node.node_record.str);
-                    let _ = self.conn_tx.send(conn_task).await;
+                    if forks_match {
+                        let conn_task =
+                            ConnectionTask::new_from_node_record(node.node_record.clone());
+                        let _ = self.conn_tx.send(conn_task).await;
+                    }
                 }
             }
             DiscoverMessage::Neighbours(neighbours) => {

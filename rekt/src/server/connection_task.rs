@@ -20,6 +20,15 @@ impl ConnectionTask {
         }
     }
 
+    pub fn new_from_node_record(node: NodeRecord) -> Self {
+        Self {
+            node,
+            last_attempt: Instant::now(),
+            next_attempt: Instant::now(),
+            attempts: 1,
+        }
+    }
+
     pub fn next_attempt(&self) -> Self {
         let mut this = self.clone();
 
