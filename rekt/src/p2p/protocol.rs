@@ -54,6 +54,7 @@ impl Protocol {
         let proto = peer_protocols.first();
 
         match proto {
+            Some(p) if p.version == 68 && p.name == ETH_PROTOCOL => proto.cloned(),
             Some(p) if p.version == 67 && p.name == ETH_PROTOCOL => proto.cloned(),
             Some(p) if p.version == 66 && p.name == ETH_PROTOCOL => proto.cloned(),
             _ => {
