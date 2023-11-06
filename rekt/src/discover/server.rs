@@ -5,6 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use dashmap::DashMap;
 use futures::stream::FuturesUnordered;
+use kanal::AsyncSender;
 use tokio::net::UdpSocket;
 use tokio::time::interval;
 use tokio_stream::StreamExt;
@@ -13,6 +14,7 @@ use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::discover::discover_node::{AuthStatus, DiscoverNodeType};
 use crate::local_node::LocalNode;
+use crate::server::connection_task::ConnectionTask;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
@@ -38,10 +40,15 @@ pub struct Server {
 
     pub(super) pending_neighbours_req: DashMap<H512, PendingNeighboursReq>,
     pub(super) pending_lookups: DashMap<H512, Lookup>,
+    pub(super) conn_tx: AsyncSender<ConnectionTask>,
 }
 
 impl Server {
-    pub async fn new(local_node: LocalNode, nodes: Vec<String>) -> Result<Self, io::Error> {
+    pub async fn new(
+        local_node: LocalNode,
+        nodes: Vec<String>,
+        conn_tx: AsyncSender<ConnectionTask>,
+    ) -> Result<Self, io::Error> {
         let udp_socket = Arc::new(
             UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
                 Ipv4Addr::UNSPECIFIED,
@@ -66,6 +73,7 @@ impl Server {
             nodes,
             udp_sender: sender,
             udp_receiver: receiver,
+            conn_tx,
             pending_pings: DashMap::with_capacity(10_000),
             pending_neighbours_req: DashMap::with_capacity(100),
             pending_lookups: DashMap::with_capacity(100),

@@ -30,8 +30,13 @@ pub struct OutboundConnections {
 }
 
 impl OutboundConnections {
-    pub fn new(our_private_key: SecretKey, our_pub_key: PublicKey, nodes: Vec<String>) -> Self {
-        let (conn_tx, conn_rx) = kanal::unbounded_async();
+    pub fn new(
+        our_private_key: SecretKey,
+        our_pub_key: PublicKey,
+        nodes: Vec<String>,
+        conn_rx: AsyncReceiver<ConnectionTask>,
+        conn_tx: AsyncSender<ConnectionTask>,
+    ) -> Self {
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
         Self {

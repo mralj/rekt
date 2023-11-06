@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use crate::{blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, types::hash::H512};
+use crate::{
+    blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, rlpx::Connection,
+    server::connection_task::ConnectionTask, types::hash::H512,
+};
 
 use super::{
     discover_node::{AuthStatus, DiscoverNode},
@@ -75,6 +78,9 @@ impl Server {
 
                 if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
                     node.set_is_bsc(forks_match);
+
+                    let conn_task = ConnectionTask::new(&node.node_record.str);
+                    let _ = self.conn_tx.send(conn_task).await;
                 }
             }
             DiscoverMessage::Neighbours(neighbours) => {

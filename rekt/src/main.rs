@@ -49,17 +49,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     import_tokens_to_buy();
 
     let all_nodes = get_all_nodes(&mut config.nodes);
+    let (conn_tx, conn_rx) = kanal::unbounded_async();
+
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         all_nodes.clone(),
+        conn_rx.clone(),
+        conn_tx.clone(),
     ));
 
     OutboundConnections::start(outbound_connections).await;
 
     if our_node.public_ip_retrieved {
         let discover_server =
-            Arc::new(rekt::discover::server::Server::new(our_node, all_nodes).await?);
+            Arc::new(rekt::discover::server::Server::new(our_node, all_nodes, conn_tx).await?);
         rekt::discover::server::Server::start(discover_server);
     } else {
         println!("Failed to retrieve public ip, discovery server not started");
