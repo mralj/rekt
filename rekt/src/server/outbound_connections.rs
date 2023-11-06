@@ -97,6 +97,8 @@ impl OutboundConnections {
                 },
                 RLPXSessionError::P2PError(err) => match err {
                     P2PError::AlreadyConnected | P2PError::AlreadyConnectedToSameIp => {}
+                    P2PError::DisconnectRequested(DisconnectReason::TooManyPeers) => {}
+                    P2PError::DisconnectRequested(DisconnectReason::DisconnectRequested) => {}
                     _ => {
                         tracing::info!("{}", task.err);
                     }
