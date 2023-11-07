@@ -28,6 +28,7 @@ pub struct DiscoverNode {
     pub node_record: NodeRecord,
     pub ip_v4_addr: Ipv4Addr,
     pub node_type: DiscoverNodeType,
+    pub is_bsc_node: Option<bool>,
 
     pinged_on: Option<Instant>,
     ping_count: u8,
@@ -99,6 +100,18 @@ impl DiscoverNode {
         true
     }
 
+    pub fn is_bsc(&self) -> bool {
+        if let Some(is_bsc) = self.is_bsc_node {
+            return is_bsc;
+        }
+
+        return false;
+    }
+
+    pub fn set_is_bsc(&mut self, is_bsc: bool) {
+        self.is_bsc_node = Some(is_bsc);
+    }
+
     pub(super) fn from_ping_msg(ping_msg: &PingMessage, id: H512) -> Result<Self, ()> {
         let node_record =
             NodeRecord::new_with_id(ping_msg.from.ip, ping_msg.from.tcp, ping_msg.from.udp, id)
@@ -113,6 +126,7 @@ impl DiscoverNode {
                 ping_count: 0,
                 pinged_on: None,
                 pong_received_on: None,
+                is_bsc_node: None,
             });
         }
 
@@ -155,6 +169,7 @@ impl TryFrom<NodeRecord> for DiscoverNode {
             ping_count: 0,
             pong_received_on: None,
             ping_received_on: None,
+            is_bsc_node: Some(true),
         })
     }
 }
@@ -175,6 +190,7 @@ impl TryFrom<NeighborNodeRecord> for DiscoverNode {
                 ping_count: 0,
                 pong_received_on: None,
                 ping_received_on: None,
+                is_bsc_node: None,
             });
         }
 
