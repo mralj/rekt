@@ -2,7 +2,14 @@ use std::collections::HashMap;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use crate::{blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, types::hash::H512};
+use crate::{
+    blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER,
+    server::{
+        connection_task::ConnectionTask,
+        peers::{check_if_already_connected_to_peer, BLACKLIST_PEERS_BY_ID},
+    },
+    types::hash::H512,
+};
 
 use super::{
     discover_node::{AuthStatus, DiscoverNode},
@@ -74,6 +81,19 @@ impl Server {
 
                 if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
                     node.set_is_bsc(forks_match);
+
+                    if forks_match {
+                        let conn_task = ConnectionTask::from(node.node_record.clone());
+                        if let Err(_) = check_if_already_connected_to_peer(&conn_task.node) {
+                            return;
+                        }
+
+                        if BLACKLIST_PEERS_BY_ID.contains(&conn_task.node.id) {
+                            return;
+                        }
+
+                        let _ = self.conn_tx.send(conn_task).await;
+                    }
                 }
             }
             DiscoverMessage::Neighbours(neighbours) => {
