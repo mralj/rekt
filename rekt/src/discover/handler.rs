@@ -18,8 +18,10 @@ use super::{
 
 impl Server {
     pub(super) async fn handle_received_msg(this: Arc<Self>, msg: DecodedDiscoverMessage) {
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         match msg.msg {
             DiscoverMessage::Ping(ping) => {
+                println!("[{now}] PING");
                 match this.nodes.entry(msg.node_id) {
                     dashmap::mapref::entry::Entry::Occupied(mut entry) => {
                         entry.get_mut().mark_ping_received();
@@ -49,12 +51,14 @@ impl Server {
                 }
             }
             DiscoverMessage::Pong(_) => {
+                println!("[{now}] PONG");
                 this.pending_pings.remove(&msg.node_id);
                 if let Some(node) = &mut this.nodes.get_mut(&msg.node_id) {
                     node.mark_pong_received();
                 }
             }
             DiscoverMessage::EnrRequest(_) => {
+                println!("[{now}] ENR REQ");
                 let enr_response = DiscoverMessage::EnrResponse(EnrResponse::new(
                     msg.hash,
                     this.local_node.enr.clone(),
@@ -66,6 +70,8 @@ impl Server {
                 let _ = this.udp_sender.send((msg.from, packet)).await;
             }
             DiscoverMessage::EnrResponse(resp) => {
+                println!("[{now}] ENR RESP");
+
                 //TODO: IMPLEMENT THIS
                 //
                 let forks_match = {
@@ -87,6 +93,7 @@ impl Server {
                 }
             }
             DiscoverMessage::Neighbours(neighbours) => {
+                println!("[{now}] NEIGHBOURS");
                 let req = this.pending_neighbours_req.remove(&msg.node_id);
                 if req.is_none() {
                     return;
