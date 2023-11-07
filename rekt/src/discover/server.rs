@@ -256,25 +256,23 @@ impl Server {
             );
             let _result = tasks.collect::<Vec<_>>().await;
 
-            if self.pending_lookups.is_empty() || self.pending_neighbours_req.is_empty() {
-                let next_lookup_id = self.get_next_lookup_id();
-                let closest_nodes = self.get_closest_nodes(next_lookup_id);
-                self.pending_lookups.insert(
-                    next_lookup_id,
-                    Lookup::new(next_lookup_id, closest_nodes.clone()),
-                );
+            let next_lookup_id = self.get_next_lookup_id();
+            let closest_nodes = self.get_closest_nodes(next_lookup_id);
+            self.pending_lookups.insert(
+                next_lookup_id,
+                Lookup::new(next_lookup_id, closest_nodes.clone()),
+            );
 
-                for n in closest_nodes.iter() {
-                    self.pending_neighbours_req
-                        .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
-                }
-
-                let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
-                    self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
-                }));
-
-                let _result = tasks.collect::<Vec<_>>().await;
+            for n in closest_nodes.iter() {
+                self.pending_neighbours_req
+                    .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
             }
+
+            let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
+                self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
+            }));
+
+            let _result = tasks.collect::<Vec<_>>().await;
 
             let tasks = FuturesUnordered::from_iter(
                 self.nodes
