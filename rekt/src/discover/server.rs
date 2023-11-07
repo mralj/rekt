@@ -13,7 +13,7 @@ use tokio_stream::StreamExt;
 
 use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
-use crate::discover::discover_node::AuthStatus;
+use crate::discover::discover_node::{AuthStatus, DiscoverNodeType};
 use crate::local_node::LocalNode;
 use crate::server::connection_task::ConnectionTask;
 use crate::types::hash::H512;
@@ -114,6 +114,10 @@ impl Server {
 
         tokio::spawn(async move {
             let _ = worker.run_worker().await;
+        });
+
+        tokio::spawn(async move {
+            this.run_logger().await;
         });
     }
 
@@ -287,5 +291,67 @@ impl Server {
         }
 
         Ok(())
+    }
+
+    async fn run_logger(&self) {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(60),
+        ));
+
+        while let Some(_) = stream.next().await {
+            if self.is_paused() {
+                continue;
+            }
+            let mut len = 0;
+            let mut we_auth = 0;
+            let mut they_auth = 0;
+            let mut not_authed = 0;
+            let mut auth = 0;
+            let mut conn_in = 0;
+            let mut conn_out = 0;
+            let mut bsc_nodes = 0;
+            let mut non_bsc_nodes = 0;
+
+            for n in self.nodes.iter() {
+                len += 1;
+                match n.auth_status() {
+                    AuthStatus::Authed => {
+                        auth += 1;
+                    }
+                    AuthStatus::TheyAuthedUs => {
+                        they_auth += 1;
+                    }
+                    AuthStatus::WeAuthedThem => {
+                        we_auth += 1;
+                    }
+                    AuthStatus::NotAuthed => {
+                        not_authed += 1;
+                    }
+                }
+
+                match n.node_type {
+                    DiscoverNodeType::WeDiscoveredThem => {
+                        conn_out += 1;
+                    }
+                    DiscoverNodeType::TheyDiscoveredUs => {
+                        conn_in += 1;
+                    }
+                    _ => {}
+                }
+
+                if let Some(is_bsc_node) = n.is_bsc_node {
+                    if is_bsc_node && n.node_type != DiscoverNodeType::Static {
+                        bsc_nodes += 1;
+                    } else if !is_bsc_node {
+                        non_bsc_nodes += 1;
+                    }
+                }
+            }
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+
+            println!("=== [{}] [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}", now);
+
+            tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
+        }
     }
 }

@@ -7,7 +7,7 @@ use crate::types::node_record::NodeRecord;
 use super::messages::find_node::NeighborNodeRecord;
 use super::messages::ping_pong_messages::PingMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DiscoverNodeType {
     Unknown,
     Static,
