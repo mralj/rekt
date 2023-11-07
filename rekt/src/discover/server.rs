@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -40,6 +41,7 @@ pub struct Server {
 
     pub(super) pending_neighbours_req: DashMap<H512, PendingNeighboursReq>,
     pub(super) pending_lookups: DashMap<H512, Lookup>,
+    pub(super) is_paused: AtomicBool,
     pub(super) conn_tx: AsyncSender<ConnectionTask>,
 }
 
@@ -77,6 +79,7 @@ impl Server {
             pending_pings: DashMap::with_capacity(10_000),
             pending_neighbours_req: DashMap::with_capacity(100),
             pending_lookups: DashMap::with_capacity(100),
+            is_paused: AtomicBool::new(false),
         })
     }
 
@@ -108,11 +111,29 @@ impl Server {
         });
     }
 
+    pub fn stop_disc_server(&self) {
+        self.is_paused
+            .swap(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn start_disc_server(&self) {
+        self.is_paused
+            .swap(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.is_paused.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     async fn run_writer(&self) -> Result<(), io::Error> {
         let udp_socket = self.udp_socket.clone();
 
         loop {
             if let Ok((dest, packet)) = self.udp_receiver.recv().await {
+                if self.is_paused() {
+                    tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                    continue;
+                }
                 let _ = udp_socket.send_to(&packet, dest).await;
             }
         }
@@ -123,6 +144,11 @@ impl Server {
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
             let packet = socket.recv_from(&mut buf).await;
+            if this.is_paused() {
+                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                continue;
+            }
+
             if let Ok((size, src)) = packet {
                 if !packet_size_is_valid(size) {
                     continue;
@@ -202,6 +228,9 @@ impl Server {
         ));
 
         while let Some(_) = stream.next().await {
+            if self.is_paused() {
+                continue;
+            }
             self.pending_pings
                 .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
 
@@ -246,6 +275,9 @@ impl Server {
         ));
 
         while let Some(_) = stream.next().await {
+            if self.is_paused() {
+                continue;
+            }
             let mut len = 0;
             let mut we_auth = 0;
             let mut they_auth = 0;

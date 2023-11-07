@@ -16,8 +16,6 @@ use crate::{
     types::hash::H512,
 };
 
-use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
-
 const ALPHA: usize = 100;
 
 impl Server {
@@ -51,6 +49,9 @@ impl Server {
         ));
 
         while let Some(_) = stream.next().await {
+            if self.is_paused() {
+                continue;
+            }
             let pending_lookups_to_retain = self
                 .pending_neighbours_req
                 .iter()
