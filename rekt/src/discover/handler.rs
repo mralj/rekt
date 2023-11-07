@@ -6,9 +6,10 @@ use crate::{blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, types::hash::H5
 
 use super::{
     discover_node::{AuthStatus, DiscoverNode},
+    lookup::PendingNeighboursReq,
     messages::{
         decoded_discover_message::DecodedDiscoverMessage, discover_message::DiscoverMessage,
-        enr::EnrResponse, lookup::PendingNeighboursReq, ping_pong_messages::PongMessage,
+        enr::EnrResponse, ping_pong_messages::PongMessage,
     },
     server::Server,
 };
@@ -116,10 +117,10 @@ impl Server {
                     });
 
                     //NOTE: for unauthed nodes we send ping message "in hope of" following
-                    //happenig:
+                    //happening:
                     // 1. we send ping message
                     // 2. node is "live" and it sends pong back (less important for neighbours
-                    //    message, but important for obtainging new BSC nodes)
+                    //    message, but important for obtaining new BSC nodes)
                     // 3. node sends US ping message (to which we respond with pong)
                     // 4. now this node considers us authed and we can send find_node message
                     // I say "in hope of" because we can't be sure that node will send us ping
