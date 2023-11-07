@@ -4,10 +4,7 @@ use std::time::{Duration, Instant};
 use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
 
-use crate::p2p::errors::P2PError;
 use crate::p2p::peer::BUY_IS_IN_PROGRESS;
-use crate::p2p::DisconnectReason;
-use crate::rlpx::RLPXSessionError;
 
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
@@ -30,8 +27,13 @@ pub struct OutboundConnections {
 }
 
 impl OutboundConnections {
-    pub fn new(our_private_key: SecretKey, our_pub_key: PublicKey, nodes: Vec<String>) -> Self {
-        let (conn_tx, conn_rx) = kanal::unbounded_async();
+    pub fn new(
+        our_private_key: SecretKey,
+        our_pub_key: PublicKey,
+        nodes: Vec<String>,
+        conn_rx: AsyncReceiver<ConnectionTask>,
+        conn_tx: AsyncSender<ConnectionTask>,
+    ) -> Self {
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
         Self {
