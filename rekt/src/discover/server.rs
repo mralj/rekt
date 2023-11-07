@@ -19,6 +19,8 @@ use super::decoder::{decode_msg_and_create_response, MAX_PACKET_SIZE};
 use super::discover_node::DiscoverNode;
 use super::messages::discover_message::{DiscoverMessage, DEFAULT_MESSAGE_EXPIRATION};
 
+use super::messages::find_node::{FindNode, Neighbours};
+use super::messages::lookup::{Lookup, PendingNeighboursReq};
 use super::messages::ping_pong_messages::PingMessage;
 
 pub struct Server {
@@ -31,6 +33,9 @@ pub struct Server {
     pub(super) nodes: DashMap<H512, DiscoverNode>,
 
     pub(super) pending_pings: DashMap<H512, std::time::Instant>,
+
+    pub(super) pending_neighbours_req: DashMap<H512, PendingNeighboursReq>,
+    pub(super) pending_lookups: DashMap<H512, Lookup>,
 }
 
 impl Server {
@@ -60,13 +65,15 @@ impl Server {
             udp_sender: sender,
             udp_receiver: receiver,
             pending_pings: DashMap::with_capacity(10_000),
+            pending_neighbours_req: DashMap::with_capacity(100),
+            pending_lookups: DashMap::with_capacity(100),
         })
     }
 
     pub fn start(this: Arc<Self>) {
         let writer = this.clone();
         let reader = this.clone();
-        let pinger = this.clone();
+        let worker = this.clone();
 
         tokio::spawn(async move {
             let _ = writer.run_writer().await;
@@ -77,7 +84,7 @@ impl Server {
         });
 
         tokio::spawn(async move {
-            let _ = pinger.run_pinger().await;
+            let _ = worker.run_worker().await;
         });
     }
 
@@ -108,7 +115,7 @@ impl Server {
         }
     }
 
-    async fn send_ping_packet(&self, node: (H512, NodeRecord, Ipv4Addr, u16)) {
+    pub(super) async fn send_ping_packet(&self, node: (H512, NodeRecord, Ipv4Addr, u16)) {
         let (id, node_record, ip, udp) = node;
         if self.pending_pings.contains_key(&id) {
             return;
@@ -134,7 +141,20 @@ impl Server {
             .await;
     }
 
-    async fn run_pinger(&self) -> anyhow::Result<()> {
+    pub(super) async fn send_neighbours_packet(&self, lookup_id: H512, to: (Ipv4Addr, u16)) {
+        let packet = DiscoverMessage::create_disc_v4_packet(
+            DiscoverMessage::FindNode(FindNode::new(lookup_id)),
+            &self.local_node.private_key,
+        );
+
+        let (ip, udp) = to;
+        let _ = self
+            .udp_sender
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
+            .await;
+    }
+
+    async fn run_worker(&self) -> anyhow::Result<()> {
         let tasks = FuturesUnordered::from_iter(self.nodes.iter().map(|n| {
             self.send_ping_packet((n.id(), n.node_record.clone(), n.ip_v4_addr, n.udp_port()))
         }));
@@ -148,6 +168,18 @@ impl Server {
         while let Some(_) = stream.next().await {
             self.pending_pings
                 .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+
+            self.pending_neighbours_req
+                .retain(|_, v| v.created_on.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
+
+            let pending_lookups_to_retain = self
+                .pending_neighbours_req
+                .iter()
+                .map(|v| v.lookup_id)
+                .collect::<Vec<_>>();
+
+            self.pending_lookups
+                .retain(|k, _| pending_lookups_to_retain.contains(k));
 
             let tasks = FuturesUnordered::from_iter(
                 self.nodes
@@ -163,6 +195,26 @@ impl Server {
                     }),
             );
             let _result = tasks.collect::<Vec<_>>().await;
+
+            if self.pending_lookups.is_empty() || self.pending_neighbours_req.is_empty() {
+                let next_lookup_id = self.get_next_lookup_id();
+                let closest_nodes = self.get_closest_nodes(next_lookup_id);
+                self.pending_lookups.insert(
+                    next_lookup_id,
+                    Lookup::new(next_lookup_id, closest_nodes.clone()),
+                );
+
+                for n in closest_nodes.iter() {
+                    self.pending_neighbours_req
+                        .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
+                }
+
+                let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
+                    self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
+                }));
+
+                let _result = tasks.collect::<Vec<_>>().await;
+            }
         }
 
         Ok(())

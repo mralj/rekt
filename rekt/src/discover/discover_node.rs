@@ -4,11 +4,30 @@ use std::time::Instant;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
+use super::messages::find_node::NeighborNodeRecord;
 use super::messages::ping_pong_messages::PingMessage;
 
-pub(super) struct DiscoverNode {
-    pub(super) node_record: NodeRecord,
-    pub(super) ip_v4_addr: Ipv4Addr,
+#[derive(Debug, Clone)]
+pub enum DiscoverNodeType {
+    Unknown,
+    Static,
+    WeDiscoveredThem,
+    TheyDiscoveredUs,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AuthStatus {
+    NotAuthed,
+    WeAuthedThem,
+    TheyAuthedUs,
+    Authed,
+}
+
+#[derive(Debug, Clone)]
+pub struct DiscoverNode {
+    pub node_record: NodeRecord,
+    pub ip_v4_addr: Ipv4Addr,
+    pub node_type: DiscoverNodeType,
 
     pinged_on: Option<Instant>,
     ping_count: u8,
@@ -18,26 +37,20 @@ pub(super) struct DiscoverNode {
 }
 
 impl DiscoverNode {
-    pub(super) fn we_have_authed_this_node(&self) -> bool {
-        if let Some(pong_received_on) = self.pong_received_on {
-            const HOURS_12: u64 = 60 * 60 * 12;
-            if pong_received_on.elapsed().as_secs() < HOURS_12 {
-                return true;
-            }
+    pub(super) fn auth_status(&self) -> AuthStatus {
+        if self.we_have_authed_this_node() && self.this_node_has_authed_us() {
+            return AuthStatus::Authed;
         }
 
-        false
-    }
+        if self.we_have_authed_this_node() {
+            return AuthStatus::WeAuthedThem;
+        };
 
-    pub(super) fn this_node_has_authed_us(&self) -> bool {
-        if let Some(ping_received_on) = self.ping_received_on {
-            const HOURS_12: u64 = 60 * 60 * 12;
-            if ping_received_on.elapsed().as_secs() < HOURS_12 {
-                return true;
-            }
-        }
+        if self.this_node_has_authed_us() {
+            return AuthStatus::TheyAuthedUs;
+        };
 
-        false
+        AuthStatus::NotAuthed
     }
 
     #[inline(always)]
@@ -94,6 +107,7 @@ impl DiscoverNode {
         if let IpAddr::V4(ip) = ping_msg.from.ip {
             return Ok(Self {
                 node_record,
+                node_type: DiscoverNodeType::TheyDiscoveredUs,
                 ip_v4_addr: ip,
                 ping_received_on: Some(std::time::Instant::now()),
                 ping_count: 0,
@@ -103,6 +117,28 @@ impl DiscoverNode {
         }
 
         Err(())
+    }
+
+    fn we_have_authed_this_node(&self) -> bool {
+        if let Some(pong_received_on) = self.pong_received_on {
+            const HOURS_12: u64 = 60 * 60 * 12;
+            if pong_received_on.elapsed().as_secs() < HOURS_12 {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn this_node_has_authed_us(&self) -> bool {
+        if let Some(ping_received_on) = self.ping_received_on {
+            const HOURS_12: u64 = 60 * 60 * 12;
+            if ping_received_on.elapsed().as_secs() < HOURS_12 {
+                return true;
+            }
+        }
+
+        false
     }
 }
 
@@ -114,10 +150,34 @@ impl TryFrom<NodeRecord> for DiscoverNode {
         Ok(Self {
             node_record,
             ip_v4_addr,
+            node_type: DiscoverNodeType::Static,
             pinged_on: None,
             ping_count: 0,
             pong_received_on: None,
             ping_received_on: None,
         })
+    }
+}
+
+impl TryFrom<NeighborNodeRecord> for DiscoverNode {
+    type Error = ();
+
+    fn try_from(value: NeighborNodeRecord) -> Result<Self, Self::Error> {
+        let node_record =
+            NodeRecord::new_with_id(value.address, value.tcp_port, value.udp_port, value.id)
+                .map_err(|_| ())?;
+        if let Some(ip) = node_record.ip_v4_address() {
+            return Ok(Self {
+                node_record,
+                node_type: DiscoverNodeType::WeDiscoveredThem,
+                ip_v4_addr: ip,
+                pinged_on: None,
+                ping_count: 0,
+                pong_received_on: None,
+                ping_received_on: None,
+            });
+        }
+
+        Err(())
     }
 }
