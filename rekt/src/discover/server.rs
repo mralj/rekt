@@ -231,7 +231,6 @@ impl Server {
                     Lookup::new(next_lookup_id, closest_nodes.clone()),
                 );
 
-                println!("Sending find node via new lookup: {}", closest_nodes.len());
                 for n in closest_nodes.iter() {
                     self.pending_neighbours_req
                         .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
@@ -253,8 +252,6 @@ impl Server {
                     })
                     .map(|n| self.send_enr_req_packet((n.ip_v4_addr, n.udp_port()))),
             );
-
-            println!("Sending enr req: {}", tasks.len());
 
             let _result = tasks.collect::<Vec<_>>().await;
         }
@@ -314,7 +311,9 @@ impl Server {
                     }
                 }
             }
-            println!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+
+            println!("=== [{}] [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}", now);
 
             tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
         }

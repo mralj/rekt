@@ -10,7 +10,7 @@ use crate::{
     types::hash::H512,
 };
 
-const ALPHA: usize = 9;
+const ALPHA: usize = 100;
 
 impl Server {
     pub fn get_next_lookup_id(&self) -> H512 {
