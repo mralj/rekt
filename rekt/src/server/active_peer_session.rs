@@ -13,6 +13,7 @@ use tracing::error;
 use crate::constants::DEFAULT_PORT;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
+use crate::p2p::peer::is_buy_or_sell_in_progress;
 use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
@@ -107,6 +108,13 @@ pub fn connect_to_node(
         );
 
         let task_result = p.run().await;
+        if is_buy_or_sell_in_progress() {
+            //NOTE: don't disconnect peers immediately to avoid UB (like nil ptr)
+
+            while is_buy_or_sell_in_progress() {
+                tokio::time::sleep(Duration::from_secs(120)).await;
+            }
+        }
         PEERS.remove(&node.id);
         PEERS_SELL.lock().await.remove(&node.id);
 
