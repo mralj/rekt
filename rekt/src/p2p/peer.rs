@@ -30,6 +30,20 @@ use crate::wallets::local_wallets::{
 };
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
+pub static mut SELL_IS_IN_PROGRESS: bool = false;
+
+pub fn is_buy_in_progress() -> bool {
+    unsafe { BUY_IS_IN_PROGRESS }
+}
+
+pub fn is_sell_in_progress() -> bool {
+    unsafe { SELL_IS_IN_PROGRESS }
+}
+
+pub fn is_buy_or_sell_in_progress() -> bool {
+    is_buy_in_progress() || is_sell_in_progress()
+}
+
 const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
 
 #[derive(Debug)]
@@ -104,6 +118,7 @@ impl Peer {
                             mark_token_as_bought(buy_info.token.buy_token_address);
                             unsafe {
                                 BUY_IS_IN_PROGRESS = false;
+                                SELL_IS_IN_PROGRESS = true;
                             }
                             cprintln!(
                                 "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
@@ -112,7 +127,7 @@ impl Peer {
                                 get_bsc_tx_url(buy_info.hash)
                             );
 
-                            Self::sell(buy_info.token);
+                            Self::sell(buy_info.token).await;
                         }
                     }
                     EthMessageHandler::None => {}
@@ -156,43 +171,45 @@ impl Peer {
         Ok(())
     }
 
-    fn sell(token: Token) {
+    async fn sell(token: Token) {
         //TODO: handle transfer instead of selling scenario
-        tokio::spawn(async move {
-            // sleep so that we don't sell immediately
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            for i in 0..token.sell_config.sell_count {
-                //this is because for the first sell the nonce is up to date with blockchain
-                //only after first sell we need to "update it manually"
-                let increment_sell_nonce_after_first_sell = i > 0;
-                let sell_tx = EthMessage::new_tx_message(
-                    generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
-                );
-
-                let count = Peer::send_tx(sell_tx).await;
-
-                cprintln!(
-                    "<blue>[{count}][{}/{}]Selling token: {:#x}</>",
-                    i + 1,
-                    token.sell_config.sell_count,
-                    token.buy_token_address
-                );
-
-                // wait for sell tx to be mined before sending the next one
-                // we also wait bit more before sending new tx since our code is super fast 😅
-                tokio::time::sleep(Duration::from_millis(BLOCK_DURATION_IN_MILLIS + 500)).await;
-            }
-
-            cprintln!(
-                "<rgb(255,165,0)>Done selling token: {}</>",
-                get_bsc_token_url(token.buy_token_address)
+        // sleep so that we don't sell immediately
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        for i in 0..token.sell_config.sell_count {
+            //this is because for the first sell the nonce is up to date with blockchain
+            //only after first sell we need to "update it manually"
+            let increment_sell_nonce_after_first_sell = i > 0;
+            let sell_tx = EthMessage::new_tx_message(
+                generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
             );
 
-            // this will refresh token list with proper nonces
-            // sleep for a while to make sure public nodes have latest nonces
-            tokio::time::sleep(Duration::from_millis(3 * BLOCK_DURATION_IN_MILLIS)).await;
-            update_nonces_for_local_wallets().await;
-            remove_all_tokens_to_buy();
-        });
+            let count = Peer::send_tx(sell_tx).await;
+
+            cprintln!(
+                "<blue>[{count}][{}/{}]Selling token: {:#x}</>",
+                i + 1,
+                token.sell_config.sell_count,
+                token.buy_token_address
+            );
+
+            // wait for sell tx to be mined before sending the next one
+            // we also wait bit more before sending new tx since our code is super fast 😅
+            tokio::time::sleep(Duration::from_millis(BLOCK_DURATION_IN_MILLIS + 500)).await;
+        }
+
+        cprintln!(
+            "<rgb(255,165,0)>Done selling token: {}</>",
+            get_bsc_token_url(token.buy_token_address)
+        );
+
+        unsafe {
+            SELL_IS_IN_PROGRESS = false;
+        }
+
+        // this will refresh token list with proper nonces
+        // sleep for a while to make sure public nodes have latest nonces
+        tokio::time::sleep(Duration::from_millis(3 * BLOCK_DURATION_IN_MILLIS)).await;
+        update_nonces_for_local_wallets().await;
+        remove_all_tokens_to_buy();
     }
 }

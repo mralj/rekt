@@ -13,10 +13,10 @@ use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
-use super::peer::BUY_IS_IN_PROGRESS;
+use super::peer::{is_buy_in_progress, BUY_IS_IN_PROGRESS};
 use super::{DisconnectReason, P2PMessageID};
 
-const MAX_WRITER_QUEUE_SIZE: usize = 10; // how many messages are we queuing for write
+const MAX_WRITER_QUEUE_SIZE: usize = 50; // how many messages are we queuing for write
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -129,7 +129,7 @@ impl Stream for P2PWire {
 
         // in case buy is in progress we don't want to read any messages
         // till we are done with buying
-        if unsafe { BUY_IS_IN_PROGRESS } {
+        if is_buy_in_progress() {
             return Poll::Pending;
         }
 
@@ -210,7 +210,7 @@ impl Sink<EthMessage> for P2PWire {
         // note check !item.is_compressed() is not needed, because of lines above
         // but in case we move code around or change logic, I think it is better to have it here
         let we_should_not_send_any_unimportant_messages_during_buy =
-            unsafe { BUY_IS_IN_PROGRESS && !item.is_compressed() };
+            is_buy_in_progress() && !item.is_compressed();
 
         if we_should_not_send_any_unimportant_messages_during_buy {
             return Ok(());

@@ -38,13 +38,13 @@ impl Peer {
                     Ok(_) => {
                         success_count += 1;
                     }
-                    Err(e) => {
-                        cprintln!("<red>Send error: {e}</>",);
-                    }
+                    _ => {} // Err(e) => {
+                            //     cprintln!("<red>Send error: {e}</>",);
+                            // }
                 },
-                Err(e) => {
-                    cprintln!("<red>Send handle error: {e}</>",);
-                }
+                _ => {} // Err(e) => {
+                        //     cprintln!("<red>Send handle error: {e}</>",);
+                        // }
             }
         }
 
