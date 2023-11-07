@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
 
 use color_print::cprintln;
 use derive_more::Display;
@@ -6,6 +6,7 @@ use ethers::types::Address;
 use warp::{filters::path::end, reject::Reject, Filter};
 
 use crate::{
+    discover::server::Server,
     eth::eth_message::EthMessage,
     p2p::Peer,
     server::peers::PEERS,
@@ -14,7 +15,7 @@ use crate::{
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
-pub fn run_local_server() {
+pub fn run_local_server(disc_server: Option<Arc<Server>>) {
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
@@ -60,7 +61,24 @@ pub fn run_local_server() {
             format!("Tokens refreshed\n")
         });
 
-        let routes = prep.or(peer_count).or(refresh_tokens);
+        let disc = warp::path!("disc").and(end()).map(move || {
+            if let Some(disc) = &disc_server {
+                if disc.is_paused() {
+                    disc.start_disc_server();
+                    cprintln!("<yellow>Discovery server was off now it's ON</>");
+                    return format!("Discovery server started\n");
+                } else {
+                    disc.stop_disc_server();
+                    cprintln!("<yellow>Discovery server was ON, nof it's OFF</>");
+                    return format!("Discovery server stopped\n");
+                }
+            } else {
+                cprintln!("<yellow>Discovery server not found</>");
+                return format!("Discovery server not found\n");
+            }
+        });
+
+        let routes = prep.or(peer_count).or(refresh_tokens).or(disc);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }
