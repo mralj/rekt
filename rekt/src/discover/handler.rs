@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
@@ -17,10 +17,10 @@ use super::{
 };
 
 impl Server {
-    pub(super) async fn handle_received_msg(&self, msg: DecodedDiscoverMessage) {
+    pub(super) async fn handle_received_msg(this: Arc<Self>, msg: DecodedDiscoverMessage) {
         match msg.msg {
             DiscoverMessage::Ping(ping) => {
-                match self.nodes.entry(msg.node_id) {
+                match this.nodes.entry(msg.node_id) {
                     dashmap::mapref::entry::Entry::Occupied(mut entry) => {
                         entry.get_mut().mark_ping_received();
                     }
@@ -33,37 +33,37 @@ impl Server {
 
                 let pong = DiscoverMessage::Pong(PongMessage::new(ping, msg.hash));
                 let packet =
-                    DiscoverMessage::create_disc_v4_packet(pong, &self.local_node.private_key);
-                let _ = self.udp_sender.send((msg.from, packet)).await;
+                    DiscoverMessage::create_disc_v4_packet(pong, &this.local_node.private_key);
+                let _ = this.udp_sender.send((msg.from, packet)).await;
 
                 //TODO: if we received pig from node that has pending lookup
                 // and this node is not authed we can now send find node message
                 // as will it be authed after pong message we just sent
-                if let Some(req) = self.pending_neighbours_req.get(&msg.node_id) {
+                if let Some(req) = this.pending_neighbours_req.get(&msg.node_id) {
                     if req.was_authed {
                         return;
                     }
 
-                    self.send_neighbours_packet(req.lookup_id, (req.ip, req.udp))
+                    this.send_neighbours_packet(req.lookup_id, (req.ip, req.udp))
                         .await;
                 }
             }
             DiscoverMessage::Pong(_) => {
-                self.pending_pings.remove(&msg.node_id);
-                if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
+                this.pending_pings.remove(&msg.node_id);
+                if let Some(node) = &mut this.nodes.get_mut(&msg.node_id) {
                     node.mark_pong_received();
                 }
             }
             DiscoverMessage::EnrRequest(_) => {
                 let enr_response = DiscoverMessage::EnrResponse(EnrResponse::new(
                     msg.hash,
-                    self.local_node.enr.clone(),
+                    this.local_node.enr.clone(),
                 ));
                 let packet = DiscoverMessage::create_disc_v4_packet(
                     enr_response,
-                    &self.local_node.private_key,
+                    &this.local_node.private_key,
                 );
-                let _ = self.udp_sender.send((msg.from, packet)).await;
+                let _ = this.udp_sender.send((msg.from, packet)).await;
             }
             DiscoverMessage::EnrResponse(resp) => {
                 //TODO: IMPLEMENT THIS
@@ -76,23 +76,23 @@ impl Server {
                     }
                 };
 
-                if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
+                if let Some(node) = &mut this.nodes.get_mut(&msg.node_id) {
                     node.set_is_bsc(forks_match);
 
                     if forks_match {
                         let conn_task =
                             ConnectionTask::new_from_node_record(node.node_record.clone());
-                        let _ = self.conn_tx.send(conn_task).await;
+                        let _ = this.conn_tx.send(conn_task).await;
                     }
                 }
             }
             DiscoverMessage::Neighbours(neighbours) => {
-                let req = self.pending_neighbours_req.remove(&msg.node_id);
+                let req = this.pending_neighbours_req.remove(&msg.node_id);
                 if req.is_none() {
                     return;
                 }
                 let req = req.unwrap().1;
-                if let Some(lookup) = &mut self.pending_lookups.get_mut(&req.lookup_id) {
+                if let Some(lookup) = &mut this.pending_lookups.get_mut(&req.lookup_id) {
                     lookup.mark_node_responded(msg.node_id);
 
                     let nodes = neighbours
@@ -106,7 +106,7 @@ impl Server {
                     let mut unknown_nodes = Vec::with_capacity(nodes.len());
 
                     for (id, node) in nodes.into_iter() {
-                        if let Some(already_known_node) = self.nodes.get(&id) {
+                        if let Some(already_known_node) = this.nodes.get(&id) {
                             all_nodes.push(already_known_node.clone());
                         } else {
                             unknown_nodes.push(node.clone());
@@ -115,14 +115,14 @@ impl Server {
                     }
 
                     unknown_nodes.into_iter().for_each(|n| {
-                        self.nodes.insert(n.id(), n);
+                        this.nodes.insert(n.id(), n);
                     });
 
                     lookup.add_new_nodes(all_nodes);
 
-                    let nex_query_batch = lookup.get_next_nodes_to_query(&self.nodes);
+                    let nex_query_batch = lookup.get_next_nodes_to_query(&this.nodes);
                     nex_query_batch.iter().for_each(|n| {
-                        self.pending_neighbours_req
+                        this.pending_neighbours_req
                             .insert(n.id(), PendingNeighboursReq::new(req.lookup_id, n));
                     });
 
@@ -139,7 +139,7 @@ impl Server {
                             .iter()
                             .filter(|n| n.auth_status() == AuthStatus::NotAuthed)
                             .map(|n| {
-                                self.send_ping_packet((
+                                this.send_ping_packet((
                                     n.id(),
                                     n.node_record.clone(),
                                     n.ip_v4_addr,
@@ -157,7 +157,7 @@ impl Server {
                                     || n.auth_status() == AuthStatus::TheyAuthedUs
                             })
                             .map(|n| {
-                                self.send_neighbours_packet(
+                                this.send_neighbours_packet(
                                     req.lookup_id,
                                     (n.ip_v4_addr, n.udp_port()),
                                 )

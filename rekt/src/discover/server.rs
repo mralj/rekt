@@ -84,6 +84,7 @@ impl Server {
         let writer = this.clone();
         let reader = this.clone();
         let worker = this.clone();
+        let lookup = this.clone();
         let logger = this.clone();
 
         tokio::spawn(async move {
@@ -91,12 +92,17 @@ impl Server {
         });
 
         tokio::spawn(async move {
-            let _ = reader.run_reader().await;
+            let _ = Self::run_reader(reader).await;
         });
 
         tokio::spawn(async move {
             let _ = worker.run_worker().await;
         });
+
+        tokio::spawn(async move {
+            let _ = lookup.run_lookup().await;
+        });
+
         tokio::spawn(async move {
             let _ = logger.run_logger().await;
         });
@@ -112,8 +118,8 @@ impl Server {
         }
     }
 
-    async fn run_reader(&self) -> Result<(), io::Error> {
-        let socket = self.udp_socket.clone();
+    async fn run_reader(this: Arc<Self>) -> Result<(), io::Error> {
+        let socket = this.udp_socket.clone();
         let mut buf = vec![0u8; MAX_PACKET_SIZE];
         loop {
             let packet = socket.recv_from(&mut buf).await;
@@ -123,7 +129,10 @@ impl Server {
                 }
 
                 if let Ok(msg) = decode_msg_and_create_response(src, &buf[..size]) {
-                    self.handle_received_msg(msg).await;
+                    let this = this.clone();
+                    tokio::task::spawn(async move {
+                        let _ = Self::handle_received_msg(this, msg).await;
+                    });
                 }
             }
         }
@@ -199,15 +208,6 @@ impl Server {
             self.pending_neighbours_req
                 .retain(|_, v| v.created_on.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);
 
-            let pending_lookups_to_retain = self
-                .pending_neighbours_req
-                .iter()
-                .map(|v| v.lookup_id)
-                .collect::<Vec<_>>();
-
-            self.pending_lookups
-                .retain(|k, _| pending_lookups_to_retain.contains(k));
-
             let tasks = FuturesUnordered::from_iter(
                 self.nodes
                     .iter()
@@ -222,25 +222,6 @@ impl Server {
                     }),
             );
             let _result = tasks.collect::<Vec<_>>().await;
-
-            if self.pending_lookups.is_empty() || self.pending_neighbours_req.is_empty() {
-                let next_lookup_id = self.get_next_lookup_id();
-                let closest_nodes = self.get_closest_nodes(next_lookup_id);
-                self.pending_lookups.insert(
-                    next_lookup_id,
-                    Lookup::new(next_lookup_id, closest_nodes.clone()),
-                );
-
-                for n in closest_nodes.iter() {
-                    self.pending_neighbours_req
-                        .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
-                }
-                let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
-                    self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
-                }));
-
-                let _result = tasks.collect::<Vec<_>>().await;
-            }
 
             let tasks = FuturesUnordered::from_iter(
                 self.nodes
@@ -274,7 +255,6 @@ impl Server {
             let mut conn_out = 0;
             let mut bsc_nodes = 0;
             let mut non_bsc_nodes = 0;
-            let mut unknown_nodes = 0;
 
             for n in self.nodes.iter() {
                 len += 1;

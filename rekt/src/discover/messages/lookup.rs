@@ -1,6 +1,12 @@
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
+};
 
 use dashmap::DashMap;
+use futures::stream::FuturesUnordered;
+use tokio::time::interval;
+use tokio_stream::StreamExt;
 
 use crate::{
     discover::{
@@ -9,6 +15,8 @@ use crate::{
     },
     types::hash::H512,
 };
+
+use super::discover_message::DEFAULT_MESSAGE_EXPIRATION;
 
 const ALPHA: usize = 100;
 
@@ -35,6 +43,40 @@ impl Server {
         });
 
         nodes.into_iter().take(ALPHA).collect()
+    }
+
+    pub async fn run_lookup(&self) {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(7),
+        ));
+
+        while let Some(_) = stream.next().await {
+            let pending_lookups_to_retain = self
+                .pending_neighbours_req
+                .iter()
+                .map(|v| v.lookup_id)
+                .collect::<Vec<_>>();
+
+            self.pending_lookups
+                .retain(|k, _| pending_lookups_to_retain.contains(k));
+
+            let next_lookup_id = self.get_next_lookup_id();
+            let closest_nodes = self.get_closest_nodes(next_lookup_id);
+            self.pending_lookups.insert(
+                next_lookup_id,
+                Lookup::new(next_lookup_id, closest_nodes.clone()),
+            );
+
+            for n in closest_nodes.iter() {
+                self.pending_neighbours_req
+                    .insert(n.id(), PendingNeighboursReq::new(next_lookup_id, n));
+            }
+            let tasks = FuturesUnordered::from_iter(closest_nodes.iter().map(|n| {
+                self.send_neighbours_packet(next_lookup_id, (n.ip_v4_addr, n.udp_port()))
+            }));
+
+            let _result = tasks.collect::<Vec<_>>().await;
+        }
     }
 }
 

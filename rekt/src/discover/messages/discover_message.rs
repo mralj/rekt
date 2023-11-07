@@ -12,7 +12,7 @@ use super::enr::{EnrRequest, EnrResponse};
 use super::find_node::{FindNode, Neighbours};
 use super::ping_pong_messages::{PingMessage, PongMessage};
 
-pub(crate) const DEFAULT_MESSAGE_EXPIRATION: u64 = 20;
+pub(crate) const DEFAULT_MESSAGE_EXPIRATION: u64 = 10;
 
 #[derive(Debug, Clone, Copy, Display)]
 pub enum DiscoverMessageType {
