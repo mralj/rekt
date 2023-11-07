@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
-use crate::types::hash::H512;
+use crate::{blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER, types::hash::H512};
 
 use super::{
     discover_node::{AuthStatus, DiscoverNode},
+    lookup::PendingNeighboursReq,
     messages::{
         decoded_discover_message::DecodedDiscoverMessage, discover_message::DiscoverMessage,
-        enr::EnrResponse, lookup::PendingNeighboursReq, ping_pong_messages::PongMessage,
+        enr::EnrResponse, ping_pong_messages::PongMessage,
     },
     server::Server,
 };
@@ -62,20 +63,18 @@ impl Server {
                 );
                 let _ = self.udp_sender.send((msg.from, packet)).await;
             }
-            DiscoverMessage::EnrResponse(_) => {
-                //TODO: IMPLEMENT THIS
-                //
-                // let forks_match = {
-                //     if let Some(fork_id) = enr_response.eth_fork_id() {
-                //         BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
-                //     } else {
-                //         false
-                //     }
-                // };
-                // println!(
-                //     "[{}] ENR Response message [{:?}]: {:?}, is match: {}",
-                //     now, src, enr_response, forks_match
-                // );
+            DiscoverMessage::EnrResponse(resp) => {
+                let forks_match = {
+                    if let Some(fork_id) = resp.eth_fork_id() {
+                        BSC_MAINNET_FORK_FILTER.validate(fork_id).is_ok()
+                    } else {
+                        false
+                    }
+                };
+
+                if let Some(node) = &mut self.nodes.get_mut(&msg.node_id) {
+                    node.set_is_bsc(forks_match);
+                }
             }
             DiscoverMessage::Neighbours(neighbours) => {
                 let req = self.pending_neighbours_req.remove(&msg.node_id);
@@ -118,10 +117,10 @@ impl Server {
                     });
 
                     //NOTE: for unauthed nodes we send ping message "in hope of" following
-                    //happenig:
+                    //happening:
                     // 1. we send ping message
                     // 2. node is "live" and it sends pong back (less important for neighbours
-                    //    message, but important for obtainging new BSC nodes)
+                    //    message, but important for obtaining new BSC nodes)
                     // 3. node sends US ping message (to which we respond with pong)
                     // 4. now this node considers us authed and we can send find_node message
                     // I say "in hope of" because we can't be sure that node will send us ping
