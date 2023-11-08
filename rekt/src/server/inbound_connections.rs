@@ -21,6 +21,7 @@ use crate::{
         Peer, Protocol,
     },
     rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
+    server::peers::BLACKLIST_PEERS_BY_IP,
     types::node_record::NodeRecord,
 };
 
@@ -75,6 +76,10 @@ impl InboundConnections {
             let (stream, src) = listener.accept().await?;
             if self.is_paused() {
                 tokio::time::sleep(Duration::from_secs(120)).await;
+                continue;
+            }
+
+            if BLACKLIST_PEERS_BY_IP.contains(&src.ip()) {
                 continue;
             }
 

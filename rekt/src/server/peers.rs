@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use dashmap::{DashMap, DashSet};
 use once_cell::sync::Lazy;
 
@@ -18,6 +20,9 @@ pub static PEERS_BY_IP: Lazy<DashSet<String>> =
 pub static BLACKLIST_PEERS_BY_ID: Lazy<DashSet<H512>> =
     Lazy::new(|| DashSet::with_capacity(MAX_PEERS_UPPER_BOUND));
 
+pub static BLACKLIST_PEERS_BY_IP: Lazy<DashSet<IpAddr>> =
+    Lazy::new(|| DashSet::with_capacity(MAX_PEERS_UPPER_BOUND));
+
 pub fn check_if_already_connected_to_peer(node_record: &NodeRecord) -> Result<(), P2PError> {
     if PEERS_BY_IP.contains(&node_record.ip) {
         return Err(P2PError::AlreadyConnectedToSameIp);
@@ -28,4 +33,14 @@ pub fn check_if_already_connected_to_peer(node_record: &NodeRecord) -> Result<()
     }
 
     Ok(())
+}
+
+pub fn blacklist_peer(node_record: &NodeRecord) {
+    BLACKLIST_PEERS_BY_ID.insert(node_record.id);
+    BLACKLIST_PEERS_BY_IP.insert(node_record.address);
+}
+
+pub fn peer_is_blacklisted(node_record: &NodeRecord) -> bool {
+    BLACKLIST_PEERS_BY_ID.contains(&node_record.id)
+        || BLACKLIST_PEERS_BY_IP.contains(&node_record.address)
 }

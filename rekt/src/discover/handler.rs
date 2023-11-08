@@ -6,7 +6,10 @@ use crate::{
     blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER,
     server::{
         connection_task::ConnectionTask,
-        peers::{check_if_already_connected_to_peer, BLACKLIST_PEERS_BY_ID},
+        peers::{
+            blacklist_peer, check_if_already_connected_to_peer, peer_is_blacklisted,
+            BLACKLIST_PEERS_BY_ID,
+        },
     },
     types::hash::H512,
 };
@@ -88,11 +91,12 @@ impl Server {
                             return;
                         }
 
-                        if BLACKLIST_PEERS_BY_ID.contains(&conn_task.node.id) {
+                        if peer_is_blacklisted(&node.node_record) {
                             return;
                         }
-
                         let _ = self.conn_tx.send(conn_task).await;
+                    } else {
+                        blacklist_peer(&node.node_record);
                     }
                 }
             }

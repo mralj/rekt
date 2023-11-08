@@ -19,7 +19,9 @@ use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
-use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
+use crate::server::peers::{
+    blacklist_peer, check_if_already_connected_to_peer, BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP,
+};
 use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
@@ -98,7 +100,10 @@ impl Display for Peer {
 impl Peer {
     pub async fn run(&mut self) -> Result<(), P2PError> {
         check_if_already_connected_to_peer(&self.node_record)?;
-        self.handshake().await?;
+        if let Err(e) = self.handshake().await {
+            blacklist_peer(&self.node_record);
+            return Err(e);
+        }
         check_if_already_connected_to_peer(&self.node_record)?;
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
