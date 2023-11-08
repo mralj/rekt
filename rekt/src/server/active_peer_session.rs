@@ -1,7 +1,7 @@
 use std::io;
 use std::time::Duration;
 
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
 use tokio::net::TcpStream;
@@ -74,6 +74,8 @@ pub fn connect_to_node(
                 "Connection timed out",
             )),
         });
+
+        let _ = stream.set_nodelay(true);
 
         let mut transport = rlpx_connection.framed(stream);
         map_err!(handle_auth(&mut transport).await);
