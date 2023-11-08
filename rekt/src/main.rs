@@ -60,8 +60,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     OutboundConnections::start(outbound_connections).await;
 
     let disc_server = if our_node.public_ip_retrieved {
-        let discover_server =
-            Arc::new(rekt::discover::server::Server::new(our_node, all_nodes, conn_tx).await?);
+        let discover_server = Arc::new(
+            rekt::discover::server::Server::new(our_node.clone(), all_nodes, conn_tx).await?,
+        );
         rekt::discover::server::Server::start(discover_server.clone());
         Some(discover_server)
     } else {
@@ -70,7 +71,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     tokio::spawn(async move {
-        let _ = run_incoming_connection_listener().await;
+        if let Err(e) = run_incoming_connection_listener(our_node.private_key).await {
+            println!("Failed to run incoming connection listener: {}", e);
+        }
     });
 
     run_local_server(disc_server);
