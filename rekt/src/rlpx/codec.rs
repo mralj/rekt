@@ -65,11 +65,22 @@ impl Decoder for super::Connection {
         loop {
             match self.state {
                 RLPXConnectionState::Auth => {
-                    trace!("Received auth, this is unexpected");
-                    return Err(RLPXError::UnexpectedMessage {
-                        received: RLPXMsg::Auth,
-                        expected: RLPXMsg::Ack,
-                    });
+                    if src.len() < RLPX_AUTH_MSG_LEN_MARKER {
+                        return Ok(None);
+                    }
+
+                    let payload_size = u16::from_be_bytes([src[0], src[1]]) as usize;
+                    let total_size = payload_size + RLPX_AUTH_MSG_LEN_MARKER;
+
+                    if src.len() < total_size {
+                        trace!("current len {}, need {}", src.len(), total_size);
+                        return Ok(None);
+                    }
+
+                    self.read_auth(&mut src.split_to(total_size))?;
+
+                    self.state = RLPXConnectionState::Header;
+                    return Ok(Some(RLPXMsg::Auth));
                 }
                 RLPXConnectionState::Ack => {
                     // At minimum we  need 2 bytes, because per RLPX spec

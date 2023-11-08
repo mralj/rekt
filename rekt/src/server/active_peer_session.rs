@@ -51,7 +51,7 @@ pub fn connect_to_node(
         map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
-        let rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let rlpx_connection = Connection::new_out(secret_key, node.pub_key);
 
         let socket = map_err!(TcpSocket::new_v4());
         map_err!(socket.set_reuseport(true));

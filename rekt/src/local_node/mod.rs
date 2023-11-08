@@ -9,6 +9,7 @@ use crate::blockchain::fork::ForkId;
 use crate::constants::DEFAULT_PORT;
 use crate::types::node_record::NodeRecord;
 
+#[derive(Debug, Clone)]
 pub struct LocalNode {
     pub node_record: NodeRecord,
     pub private_key: secp256k1::SecretKey,
