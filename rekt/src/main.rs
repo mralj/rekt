@@ -8,6 +8,7 @@ use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
+use rekt::server::inbound_connections::run_incoming_connection_listener;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use clap::Parser;
@@ -67,6 +68,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Failed to retrieve public ip, discovery server not started");
         None
     };
+
+    tokio::spawn(async move {
+        let _ = run_incoming_connection_listener().await;
+    });
 
     run_local_server(disc_server);
 
