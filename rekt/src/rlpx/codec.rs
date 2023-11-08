@@ -154,7 +154,7 @@ impl Encoder<RLPXMsgOut> for super::Connection {
                 Ok(())
             }
             RLPXMsgOut::Ack => {
-                trace!("Got request to write ack, this is unexpected at this time ");
+                self.state = RLPXConnectionState::Header;
                 Ok(())
             }
             RLPXMsgOut::Message(msg) => {

@@ -2,7 +2,7 @@ use aes::Aes256;
 use bytes::{BufMut, Bytes, BytesMut};
 use ctr::Ctr64BE;
 use digest::{crypto_common::KeyIvInit, Digest};
-use open_fastrlp::{Encodable, Rlp, RlpEncodable};
+use open_fastrlp::{encode_fixed_size, Encodable, Rlp, RlpEncodable, RlpMaxEncodedLen};
 use rand::{thread_rng, Rng};
 use secp256k1::{
     ecdsa::{RecoverableSignature, RecoveryId},
@@ -180,6 +180,47 @@ impl Connection {
         self.parse_ack_unencrypted(unencrypted)?;
         self.setup_secrets(false);
         Ok(())
+    }
+
+    pub fn write_ack(&mut self, out: &mut BytesMut) {
+        let unencrypted = self.create_ack_unencrypted();
+        let mut buf = out.split_off(out.len());
+        // reserve space for length
+        buf.put_u16(0);
+
+        // encrypt and append
+        let mut encrypted = buf.split_off(buf.len());
+        encrypt_message(
+            &self.remote_public_key.unwrap(),
+            unencrypted.as_ref(),
+            &mut encrypted,
+        );
+
+        let len_bytes = u16::try_from(encrypted.len()).unwrap().to_be_bytes();
+        buf.unsplit(encrypted);
+
+        // write length
+        buf[..len_bytes.len()].copy_from_slice(&len_bytes[..]);
+
+        self.init_msg = Some(buf.clone().freeze());
+        out.unsplit(buf);
+
+        self.setup_secrets(true);
+    }
+
+    fn create_ack_unencrypted(&self) -> impl AsRef<[u8]> {
+        #[derive(RlpEncodable, RlpMaxEncodedLen)]
+        struct S {
+            id: H512,
+            nonce: H256,
+            protocol_version: u8,
+        }
+
+        encode_fixed_size(&S {
+            id: pk2id(&self.ephemeral_public_key),
+            nonce: self.nonce,
+            protocol_version: 4u8,
+        })
     }
 
     // Secrets represents the connection secret keys which are negotiated during the handshake.
