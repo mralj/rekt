@@ -67,7 +67,6 @@ impl InboundConnections {
             }
 
             tokio::spawn(async move {
-                println!("Accepted connection from {}", addr);
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let mut transport = rlpx_connection.framed(stream);
                 if handle_auth_msg(&mut transport).await.is_err() {
