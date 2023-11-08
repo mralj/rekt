@@ -70,14 +70,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    let incoming_listener = Arc::new(InboundConnections::new(our_node));
+    let listener = incoming_listener.clone();
     tokio::spawn(async move {
-        let incoming_listener = InboundConnections::new(our_node);
-        if let Err(e) = incoming_listener.run().await {
+        if let Err(e) = listener.run().await {
             println!("Failed to run incoming connection listener: {}", e);
         }
     });
 
-    run_local_server(disc_server);
+    run_local_server(disc_server, incoming_listener);
 
     let _ = tokio::signal::ctrl_c().await;
 
