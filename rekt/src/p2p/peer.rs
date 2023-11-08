@@ -1,4 +1,6 @@
 use derive_more::Display;
+use futures::stream::SplitSink;
+use kanal::{AsyncReceiver, AsyncSender};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -62,9 +64,10 @@ pub struct Peer {
     pub(crate) info: String,
     pub(crate) peer_type: PeerType,
 
-    pub(super) connection: P2PWire,
-
     protocol_version: ProtocolVersion,
+
+    msg_rx: AsyncReceiver<EthMessage>,
+    pub(super) sink: SplitSink<P2PWire, EthMessage>,
 }
 
 impl Peer {
@@ -73,14 +76,16 @@ impl Peer {
         id: H512,
         protocol: usize,
         info: String,
-        connection: TcpWire,
+        msg_rx: AsyncReceiver<EthMessage>,
+        sink: SplitSink<P2PWire, EthMessage>,
         peer_type: PeerType,
     ) -> Self {
         Self {
             id,
-            connection: P2PWire::new(connection),
             info,
             peer_type,
+            msg_rx,
+            sink,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
         }
@@ -116,13 +121,12 @@ impl Peer {
             .lock()
             .await
             .insert(self.node_record.id, peer_ptr);
-
         loop {
-            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+            let msg = self.msg_rx.recv().await.map_err(|_| P2PError::NoMessage)?;
             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
-                        self.connection.send(msg).await?;
+                        self.sink.send(msg).await?;
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
                         if let Some(buy_txs_eth_message) =
@@ -152,7 +156,7 @@ impl Peer {
     }
 
     async fn handshake(&mut self) -> Result<(), P2PError> {
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        let msg = self.msg_rx.recv().await.map_err(|_| P2PError::NoMessage)?;
 
         if msg.id != EthProtocol::StatusMsg {
             error!("Expected status message, got {:?}", msg.id);
@@ -165,7 +169,7 @@ impl Peer {
             return Err(P2PError::CouldNotValidateStatusMessage);
         }
 
-        self.connection
+        self.sink
             .send(StatusMessage::get(&self.protocol_version))
             .await?;
 
@@ -177,8 +181,8 @@ impl Peer {
             return Ok(());
         }
 
-        self.connection.send(UpgradeStatusMessage::get()).await?;
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        self.sink.send(UpgradeStatusMessage::get()).await?;
+        let msg = self.msg_rx.recv().await.map_err(|_| P2PError::NoMessage)?;
         if msg.id != EthProtocol::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
         }

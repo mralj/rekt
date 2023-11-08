@@ -10,6 +10,7 @@ use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::p2p::errors::P2PError;
+use crate::p2p::p2p_wire::P2PWire;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
 use crate::p2p::tx_sender::PEERS_SELL;
@@ -92,12 +93,32 @@ pub fn connect_to_node(
                 Err(e) => Err(e),
             });
 
+        let (msg_tx, msg_rx) = kanal::bounded_async(10);
+        let (sink, mut stream) = P2PWire::new(TcpWire::new(transport)).split();
+
+        tokio::task::spawn(async move {
+            loop {
+                let msg = match stream.next().await {
+                    Some(Ok(msg)) => msg,
+                    _ => {
+                        msg_tx.close();
+                        return;
+                    }
+                };
+
+                if let Err(_e) = msg_tx.send(msg).await {
+                    return;
+                }
+            }
+        });
+
         let mut p = Peer::new(
             node.clone(),
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
-            TcpWire::new(transport),
+            msg_rx,
+            sink,
             PeerType::Outbound,
         );
 

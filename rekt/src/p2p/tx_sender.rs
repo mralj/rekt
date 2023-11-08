@@ -1,6 +1,5 @@
 use std::{collections::HashMap, usize};
 
-use color_print::cprintln;
 use futures::{stream::FuturesUnordered, SinkExt};
 use static_init::dynamic;
 use tokio::sync::Mutex;
@@ -24,7 +23,7 @@ impl Peer {
         let mut success_count: usize = 0;
         //        let start = std::time::Instant::now();
         let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
-            let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+            let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().sink };
             let message = msg.clone();
             tokio::spawn(async move { peer_ptr.send(message).await })
         }));

@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::PublicKey;
 use tokio::net::{TcpSocket, TcpStream};
 use tokio_util::codec::{Decoder, Framed};
@@ -16,6 +16,7 @@ use crate::{
     local_node::LocalNode,
     p2p::{
         errors::P2PError,
+        p2p_wire::P2PWire,
         peer::{is_buy_or_sell_in_progress, PeerType},
         tx_sender::PEERS_SELL,
         Peer, Protocol,
@@ -121,13 +122,33 @@ async fn new_connection_handler(
         }
     };
 
+    let (msg_tx, msg_rx) = kanal::bounded_async(10);
+    let (sink, mut stream) = P2PWire::new(TcpWire::new(transport)).split();
+
+    tokio::task::spawn(async move {
+        loop {
+            let msg = match stream.next().await {
+                Some(Ok(msg)) => msg,
+                _ => {
+                    msg_tx.close();
+                    return;
+                }
+            };
+
+            if let Err(e) = msg_tx.send(msg).await {
+                return;
+            }
+        }
+    });
+
     let mut p = Peer::new(
         node.clone(),
         hello_msg.id,
         protocol_v,
         hello_msg.client_version,
-        TcpWire::new(transport),
-        PeerType::Inbound,
+        msg_rx,
+        sink,
+        PeerType::Outbound,
     );
 
     let task_result = p.run().await;
