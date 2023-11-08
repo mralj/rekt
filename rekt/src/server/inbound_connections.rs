@@ -14,7 +14,16 @@ use tracing::error;
 use crate::{
     constants::DEFAULT_PORT,
     local_node::LocalNode,
-    rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError},
+    p2p::{
+        errors::P2PError, peer::is_buy_or_sell_in_progress, tx_sender::PEERS_SELL, Peer, Protocol,
+    },
+    rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
+    types::node_record::NodeRecord,
+};
+
+use super::{
+    active_peer_session::handle_hello_msg,
+    peers::{PEERS, PEERS_BY_IP},
 };
 
 pub struct InboundConnections {
@@ -60,7 +69,7 @@ impl InboundConnections {
         let our_secret_key = self.our_private_key;
         let listener = socket.listen(1024)?;
         loop {
-            let (stream, addr) = listener.accept().await?;
+            let (stream, src) = listener.accept().await?;
             if self.is_paused() {
                 tokio::time::sleep(Duration::from_secs(120)).await;
                 continue;
@@ -68,33 +77,86 @@ impl InboundConnections {
 
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
-                let mut transport = rlpx_connection.framed(stream);
-                if handle_auth_msg(&mut transport).await.is_err() {
-                    return;
-                } else {
-                    println!("Authenticated connection from {}", addr);
-                }
+                let transport = rlpx_connection.framed(stream);
+                let _ = new_connection_handler(src, transport, our_secret_key).await;
             });
         }
     }
 }
 
-async fn handle_auth_msg(
-    transport: &mut Framed<TcpStream, Connection>,
+async fn new_connection_handler(
+    address: SocketAddr,
+    mut transport: Framed<TcpStream, Connection>,
+    secret_key: secp256k1::SecretKey,
 ) -> Result<(), RLPXSessionError> {
+    let external_node_pub_key = handle_auth(&mut transport).await?;
+
+    let node = NodeRecord::new(
+        address.ip(),
+        address.port(),
+        address.port(),
+        external_node_pub_key,
+    );
+    let pub_key = PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &secret_key);
+
+    let (hello_msg, protocol_v) = match handle_hello_msg(&pub_key, &mut transport).await {
+        Ok(mut hello_msg) => {
+            let matched_protocol = Protocol::match_protocols(&mut hello_msg.protocols)
+                .ok_or(RLPXSessionError::NoMatchingProtocols)?;
+
+            (hello_msg, matched_protocol.version)
+        }
+        Err(e) => {
+            return Err(e);
+        }
+    };
+
+    let mut p = Peer::new(
+        node.clone(),
+        hello_msg.id,
+        protocol_v,
+        hello_msg.client_version,
+        TcpWire::new(transport),
+    );
+
+    println!("New inbound connection from {}", node.str);
+    let task_result = p.run().await;
+    if is_buy_or_sell_in_progress() {
+        //NOTE: don't disconnect peers immediately to avoid UB (like nil ptr)
+
+        while is_buy_or_sell_in_progress() {
+            tokio::time::sleep(Duration::from_secs(120)).await;
+        }
+    }
+    PEERS.remove(&node.id);
+    PEERS_SELL.lock().await.remove(&node.id);
+
+    // In case we got already connected to same ip error we do not remove the IP from the set
+    // of already connected ips
+    // But in all other cases we must remove the IP from the set
+    if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
+        PEERS_BY_IP.remove(&node.ip);
+    }
+
+    Ok(())
+}
+
+async fn handle_auth(
+    transport: &mut Framed<TcpStream, Connection>,
+) -> Result<PublicKey, RLPXSessionError> {
     let msg = transport
         .try_next()
         .await?
         .ok_or(RLPXError::InvalidAuthData)?;
 
-    if !matches!(msg, RLPXMsg::Auth) {
-        error!("Got unexpected message: {:?}", msg);
-        return Err(RLPXSessionError::UnexpectedMessage {
-            received: msg,
-            expected: RLPXMsg::Auth,
-        });
-    }
+    let pub_key = match msg {
+        RLPXMsg::Auth(key) => key,
+        _ => {
+            error!("Got unexpected message: {:?}", msg);
+            return Err(RLPXSessionError::RlpxError(RLPXError::InvalidAuthData));
+        }
+    };
 
     transport.send(crate::rlpx::codec::RLPXMsgOut::Ack).await?;
-    Ok(())
+    Ok(pub_key)
 }

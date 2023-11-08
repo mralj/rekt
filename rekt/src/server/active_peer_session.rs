@@ -76,27 +76,19 @@ pub fn connect_to_node(
         });
 
         let mut transport = rlpx_connection.framed(stream);
-        map_err!(transport.send(RLPXMsgOut::Auth).await);
-        map_err!(handle_ack_msg(&mut transport).await);
+        map_err!(handle_auth(&mut transport).await);
 
-        map_err!(
-            transport
-                .send(RLPXMsgOut::Message(
-                    p2p::HelloMessage::get_our_hello_message(pk2id(&pub_key),)
-                ))
-                .await
-        );
+        let (hello_msg, protocol_v) =
+            map_err!(match handle_hello_msg(&pub_key, &mut transport).await {
+                Ok(mut hello_msg) => {
+                    let matched_protocol =
+                        map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
+                            .ok_or(RLPXSessionError::NoMatchingProtocols));
 
-        let (hello_msg, protocol_v) = map_err!(match handle_hello_msg(&mut transport).await {
-            Ok(mut hello_msg) => {
-                let matched_protocol =
-                    map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
-                        .ok_or(RLPXSessionError::NoMatchingProtocols));
-
-                Ok((hello_msg, matched_protocol.version))
-            }
-            Err(e) => Err(e),
-        });
+                    Ok((hello_msg, matched_protocol.version))
+                }
+                Err(e) => Err(e),
+            });
 
         let mut p = Peer::new(
             node.clone(),
@@ -128,9 +120,10 @@ pub fn connect_to_node(
     });
 }
 
-async fn handle_ack_msg(
+async fn handle_auth(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<(), RLPXSessionError> {
+    transport.send(RLPXMsgOut::Auth).await?;
     let msg = transport
         .try_next()
         .await?
@@ -146,9 +139,16 @@ async fn handle_ack_msg(
     Ok(())
 }
 
-async fn handle_hello_msg(
+pub(super) async fn handle_hello_msg(
+    pub_key: &PublicKey,
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<HelloMessage, RLPXSessionError> {
+    transport
+        .send(RLPXMsgOut::Message(
+            p2p::HelloMessage::get_our_hello_message(pk2id(&pub_key)),
+        ))
+        .await?;
+
     let rlpx_msg = transport
         .try_next()
         .await?
