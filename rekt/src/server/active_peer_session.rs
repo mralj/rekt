@@ -11,7 +11,7 @@ use tracing::error;
 
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
-use crate::p2p::peer::is_buy_or_sell_in_progress;
+use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
 use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
@@ -96,6 +96,7 @@ pub fn connect_to_node(
             protocol_v,
             hello_msg.client_version,
             TcpWire::new(transport),
+            PeerType::Outbound,
         );
 
         let task_result = p.run().await;

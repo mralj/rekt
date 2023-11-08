@@ -15,7 +15,10 @@ use crate::{
     constants::DEFAULT_PORT,
     local_node::LocalNode,
     p2p::{
-        errors::P2PError, peer::is_buy_or_sell_in_progress, tx_sender::PEERS_SELL, Peer, Protocol,
+        errors::P2PError,
+        peer::{is_buy_or_sell_in_progress, PeerType},
+        tx_sender::PEERS_SELL,
+        Peer, Protocol,
     },
     rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
     types::node_record::NodeRecord,
@@ -117,9 +120,9 @@ async fn new_connection_handler(
         protocol_v,
         hello_msg.client_version,
         TcpWire::new(transport),
+        PeerType::Inbound,
     );
 
-    println!("New inbound connection from {}", node.str);
     let task_result = p.run().await;
     if is_buy_or_sell_in_progress() {
         //NOTE: don't disconnect peers immediately to avoid UB (like nil ptr)

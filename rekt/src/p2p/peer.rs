@@ -1,3 +1,4 @@
+use derive_more::Display;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -46,11 +47,18 @@ pub fn is_buy_or_sell_in_progress() -> bool {
 
 const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Display)]
+pub enum PeerType {
+    Inbound,
+    Outbound,
+}
+
 #[derive(Debug)]
 pub struct Peer {
     pub id: H512,
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
+    pub(crate) peer_type: PeerType,
 
     pub(super) connection: P2PWire,
 
@@ -64,11 +72,13 @@ impl Peer {
         protocol: usize,
         info: String,
         connection: TcpWire,
+        peer_type: PeerType,
     ) -> Self {
         Self {
             id,
             connection: P2PWire::new(connection),
             info,
+            peer_type,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
         }
@@ -101,6 +111,10 @@ impl Peer {
             .lock()
             .await
             .insert(self.node_record.id, peer_ptr);
+
+        if self.peer_type == PeerType::Inbound {
+            println!("Connected to peer: {}", self.node_record.str);
+        }
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
