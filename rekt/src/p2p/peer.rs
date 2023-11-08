@@ -112,10 +112,6 @@ impl Peer {
             .await
             .insert(self.node_record.id, peer_ptr);
 
-        if self.peer_type == PeerType::Inbound {
-            println!("Connected to peer: {}", self.node_record.str);
-        }
-
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {

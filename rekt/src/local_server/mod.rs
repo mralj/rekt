@@ -8,7 +8,7 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
-    p2p::Peer,
+    p2p::{peer::PeerType, Peer},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
@@ -52,9 +52,23 @@ pub fn run_local_server(
             }
         });
 
-        let peer_count = warp::path!("peercount")
-            .and(end())
-            .map(|| format!("Peer count: {}\n", PEERS.len()));
+        let peer_count = warp::path!("peercount").and(end()).map(|| {
+            let mut inbound = 0;
+            let mut outbound = 0;
+            for p in PEERS.iter() {
+                if p.value().peer_type == PeerType::Inbound {
+                    inbound += 1;
+                } else {
+                    outbound += 1;
+                }
+            }
+            format!(
+                "Total: {}, Inbound: {}, Outbound: {}",
+                inbound + outbound,
+                inbound,
+                outbound
+            )
+        });
 
         let refresh_tokens = warp::path("refreshtokens").and(end()).map(|| {
             tokio::task::spawn(async move {
