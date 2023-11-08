@@ -1,16 +1,14 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
-use tokio::net::{TcpSocket, TcpStream};
+use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
-use crate::constants::DEFAULT_PORT;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::is_buy_or_sell_in_progress;
@@ -51,7 +49,7 @@ pub fn connect_to_node(
         map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
-        let rlpx_connection = Connection::new(secret_key, node.pub_key);
+        let rlpx_connection = Connection::new_out(secret_key, node.pub_key);
 
         // let socket = map_err!(TcpSocket::new_v4());
         // map_err!(socket.set_reuseport(true));

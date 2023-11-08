@@ -4,7 +4,10 @@ use ctr::Ctr64BE;
 use digest::{crypto_common::KeyIvInit, Digest};
 use open_fastrlp::{Encodable, Rlp, RlpEncodable};
 use rand::{thread_rng, Rng};
-use secp256k1::SECP256K1;
+use secp256k1::{
+    ecdsa::{RecoverableSignature, RecoveryId},
+    SECP256K1,
+};
 use sha3::Keccak256;
 
 use crate::types::{
@@ -86,6 +89,42 @@ impl Connection {
             0,
         );
         out
+    }
+
+    fn parse_auth_unencrypted(&mut self, data: &[u8]) -> Result<(), RLPXError> {
+        let mut data = Rlp::new(data)?;
+
+        let sigdata = data
+            .get_next::<[u8; 65]>()?
+            .ok_or(RLPXError::InvalidAuthData)?;
+        let signature = RecoverableSignature::from_compact(
+            &sigdata[..64],
+            RecoveryId::from_i32(sigdata[64] as i32)?,
+        )?;
+        let remote_id = data.get_next()?.ok_or(RLPXError::InvalidAuthData)?;
+        self.remote_id = Some(remote_id);
+        self.remote_public_key = Some(id2pk(remote_id)?);
+        self.remote_nonce = Some(data.get_next()?.ok_or(RLPXError::InvalidAuthData)?);
+
+        let x = ecdh_x(&self.remote_public_key.unwrap(), &self.secret_key);
+        self.remote_ephemeral_public_key = Some(SECP256K1.recover_ecdsa(
+            &secp256k1::Message::from_slice((x ^ self.remote_nonce.unwrap()).as_ref()).unwrap(),
+            &signature,
+        )?);
+        self.ephemeral_shared_secret = Some(ecdh_x(
+            &self.remote_ephemeral_public_key.unwrap(),
+            &self.ephemeral_secret_key,
+        ));
+
+        Ok(())
+    }
+
+    /// Read and verify an auth message from the input data.
+    #[tracing::instrument(skip_all)]
+    pub fn read_auth(&mut self, data: &mut [u8]) -> Result<(), RLPXError> {
+        self.remote_init_msg = Some(Bytes::copy_from_slice(data));
+        let unencrypted = decrypt_message(&self.secret_key, data)?;
+        self.parse_auth_unencrypted(unencrypted)
     }
 
     // This will ECIES encrypt the auth message and write it to the buffer

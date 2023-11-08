@@ -6,9 +6,9 @@ use ctr::Ctr64BE;
 use derive_more::Display;
 use secp256k1::{PublicKey, SecretKey, SECP256K1};
 
-use crate::types::hash::H256;
+use crate::types::hash::{H256, H512};
 
-use super::mac::MAC;
+use super::{mac::MAC, utils::pk2id};
 
 /// Per docs: all messages are padded to 16 bytes
 ///frame-padding = zero-fill frame-data to 16-byte boundary
@@ -50,6 +50,7 @@ pub struct Connection {
     // if the peer is dialing us (we are the "server" and they are a "client")
     // ofc. if we are dialing peer, we must know public key (it is part of enode:// spec)
     pub(super) remote_public_key: Option<PublicKey>,
+    pub(super) remote_id: Option<H512>,
 
     pub(super) ephemeral_shared_secret: Option<H256>,
     pub(super) remote_ephemeral_public_key: Option<PublicKey>,
@@ -69,24 +70,23 @@ pub struct Connection {
     pub(super) body_size: Option<usize>,
 }
 
-impl Connection {
-    pub fn new(secret_key: SecretKey, remote_public_key: PublicKey) -> Self {
-        let nonce = H256::random();
-        let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
+impl Default for Connection {
+    fn default() -> Self {
         let (ephemeral_secret_key, ephemeral_public_key) =
             secp256k1::generate_keypair(&mut secp256k1::rand::thread_rng());
 
         Self {
             state: RLPXConnectionState::Auth,
-            secret_key,
-            public_key,
             ephemeral_secret_key,
             ephemeral_public_key,
-            remote_public_key: Some(remote_public_key),
-            nonce,
+            secret_key: ephemeral_secret_key,
+            public_key: ephemeral_public_key,
+            remote_public_key: None,
+            remote_id: None,
+            nonce: H256::random(),
+            remote_nonce: None,
             ephemeral_shared_secret: None,
             remote_ephemeral_public_key: None,
-            remote_nonce: None,
             ingress_aes: None,
             egress_aes: None,
             ingress_mac: None,
@@ -94,6 +94,30 @@ impl Connection {
             init_msg: None,
             remote_init_msg: None,
             body_size: None,
+        }
+    }
+}
+
+impl Connection {
+    pub fn new_out(secret_key: SecretKey, remote_public_key: PublicKey) -> Self {
+        let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
+
+        Self {
+            secret_key,
+            public_key,
+            remote_public_key: Some(remote_public_key),
+            remote_id: Some(pk2id(&remote_public_key)),
+            ..Self::default()
+        }
+    }
+
+    pub fn new_in(secret_key: SecretKey) -> Self {
+        let public_key = PublicKey::from_secret_key(SECP256K1, &secret_key);
+
+        Self {
+            secret_key,
+            public_key,
+            ..Self::default()
         }
     }
 

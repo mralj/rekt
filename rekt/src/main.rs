@@ -8,6 +8,7 @@ use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
+use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use clap::Parser;
@@ -59,8 +60,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     OutboundConnections::start(outbound_connections).await;
 
     let disc_server = if our_node.public_ip_retrieved {
-        let discover_server =
-            Arc::new(rekt::discover::server::Server::new(our_node, all_nodes, conn_tx).await?);
+        let discover_server = Arc::new(
+            rekt::discover::server::Server::new(our_node.clone(), all_nodes, conn_tx).await?,
+        );
         rekt::discover::server::Server::start(discover_server.clone());
         Some(discover_server)
     } else {
@@ -68,7 +70,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    run_local_server(disc_server);
+    let incoming_listener = Arc::new(InboundConnections::new(our_node));
+    let listener = incoming_listener.clone();
+    tokio::spawn(async move {
+        if let Err(e) = listener.run().await {
+            println!("Failed to run incoming connection listener: {}", e);
+        }
+    });
+
+    run_local_server(disc_server, incoming_listener);
 
     let _ = tokio::signal::ctrl_c().await;
 

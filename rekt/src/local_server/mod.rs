@@ -9,13 +9,16 @@ use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
     p2p::Peer,
-    server::peers::PEERS,
+    server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
     wallets::local_wallets::generate_and_rlp_encode_prep_tx,
 };
 
-pub fn run_local_server(disc_server: Option<Arc<Server>>) {
+pub fn run_local_server(
+    disc_server: Option<Arc<Server>>,
+    incoming_listener: Arc<InboundConnections>,
+) {
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
@@ -66,16 +69,24 @@ pub fn run_local_server(disc_server: Option<Arc<Server>>) {
                 if disc.is_paused() {
                     disc.start_disc_server();
                     cprintln!("<yellow>Discovery server was off now it's ON</>");
-                    return format!("Discovery server started\n");
                 } else {
                     disc.stop_disc_server();
                     cprintln!("<yellow>Discovery server was ON, nof it's OFF</>");
-                    return format!("Discovery server stopped\n");
                 }
             } else {
                 cprintln!("<yellow>Discovery server not found</>");
                 return format!("Discovery server not found\n");
             }
+
+            if incoming_listener.is_paused() {
+                incoming_listener.start_listener();
+                cprintln!("<yellow>Listener server was off now it's ON</>");
+            } else {
+                incoming_listener.stop_listener();
+                cprintln!("<yellow>Listener server was on now it's OFF</>");
+            }
+
+            format!("Discovery&Listener servers toggled\n")
         });
 
         let routes = prep.or(peer_count).or(refresh_tokens).or(disc);

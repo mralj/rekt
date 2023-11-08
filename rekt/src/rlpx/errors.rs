@@ -9,6 +9,9 @@ use crate::p2p::errors::P2PError;
 
 #[derive(Debug, Error)]
 pub enum RLPXError {
+    /// Error when parsing AUTH data
+    #[error("invalid auth data")]
+    InvalidAuthData,
     /// Error when parsing ACK data
     #[error("invalid ack data")]
     InvalidAckData,
