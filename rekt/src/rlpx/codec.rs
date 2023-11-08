@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use bytes::{Bytes, BytesMut};
+use secp256k1::PublicKey;
 use tokio_util::codec::{Decoder, Encoder};
 use tracing::trace;
 
@@ -22,7 +23,7 @@ use super::{
 /// Represents message received over RLPX connection from peer
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RLPXMsg {
-    Auth,
+    Auth(PublicKey),
     Ack,
     Message(BytesMut),
 }
@@ -37,7 +38,7 @@ pub enum RLPXMsgOut {
 impl Display for RLPXMsg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RLPXMsg::Auth => write!(f, "Auth"),
+            RLPXMsg::Auth(_) => write!(f, "Auth"),
             RLPXMsg::Ack => write!(f, "Ack"),
             RLPXMsg::Message(m) => write!(f, "Message: {:?}", m),
         }
@@ -80,7 +81,10 @@ impl Decoder for super::Connection {
                     self.read_auth(&mut src.split_to(total_size))?;
 
                     self.state = RLPXConnectionState::Header;
-                    return Ok(Some(RLPXMsg::Auth));
+                    if self.remote_public_key.is_none() {
+                        return Err(RLPXError::InvalidAuthData);
+                    }
+                    return Ok(Some(RLPXMsg::Auth(self.remote_public_key.unwrap())));
                 }
                 RLPXConnectionState::Ack => {
                     // At minimum we  need 2 bytes, because per RLPX spec
