@@ -123,6 +123,9 @@ impl Peer {
             .insert(self.node_record.id, peer_ptr);
         loop {
             let msg = self.msg_rx.recv().await.map_err(|_| P2PError::NoMessage)?;
+            if !self.msg_rx.is_empty() {
+                println!("msg_rx.len(): {}", self.msg_rx.len());
+            }
             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
