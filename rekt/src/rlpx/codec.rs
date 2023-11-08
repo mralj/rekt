@@ -155,6 +155,7 @@ impl Encoder<RLPXMsgOut> for super::Connection {
             }
             RLPXMsgOut::Ack => {
                 self.state = RLPXConnectionState::Header;
+                self.write_ack(dst);
                 Ok(())
             }
             RLPXMsgOut::Message(msg) => {
