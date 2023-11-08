@@ -8,7 +8,7 @@ use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
-use rekt::server::inbound_connections::run_incoming_connection_listener;
+use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
 
 use clap::Parser;
@@ -71,7 +71,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     tokio::spawn(async move {
-        if let Err(e) = run_incoming_connection_listener(our_node.private_key).await {
+        let incoming_listener = InboundConnections::new(our_node);
+        if let Err(e) = incoming_listener.run().await {
             println!("Failed to run incoming connection listener: {}", e);
         }
     });
