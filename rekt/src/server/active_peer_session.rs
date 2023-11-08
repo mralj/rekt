@@ -1,16 +1,14 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
 use kanal::AsyncSender;
 use secp256k1::{PublicKey, SecretKey};
-use tokio::net::{TcpSocket, TcpStream};
+use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
-use crate::constants::DEFAULT_PORT;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::is_buy_or_sell_in_progress;

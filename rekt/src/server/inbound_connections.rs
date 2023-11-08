@@ -5,19 +5,16 @@ use std::{
     time::Duration,
 };
 
-use futures::SinkExt;
-use secp256k1::{PublicKey, SecretKey};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpSocket,
-};
-use tokio_stream::StreamExt;
-use tokio_util::codec::Decoder;
+use futures::{SinkExt, TryStreamExt};
+use secp256k1::PublicKey;
+use tokio::net::{TcpSocket, TcpStream};
+use tokio_util::codec::{Decoder, Framed};
+use tracing::error;
 
 use crate::{
     constants::DEFAULT_PORT,
     local_node::LocalNode,
-    rlpx::{Connection, RLPXMsg},
+    rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError},
 };
 
 pub struct InboundConnections {
@@ -73,17 +70,32 @@ impl InboundConnections {
                 println!("Accepted connection from {}", addr);
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let mut transport = rlpx_connection.framed(stream);
-                if let Ok(Some(msg)) = transport.try_next().await {
-                    if matches!(msg, RLPXMsg::Auth) {
-                        println!("Received auth message from {}", addr);
-                        if let Err(e) = transport.send(crate::rlpx::codec::RLPXMsgOut::Ack).await {
-                            println!("Failed to send ack message to {}: {}", addr, e);
-                        }
-                    } else {
-                        println!("Received unexpected message from {}", addr);
-                    }
+                if handle_auth_msg(&mut transport).await.is_err() {
+                    return;
+                } else {
+                    println!("Authenticated connection from {}", addr);
                 }
             });
         }
     }
+}
+
+async fn handle_auth_msg(
+    transport: &mut Framed<TcpStream, Connection>,
+) -> Result<(), RLPXSessionError> {
+    let msg = transport
+        .try_next()
+        .await?
+        .ok_or(RLPXError::InvalidAuthData)?;
+
+    if !matches!(msg, RLPXMsg::Auth) {
+        error!("Got unexpected message: {:?}", msg);
+        return Err(RLPXSessionError::UnexpectedMessage {
+            received: msg,
+            expected: RLPXMsg::Auth,
+        });
+    }
+
+    transport.send(crate::rlpx::codec::RLPXMsgOut::Ack).await?;
+    Ok(())
 }
