@@ -63,7 +63,7 @@ pub fn run_local_server(
                 }
             }
             format!(
-                "Total: {}, Inbound: {}, Outbound: {}",
+                "Total: {}, Inbound: {}, Outbound: {}\n",
                 inbound + outbound,
                 inbound,
                 outbound
