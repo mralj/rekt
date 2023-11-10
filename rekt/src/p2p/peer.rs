@@ -267,9 +267,12 @@ pub fn logger() {
             std::time::Duration::from_secs(60),
         ));
 
+        let started = tokio::time::Instant::now();
+
         while let Some(_) = stream.next().await {
             unsafe {
                 println!("=== STATS ===");
+                println!("Test duration: {:?} min", started.elapsed().as_secs() / 60);
                 println!("TOTAL: {}", TOTAL);
                 println!(
                     "UNDER_10: {}, {}%",
