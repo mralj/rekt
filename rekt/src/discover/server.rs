@@ -1,10 +1,10 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use futures::stream::FuturesUnordered;
 use kanal::AsyncSender;
 use tokio::net::UdpSocket;
@@ -36,6 +36,7 @@ pub struct Server {
     udp_receiver: kanal::AsyncReceiver<(SocketAddr, Bytes)>,
 
     pub(super) nodes: DashMap<H512, DiscoverNode>,
+    pub(super) blacklisted_nodes: DashSet<IpAddr>,
 
     pub(super) pending_pings: DashMap<H512, std::time::Instant>,
 
@@ -78,6 +79,7 @@ impl Server {
             udp_sender: sender,
             udp_receiver: receiver,
             conn_tx,
+            blacklisted_nodes: DashSet::with_capacity(100_000),
             pending_pings: DashMap::with_capacity(10_000),
             pending_neighbours_req: DashMap::with_capacity(100),
             pending_lookups: DashMap::with_capacity(100),
@@ -221,6 +223,18 @@ impl Server {
             if self.is_paused() {
                 continue;
             }
+
+            let nodes_to_blacklist = self
+                .nodes
+                .iter()
+                .filter(|v| v.should_blacklist())
+                .map(|v| v.node_record.address);
+
+            self.nodes.retain(|_, v| !v.should_blacklist());
+
+            nodes_to_blacklist.for_each(|ip| {
+                self.blacklisted_nodes.insert(ip);
+            });
 
             self.pending_pings
                 .retain(|_, v| v.elapsed().as_secs() < DEFAULT_MESSAGE_EXPIRATION);

@@ -112,6 +112,28 @@ impl DiscoverNode {
         self.is_bsc_node = Some(is_bsc);
     }
 
+    pub fn should_blacklist(&self) -> bool {
+        if self.auth_status() == AuthStatus::Authed {
+            return false;
+        }
+
+        if self.pinged_on.is_none() {
+            return false;
+        }
+
+        if self.ping_count < 3 {
+            return false;
+        }
+
+        if let Some(pinged_on) = self.pinged_on {
+            if pinged_on.elapsed().as_secs() < 60 {
+                return false;
+            }
+        }
+
+        self.ping_received_on.is_none() && self.pong_received_on.is_none()
+    }
+
     pub(super) fn from_ping_msg(ping_msg: &PingMessage, id: H512) -> Result<Self, ()> {
         let node_record =
             NodeRecord::new_with_id(ping_msg.from.ip, ping_msg.from.tcp, ping_msg.from.udp, id)

@@ -6,10 +6,7 @@ use crate::{
     blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER,
     server::{
         connection_task::ConnectionTask,
-        peers::{
-            blacklist_peer, check_if_already_connected_to_peer, peer_is_blacklisted,
-            BLACKLIST_PEERS_BY_ID,
-        },
+        peers::{blacklist_peer, check_if_already_connected_to_peer, peer_is_blacklisted},
     },
     types::hash::H512,
 };
@@ -33,6 +30,9 @@ impl Server {
                         entry.get_mut().mark_ping_received();
                     }
                     dashmap::mapref::entry::Entry::Vacant(entry) => {
+                        if self.blacklisted_nodes.contains(&msg.from.ip()) {
+                            return;
+                        }
                         if let Ok(node) = DiscoverNode::from_ping_msg(&ping, msg.node_id) {
                             entry.insert(node);
                         }
@@ -112,6 +112,7 @@ impl Server {
                     let nodes = neighbours
                         .nodes
                         .into_iter()
+                        .filter(|node| !self.blacklisted_nodes.contains(&node.address))
                         .filter_map(|node| DiscoverNode::try_from(node).ok())
                         .map(|node| (node.id(), node))
                         .collect::<HashMap<H512, DiscoverNode>>();
