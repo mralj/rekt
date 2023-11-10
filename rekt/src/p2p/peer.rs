@@ -36,15 +36,6 @@ use crate::wallets::local_wallets::{
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 pub static mut SELL_IS_IN_PROGRESS: bool = false;
 
-pub static mut UNDER_10: usize = 0;
-pub static mut UNDER_20: usize = 0;
-pub static mut UNDER_30: usize = 0;
-pub static mut UNDER_50: usize = 0;
-pub static mut UNDER_100: usize = 0;
-pub static mut UNDER_200: usize = 0;
-pub static mut OVER_200: usize = 0;
-pub static mut TOTAL: usize = 0;
-
 pub fn is_buy_in_progress() -> bool {
     unsafe { BUY_IS_IN_PROGRESS }
 }
@@ -134,25 +125,6 @@ impl Peer {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
-                        let elapsed = received_on.elapsed().as_micros();
-                        unsafe {
-                            TOTAL += 1;
-                            if elapsed <= 10 {
-                                UNDER_10 += 1;
-                            } else if elapsed <= 20 {
-                                UNDER_20 += 1;
-                            } else if elapsed <= 30 {
-                                UNDER_30 += 1;
-                            } else if elapsed <= 50 {
-                                UNDER_50 += 1;
-                            } else if elapsed <= 100 {
-                                UNDER_100 += 1;
-                            } else if elapsed <= 200 {
-                                UNDER_200 += 1;
-                            } else {
-                                OVER_200 += 1;
-                            }
-                        }
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
                         if let Some(buy_txs_eth_message) =
@@ -259,58 +231,4 @@ impl Peer {
         update_nonces_for_local_wallets().await;
         remove_all_tokens_to_buy();
     }
-}
-
-pub fn logger() {
-    tokio::spawn(async {
-        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
-            std::time::Duration::from_secs(60),
-        ));
-
-        let started = tokio::time::Instant::now();
-
-        while let Some(_) = stream.next().await {
-            unsafe {
-                println!("=== STATS ===");
-                println!("Test duration: {:?} min", started.elapsed().as_secs() / 60);
-                println!("TOTAL: {}", TOTAL);
-                println!(
-                    "UNDER_10: {}, {}%",
-                    UNDER_10,
-                    f64::round(((UNDER_10 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "UNDER_20: {}, {}%",
-                    UNDER_20,
-                    f64::round(((UNDER_20 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "UNDER_30: {}, {}%",
-                    UNDER_30,
-                    f64::round(((UNDER_30 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "UNDER_50: {}, {}%",
-                    UNDER_50,
-                    f64::round(((UNDER_50 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "UNDER_100: {}, {}%",
-                    UNDER_100,
-                    f64::round(((UNDER_100 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "UNDER_200: {}, {}%",
-                    UNDER_200,
-                    f64::round(((UNDER_200 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!(
-                    "OVER_200: {}, {}%",
-                    OVER_200,
-                    f64::round(((OVER_200 as f64) * 100.0) / TOTAL as f64)
-                );
-                println!("=== END ===");
-            }
-        }
-    });
 }
