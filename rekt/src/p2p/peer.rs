@@ -1,3 +1,4 @@
+use derive_more::Display;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -18,7 +19,9 @@ use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
-use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
+use crate::server::peers::{
+    blacklist_peer, check_if_already_connected_to_peer, BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP,
+};
 use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
@@ -46,11 +49,18 @@ pub fn is_buy_or_sell_in_progress() -> bool {
 
 const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Display)]
+pub enum PeerType {
+    Inbound,
+    Outbound,
+}
+
 #[derive(Debug)]
 pub struct Peer {
     pub id: H512,
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
+    pub(crate) peer_type: PeerType,
 
     pub(super) connection: P2PWire,
 
@@ -64,11 +74,13 @@ impl Peer {
         protocol: usize,
         info: String,
         connection: TcpWire,
+        peer_type: PeerType,
     ) -> Self {
         Self {
             id,
             connection: P2PWire::new(connection),
             info,
+            peer_type,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
         }
@@ -88,7 +100,10 @@ impl Display for Peer {
 impl Peer {
     pub async fn run(&mut self) -> Result<(), P2PError> {
         check_if_already_connected_to_peer(&self.node_record)?;
-        self.handshake().await?;
+        if let Err(e) = self.handshake().await {
+            blacklist_peer(&self.node_record);
+            return Err(e);
+        }
         check_if_already_connected_to_peer(&self.node_record)?;
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));

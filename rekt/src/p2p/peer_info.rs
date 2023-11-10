@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::types::hash::H512;
 
-use super::Peer;
+use super::{peer::PeerType, Peer};
 
 #[derive(Debug)]
 pub struct PeerInfo {
@@ -10,6 +10,7 @@ pub struct PeerInfo {
     pub info: String,
     pub enode: String,
     pub ip: String,
+    pub peer_type: PeerType,
 }
 
 impl From<&Peer> for PeerInfo {
@@ -19,6 +20,7 @@ impl From<&Peer> for PeerInfo {
             info: p.info.clone(),
             enode: p.node_record.str.clone(),
             ip: p.node_record.ip.clone(),
+            peer_type: p.peer_type,
         }
     }
 }

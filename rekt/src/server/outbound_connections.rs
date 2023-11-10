@@ -9,7 +9,7 @@ use crate::p2p::peer::BUY_IS_IN_PROGRESS;
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
 use super::errors::ConnectionTaskError;
-use super::peers::BLACKLIST_PEERS_BY_ID;
+use super::peers::{peer_is_blacklisted, BLACKLIST_PEERS_BY_ID};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -68,7 +68,7 @@ impl OutboundConnections {
         loop {
             let task = self.conn_rx.recv().await;
             if let Ok(task) = task {
-                if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
+                if peer_is_blacklisted(&task.node) {
                     continue;
                 }
 

@@ -15,9 +15,13 @@ use crate::{
     constants::DEFAULT_PORT,
     local_node::LocalNode,
     p2p::{
-        errors::P2PError, peer::is_buy_or_sell_in_progress, tx_sender::PEERS_SELL, Peer, Protocol,
+        errors::P2PError,
+        peer::{is_buy_or_sell_in_progress, PeerType},
+        tx_sender::PEERS_SELL,
+        Peer, Protocol,
     },
     rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
+    server::peers::BLACKLIST_PEERS_BY_IP,
     types::node_record::NodeRecord,
 };
 
@@ -70,8 +74,14 @@ impl InboundConnections {
         let listener = socket.listen(1024)?;
         loop {
             let (stream, src) = listener.accept().await?;
+            let _ = stream.set_nodelay(true);
+
             if self.is_paused() {
                 tokio::time::sleep(Duration::from_secs(120)).await;
+                continue;
+            }
+
+            if BLACKLIST_PEERS_BY_IP.contains(&src.ip()) {
                 continue;
             }
 
@@ -117,9 +127,9 @@ async fn new_connection_handler(
         protocol_v,
         hello_msg.client_version,
         TcpWire::new(transport),
+        PeerType::Inbound,
     );
 
-    println!("New inbound connection from {}", node.str);
     let task_result = p.run().await;
     if is_buy_or_sell_in_progress() {
         //NOTE: don't disconnect peers immediately to avoid UB (like nil ptr)
