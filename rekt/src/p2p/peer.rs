@@ -124,7 +124,10 @@ impl Peer {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
-                        println!("Sent response in {:?}", received_on.elapsed());
+                        let elapsed = received_on.elapsed();
+                        if elapsed > tokio::time::Duration::from_micros(100) {
+                            println!("Sent response in {:?}", received_on.elapsed());
+                        }
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
                         if let Some(buy_txs_eth_message) =
