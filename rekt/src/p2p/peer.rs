@@ -1,6 +1,7 @@
 use derive_more::Display;
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
+use tokio::time::interval;
 
 use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
@@ -34,6 +35,15 @@ use crate::wallets::local_wallets::{
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 pub static mut SELL_IS_IN_PROGRESS: bool = false;
+
+pub static mut UNDER_10: usize = 0;
+pub static mut UNDER_20: usize = 0;
+pub static mut UNDER_30: usize = 0;
+pub static mut UNDER_50: usize = 0;
+pub static mut UNDER_100: usize = 0;
+pub static mut UNDER_200: usize = 0;
+pub static mut OVER_200: usize = 0;
+pub static mut TOTAL: usize = 0;
 
 pub fn is_buy_in_progress() -> bool {
     unsafe { BUY_IS_IN_PROGRESS }
@@ -124,9 +134,24 @@ impl Peer {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
-                        let elapsed = received_on.elapsed();
-                        if elapsed > tokio::time::Duration::from_micros(100) {
-                            println!("Sent response in {:?}", received_on.elapsed());
+                        let elapsed = received_on.elapsed().as_micros();
+                        unsafe {
+                            TOTAL += 1;
+                            if elapsed <= 10 {
+                                UNDER_10 += 1;
+                            } else if elapsed <= 20 {
+                                UNDER_20 += 1;
+                            } else if elapsed <= 30 {
+                                UNDER_30 += 1;
+                            } else if elapsed <= 50 {
+                                UNDER_50 += 1;
+                            } else if elapsed <= 100 {
+                                UNDER_100 += 1;
+                            } else if elapsed <= 200 {
+                                UNDER_200 += 1;
+                            } else {
+                                OVER_200 += 1;
+                            }
                         }
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
@@ -234,4 +259,27 @@ impl Peer {
         update_nonces_for_local_wallets().await;
         remove_all_tokens_to_buy();
     }
+}
+
+pub fn logger() {
+    tokio::spawn(async {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(60),
+        ));
+
+        while let Some(_) = stream.next().await {
+            unsafe {
+                println!("=== STATS ===");
+                println!("TOTAL: {}", TOTAL);
+                println!("UNDER_10: {}", UNDER_10);
+                println!("UNDER_20: {}", UNDER_20);
+                println!("UNDER_30: {}", UNDER_30);
+                println!("UNDER_50: {}", UNDER_50);
+                println!("UNDER_100: {}", UNDER_100);
+                println!("UNDER_200: {}", UNDER_200);
+                println!("OVER_200: {}", OVER_200);
+                println!("=== END ===");
+            }
+        }
+    });
 }
