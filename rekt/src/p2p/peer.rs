@@ -20,7 +20,7 @@ use crate::eth::types::protocol::EthProtocol;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
-    blacklist_peer, check_if_already_connected_to_peer, BLACKLIST_PEERS_BY_ID, PEERS, PEERS_BY_IP,
+    blacklist_peer, check_if_already_connected_to_peer, PEERS, PEERS_BY_IP,
 };
 use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
@@ -137,7 +137,7 @@ impl Peer {
                             }
                             cprintln!(
                                 "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
-                                buy_info.time.format("%Y-%m-%d %H:%M:%S%f"),
+                                buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );
