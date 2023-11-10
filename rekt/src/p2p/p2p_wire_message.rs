@@ -85,8 +85,6 @@ impl P2pWireMessage {
             18 => true, // ETH/Transactions
             26 => true, // ETH/PooledTransactions
             24 => true, // ETH/NewPoolTransactionHashes
-            19 => true, // ETH/GetBlockHeaders
-            21 => true, // ETH/GetBlockBodies
             _ => false,
         }
     }
