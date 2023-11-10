@@ -56,6 +56,8 @@ fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
         _ => Ok(None),
     };
 
+    println!("handling took: {:?}", msg.created_on.elapsed());
+
     if let Ok(Some(buy_info)) = buy_info {
         return Ok(EthMessageHandler::Buy(buy_info));
     }

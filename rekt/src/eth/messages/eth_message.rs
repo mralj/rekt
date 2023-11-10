@@ -15,6 +15,7 @@ pub struct EthMessage {
     pub id: EthProtocol,
     pub data: Bytes,
     pub compressed: EthMessageCompressionStatus,
+    pub created_on: tokio::time::Instant,
 }
 
 impl EthMessage {
@@ -23,6 +24,7 @@ impl EthMessage {
             id,
             data,
             compressed: EthMessageCompressionStatus::Uncompressed,
+            created_on: tokio::time::Instant::now(),
         }
     }
 
@@ -35,6 +37,7 @@ impl EthMessage {
             data,
             id: EthProtocol::TransactionsMsg,
             compressed: EthMessageCompressionStatus::Compressed,
+            created_on: tokio::time::Instant::now(),
         }
     }
 
@@ -50,6 +53,7 @@ impl From<P2pWireMessage> for EthMessage {
             id: EthProtocol::from(id),
             data: msg.data.freeze(),
             compressed: EthMessageCompressionStatus::Uncompressed,
+            created_on: tokio::time::Instant::now(),
         }
     }
 }
