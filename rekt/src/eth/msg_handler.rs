@@ -59,16 +59,13 @@ fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     };
 
     match buy_info {
-        TxDecodingResult::Buy(b) => {
-            return Ok(EthMessageHandler::Buy(b));
-        }
+        TxDecodingResult::Buy(b) => Ok(EthMessageHandler::Buy(b)),
         TxDecodingResult::NoBuy(count) => {
             let elapsed = msg.created_on.elapsed();
-            if elapsed >= tokio::time::Duration::from_micros(100) {
-                println!("[{count}] handling took: {:?}", msg.created_on.elapsed());
-            }
+            // if elapsed >= tokio::time::Duration::from_micros(100) {
+            //     println!("[{count}] handling took: {:?}", msg.created_on.elapsed());
+            // }
+            Ok(EthMessageHandler::None)
         }
     }
-
-    Ok(EthMessageHandler::None)
 }

@@ -119,10 +119,12 @@ impl Peer {
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+            let received_on = msg.created_on;
             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
+                        println!("Sent response in {:?}", received_on.elapsed());
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
                         if let Some(buy_txs_eth_message) =
