@@ -271,13 +271,41 @@ pub fn logger() {
             unsafe {
                 println!("=== STATS ===");
                 println!("TOTAL: {}", TOTAL);
-                println!("UNDER_10: {}", UNDER_10);
-                println!("UNDER_20: {}", UNDER_20);
-                println!("UNDER_30: {}", UNDER_30);
-                println!("UNDER_50: {}", UNDER_50);
-                println!("UNDER_100: {}", UNDER_100);
-                println!("UNDER_200: {}", UNDER_200);
-                println!("OVER_200: {}", OVER_200);
+                println!(
+                    "UNDER_10: {}, {}%",
+                    UNDER_100,
+                    f64::round(((UNDER_10 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "UNDER_20: {}, {}%",
+                    UNDER_20,
+                    f64::round(((UNDER_20 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "UNDER_30: {}, {}%",
+                    UNDER_30,
+                    f64::round(((UNDER_30 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "UNDER_50: {}, {}%",
+                    UNDER_50,
+                    f64::round(((UNDER_50 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "UNDER_100: {}, {}%",
+                    UNDER_100,
+                    f64::round(((UNDER_100 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "UNDER_200: {}, {}%",
+                    UNDER_200,
+                    f64::round(((UNDER_200 as f64) * 100.0) / TOTAL as f64)
+                );
+                println!(
+                    "OVER_200: {}, {}%",
+                    OVER_200,
+                    f64::round(((OVER_200 as f64) * 100.0) / TOTAL as f64)
+                );
                 println!("=== END ===");
             }
         }
