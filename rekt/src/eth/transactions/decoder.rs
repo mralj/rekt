@@ -55,7 +55,7 @@ impl BuyTokenInfo {
     }
 }
 
-pub fn decode_txs_request(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs_request(buf: &mut &[u8]) -> Result<TxDecodingResult, DecodeTxError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -65,7 +65,7 @@ pub fn decode_txs_request(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, Decod
     decode_txs(buf)
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs(buf: &mut &[u8]) -> Result<TxDecodingResult, DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -75,10 +75,12 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError
     // original buffer remains the same
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
+    let mut count = 0;
     while !payload_view.is_empty() {
+        count += 1;
         match decode_tx(payload_view)? {
             TxDecodingResult::Buy(buy_info) => {
-                return Ok(Some(buy_info));
+                return Ok(TxDecodingResult::Buy(buy_info));
             }
             TxDecodingResult::NoBuy(tx_size) => {
                 payload_view.advance(tx_size);
@@ -87,7 +89,7 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError
         };
     }
 
-    Ok(None)
+    Ok(TxDecodingResult::NoBuy(count))
 }
 
 fn decode_tx(buf: &mut &[u8]) -> Result<TxDecodingResult, DecodeTxError> {

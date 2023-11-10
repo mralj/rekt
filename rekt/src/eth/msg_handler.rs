@@ -3,7 +3,9 @@ use open_fastrlp::Decodable;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
-use super::transactions::decoder::{decode_txs, decode_txs_request, BuyTokenInfo};
+use super::transactions::decoder::{
+    decode_txs, decode_txs_request, BuyTokenInfo, TxDecodingResult,
+};
 use super::transactions::*;
 use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
@@ -51,19 +53,21 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 
 fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     let buy_info = match msg.id {
-        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..]),
-        EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
-        _ => Ok(None),
+        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..])?,
+        EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..])?,
+        _ => return Ok(EthMessageHandler::None),
     };
 
-    let elapsed = msg.created_on.elapsed();
-
-    if elapsed >= tokio::time::Duration::from_micros(100) {
-        println!("handling took: {:?}", msg.created_on.elapsed());
-    }
-
-    if let Ok(Some(buy_info)) = buy_info {
-        return Ok(EthMessageHandler::Buy(buy_info));
+    match buy_info {
+        TxDecodingResult::Buy(b) => {
+            return Ok(EthMessageHandler::Buy(b));
+        }
+        TxDecodingResult::NoBuy(count) => {
+            let elapsed = msg.created_on.elapsed();
+            if elapsed >= tokio::time::Duration::from_micros(100) {
+                println!("[{count}] handling took: {:?}", msg.created_on.elapsed());
+            }
+        }
     }
 
     Ok(EthMessageHandler::None)

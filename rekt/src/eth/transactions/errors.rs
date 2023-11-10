@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, Copy)]
 pub enum DecodeTxError {
     #[error("Decode error: {0}")]
     MessageDecodeError(#[from] open_fastrlp::DecodeError),
