@@ -7,7 +7,7 @@ use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::eth_message::EthMessage;
-use crate::eth::types::protocol::ETH_PROTOCOL_OFFSET;
+use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
@@ -155,13 +155,21 @@ impl Stream for P2PWire {
                 continue;
             }
 
+            let msg = EthMessage::from(msg);
+            match msg.id {
+                EthProtocol::StatusMsg | EthProtocol::UpgradeStatusMsg => {
+                    return Poll::Ready(Some(Ok(msg)))
+                }
+                _ => {}
+            }
+
             if this.established_on.elapsed()
                 < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
             {
                 continue;
             }
 
-            return Poll::Ready(Some(Ok(EthMessage::from(msg))));
+            return Poll::Ready(Some(Ok(msg)));
         }
         Poll::Pending
     }
