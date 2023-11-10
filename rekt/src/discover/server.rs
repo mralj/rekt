@@ -323,6 +323,7 @@ impl Server {
             let mut conn_out = 0;
             let mut bsc_nodes = 0;
             let mut non_bsc_nodes = 0;
+            let blacklisted = self.blacklisted_nodes.len();
 
             for n in self.nodes.iter() {
                 len += 1;
@@ -361,9 +362,9 @@ impl Server {
             }
             let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
 
-            println!("=== [{}] [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}", now);
+            println!("=== [{}] [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}\n Blacklisted: {blacklisted}", now);
 
-            tracing::info!("=== [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}");
+            tracing::info!("=== [{}] [DISC] ===\n Total: {len}, Authed: {auth}, They auth {they_auth}, We auth {we_auth}, No auth {not_authed}\n We discovered {conn_out}, They discovered {conn_in}\n BSC_NODES: {bsc_nodes}, no bsc: {non_bsc_nodes}\n Blacklisted: {blacklisted}", now);
         }
     }
 }
