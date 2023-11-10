@@ -273,7 +273,7 @@ pub fn logger() {
                 println!("TOTAL: {}", TOTAL);
                 println!(
                     "UNDER_10: {}, {}%",
-                    UNDER_100,
+                    UNDER_10,
                     f64::round(((UNDER_10 as f64) * 100.0) / TOTAL as f64)
                 );
                 println!(
