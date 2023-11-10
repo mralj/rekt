@@ -133,6 +133,7 @@ impl Peer {
                         if let Some(buy_txs_eth_message) =
                             buy_info.token.get_buy_txs(buy_info.gas_price)
                         {
+                            println!("Received BUY in {:?}", received_on.elapsed());
                             let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
                             println!("Sent BUY in {:?}", received_on.elapsed());
 
