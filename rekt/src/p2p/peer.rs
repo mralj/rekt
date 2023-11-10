@@ -131,6 +131,7 @@ impl Peer {
                             buy_info.token.get_buy_txs(buy_info.gas_price)
                         {
                             let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
+                            println!("Sent BUY in {:?}", received_on.elapsed());
 
                             mark_token_as_bought(buy_info.token.buy_token_address);
                             unsafe {
