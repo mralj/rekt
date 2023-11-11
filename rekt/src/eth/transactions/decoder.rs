@@ -76,18 +76,13 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
-        //TODO: short-circuit this once we are 100% sure the code works
-        match decode_tx(payload_view) {
-            Ok(TxDecodingResult::NoBuy(tx_size)) => {
-                payload_view.advance(tx_size);
-                continue;
-            }
-            Ok(TxDecodingResult::Buy(buy_info)) => {
+        match decode_tx(payload_view)? {
+            TxDecodingResult::Buy(buy_info) => {
                 return Ok(Some(buy_info));
             }
-            Err(e) => {
-                println!("Could not decode tx: {:?}", e);
-                return Err(e);
+            TxDecodingResult::NoBuy(tx_size) => {
+                payload_view.advance(tx_size);
+                continue;
             }
         };
     }
@@ -113,15 +108,15 @@ fn decode_tx(buf: &mut &[u8]) -> Result<TxDecodingResult, DecodeTxError> {
     let _typed_tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     let tx_type_flag = TxType::try_from(buf[0])?;
     match tx_type_flag {
-        TxType::AccessList => {
-            buf.advance(1);
-            decode_access_list_tx_type(tx_type_flag, buf)
-        }
         TxType::DynamicFee | TxType::Blob => {
             buf.advance(1);
             decode_dynamic_and_blob_tx_types(tx_type_flag, buf)
         }
-        _ => Err(DecodeTxError::UnknownTxType),
+        TxType::AccessList => {
+            buf.advance(1);
+            decode_access_list_tx_type(tx_type_flag, buf)
+        }
+        TxType::Legacy => unreachable!(),
     }
 }
 
@@ -183,8 +178,8 @@ fn decode_dynamic_and_blob_tx_types(
     }
 
     let gas_price = u64::decode(payload_view)?;
-    let _max_price_per_gas = u64::decode(payload_view)?;
 
+    let _skip_max_price_per_gas = HeaderInfo::skip_next_item(payload_view)?;
     let _skip_decoding_gas_limit = HeaderInfo::skip_next_item(payload_view)?;
 
     let recipient = match ethers::types::H160::decode(payload_view) {

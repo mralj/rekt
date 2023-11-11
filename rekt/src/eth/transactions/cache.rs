@@ -23,9 +23,6 @@ pub fn init_cache() {
 pub fn mark_as_fetched(hash: &H256) -> TxCacheStatus {
     unsafe {
         let index = convert_hash_to_index(hash);
-        if index >= CACHE.len() - 1 {
-            panic!("Index out of bounds");
-        }
         if CACHE[index] >= TX_FETCHED_FLAG {
             return TxCacheStatus::Fetched;
         }
@@ -37,10 +34,6 @@ pub fn mark_as_fetched(hash: &H256) -> TxCacheStatus {
 pub fn mark_as_announced(hash: &H256) -> TxCacheStatus {
     unsafe {
         let index = convert_hash_to_index(hash);
-        if index >= CACHE.len() - 1 {
-            panic!("Index out of bounds");
-        }
-
         if CACHE[index] > 0 {
             return TxCacheStatus::FetchedOrAnnounced;
         }
@@ -52,9 +45,9 @@ pub fn mark_as_announced(hash: &H256) -> TxCacheStatus {
 
 #[inline(always)]
 fn convert_hash_to_index(hash: &H256) -> usize {
-    let bytes: [u8; 4] = hash[..4]
-        .try_into()
-        .expect("Should've had at least 4 bytes");
-    let index = u32::from_ne_bytes(bytes) as usize;
-    index
+    unsafe {
+        // This is safe because we're absolutely sure that `hash` has at least 4 bytes.
+        let bytes = *(&hash[..4] as *const [u8] as *const [u8; 4]);
+        u32::from_ne_bytes(bytes) as usize
+    }
 }

@@ -1,6 +1,5 @@
 use open_fastrlp::Decodable;
 
-use crate::token::tokens_to_buy::there_are_no_tokens_to_buy;
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
@@ -17,9 +16,6 @@ pub enum EthMessageHandler {
 }
 
 pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
-    if there_are_no_tokens_to_buy() {
-        return Ok(EthMessageHandler::None);
-    }
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
@@ -38,8 +34,8 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     let hashes_to_request = hashes
         .into_iter()
         .filter(|hash| {
-            let tx_cache_status = cache::mark_as_announced(hash);
-            tx_cache_status == cache::TxCacheStatus::NotAnnounced
+            let previous_tx_cache_status = cache::mark_as_announced(hash);
+            previous_tx_cache_status == cache::TxCacheStatus::NotAnnounced
         })
         .collect::<Vec<_>>();
 

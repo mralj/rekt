@@ -7,16 +7,17 @@ use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::eth_message::EthMessage;
-use crate::eth::types::protocol::ETH_PROTOCOL_OFFSET;
+use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
-use super::peer::{is_buy_in_progress, BUY_IS_IN_PROGRESS};
+use super::peer::is_buy_in_progress;
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 50; // how many messages are we queuing for write
+const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60 * 5; //seconds
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -26,6 +27,7 @@ pub struct P2PWire {
     writer_queue: VecDeque<Bytes>,
     snappy_decoder: snap::raw::Decoder,
     snappy_encoder: snap::raw::Encoder,
+    established_on: tokio::time::Instant,
 }
 
 unsafe impl Send for P2PWire {}
@@ -70,6 +72,7 @@ impl P2PWire {
     pub fn new(rlpx_wire: TcpWire) -> Self {
         Self {
             inner: rlpx_wire,
+            established_on: tokio::time::Instant::now(),
             writer_queue: VecDeque::with_capacity(MAX_WRITER_QUEUE_SIZE + 1),
             snappy_decoder: snap::raw::Decoder::default(),
             snappy_encoder: snap::raw::Encoder::new(),
@@ -152,7 +155,21 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            return Poll::Ready(Some(Ok(EthMessage::from(msg))));
+            let msg = EthMessage::from(msg);
+            match msg.id {
+                EthProtocol::StatusMsg | EthProtocol::UpgradeStatusMsg => {
+                    return Poll::Ready(Some(Ok(msg)))
+                }
+                _ => {}
+            }
+
+            if this.established_on.elapsed()
+                < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
+            {
+                continue;
+            }
+
+            return Poll::Ready(Some(Ok(msg)));
         }
         Poll::Pending
     }
