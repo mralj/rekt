@@ -24,10 +24,10 @@ pub static BLACKLIST_PEERS_BY_IP: Lazy<DashSet<IpAddr>> =
     Lazy::new(|| DashSet::with_capacity(MAX_PEERS_UPPER_BOUND));
 
 pub fn check_if_already_connected_to_peer(node_record: &NodeRecord) -> Result<(), P2PError> {
-    // if PEERS_BY_IP.contains(&node_record.ip) {
-    //     return Err(P2PError::AlreadyConnectedToSameIp);
-    // }
-    //
+    if PEERS_BY_IP.contains(&node_record.ip) {
+        return Err(P2PError::AlreadyConnectedToSameIp);
+    }
+
     if PEERS.contains_key(&node_record.id) {
         return Err(P2PError::AlreadyConnected);
     }
