@@ -181,6 +181,10 @@ impl Stream for P2PWire {
 
             let start = tokio::time::Instant::now();
             if CACHE.contains_key(&msg.data) {
+                continue;
+            } else {
+                CACHE.insert(msg.data.clone(), ());
+                //println!("CACHE MISS: {:?}", start.elapsed());
                 let elapsed = start.elapsed().as_nanos();
                 unsafe {
                     TOTAL += 1;
@@ -198,10 +202,6 @@ impl Stream for P2PWire {
                         OVER_20 += 1;
                     }
                 }
-                continue;
-            } else {
-                CACHE.insert(msg.data.clone(), ());
-                //println!("CACHE MISS: {:?}", start.elapsed());
             }
 
             return Poll::Ready(Some(Ok(msg)));
