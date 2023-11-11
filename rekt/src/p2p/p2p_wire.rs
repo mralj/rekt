@@ -5,6 +5,7 @@ use bytes::{Bytes, BytesMut};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
+use tokio::time::interval;
 
 use crate::eth::eth_message::EthMessage;
 use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
@@ -19,6 +20,14 @@ use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 50; // how many messages are we queuing for write
 const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60 * 3; //seconds
+
+static mut TOTAL: usize = 0;
+static mut UNDER_1: usize = 0;
+static mut UNDER_2: usize = 0;
+static mut UNDER_5: usize = 0;
+static mut UNDER_10: usize = 0;
+static mut UNDER_20: usize = 0;
+static mut OVER_20: usize = 0;
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -172,11 +181,27 @@ impl Stream for P2PWire {
 
             let start = tokio::time::Instant::now();
             if CACHE.contains_key(&msg.data) {
-                println!("CACHE HIT: {:?}", start.elapsed());
+                let elapsed = start.elapsed().as_nanos();
+                unsafe {
+                    TOTAL += 1;
+                    if elapsed <= 1_000 {
+                        UNDER_1 += 1;
+                    } else if elapsed <= 2_000 {
+                        UNDER_2 += 1;
+                    } else if elapsed <= 5_000 {
+                        UNDER_5 += 1;
+                    } else if elapsed <= 10_000 {
+                        UNDER_10 += 1;
+                    } else if elapsed <= 20_000 {
+                        UNDER_20 += 1;
+                    } else {
+                        OVER_20 += 1;
+                    }
+                }
                 continue;
             } else {
                 CACHE.insert(msg.data.clone(), ());
-                println!("CACHE MISS: {:?}", start.elapsed());
+                //println!("CACHE MISS: {:?}", start.elapsed());
             }
 
             return Poll::Ready(Some(Ok(msg)));
@@ -293,4 +318,53 @@ impl Sink<EthMessage> for P2PWire {
 
         Poll::Ready(Ok(()))
     }
+}
+
+pub fn logger() {
+    tokio::spawn(async {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(90),
+        ));
+
+        let started = tokio::time::Instant::now();
+
+        while let Some(_) = stream.next().await {
+            unsafe {
+                println!("=== STATS ===");
+                println!("Test duration: {:?} min", started.elapsed().as_secs() / 60);
+                println!("TOTAL: {}", TOTAL);
+                println!(
+                    "UNDER 1: {}, {}%",
+                    UNDER_1,
+                    f64::round(UNDER_1 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!(
+                    "UNDER 2: {}, {}%",
+                    UNDER_2,
+                    f64::round(UNDER_2 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!(
+                    "UNDER 5: {}, {}%",
+                    UNDER_5,
+                    f64::round(UNDER_5 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!(
+                    "UNDER 10: {}, {}%",
+                    UNDER_10,
+                    f64::round(UNDER_10 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!(
+                    "UNDER 20: {}, {}%",
+                    UNDER_20,
+                    f64::round(UNDER_20 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!(
+                    "OVER 20: {}, {}%",
+                    OVER_20,
+                    f64::round(OVER_20 as f64 / TOTAL as f64 * 100.0)
+                );
+                println!("=== END ===");
+            }
+        }
+    });
 }
