@@ -172,11 +172,11 @@ impl Stream for P2PWire {
 
             let start = tokio::time::Instant::now();
             if CACHE.contains_key(&msg.data) {
-                print!("CACHE HIT: {:?}", start.elapsed());
+                println!("CACHE HIT: {:?}", start.elapsed());
                 continue;
             } else {
                 CACHE.insert(msg.data.clone(), ());
-                print!("CACHE MISS: {:?}", start.elapsed());
+                println!("CACHE MISS: {:?}", start.elapsed());
             }
 
             return Poll::Ready(Some(Ok(msg)));
