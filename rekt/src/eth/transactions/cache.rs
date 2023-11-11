@@ -46,7 +46,7 @@ pub fn mark_as_announced(hash: &H256) -> TxCacheStatus {
 #[inline(always)]
 fn convert_hash_to_index(hash: &H256) -> usize {
     unsafe {
-        // This is safe if we're absolutely sure that `hash` has at least 4 bytes.
+        // This is safe because we're absolutely sure that `hash` has at least 4 bytes.
         let bytes = *(&hash[..4] as *const [u8] as *const [u8; 4]);
         u32::from_ne_bytes(bytes) as usize
     }
