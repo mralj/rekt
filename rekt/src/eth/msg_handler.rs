@@ -1,4 +1,6 @@
 use open_fastrlp::Decodable;
+use tokio::time::interval;
+use tokio_stream::StreamExt;
 
 use crate::types::hash::H256;
 
@@ -11,6 +13,7 @@ use super::transactions_request::TransactionsRequest;
 use super::types::errors::ETHError;
 use super::types::protocol::EthProtocol;
 
+pub static mut TOTAL: usize = 0;
 pub enum EthMessageHandler {
     Response(EthMessage),
     Buy(BuyTokenInfo),
@@ -21,7 +24,13 @@ pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
-        EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
+        EthProtocol::NewPooledTransactionHashesMsg => {
+            unsafe {
+                TOTAL += 1;
+            }
+
+            handle_tx_hashes(msg)
+        }
         _ => Ok(EthMessageHandler::None),
     }
 }
@@ -68,4 +77,23 @@ fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
             Ok(EthMessageHandler::None)
         }
     }
+}
+
+pub fn logger() {
+    tokio::spawn(async {
+        let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+            std::time::Duration::from_secs(60),
+        ));
+
+        let started = tokio::time::Instant::now();
+
+        while let Some(_) = stream.next().await {
+            unsafe {
+                println!("=== STATS ===");
+                println!("Test duration: {:?} min", started.elapsed().as_secs() / 60);
+                println!("TOTAL: {}", TOTAL);
+                println!("=== END ===");
+            }
+        }
+    });
 }
