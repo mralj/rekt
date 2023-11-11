@@ -11,6 +11,7 @@ use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
+use super::cache::CACHE;
 use super::errors::P2PError;
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
 use super::peer::is_buy_in_progress;
@@ -167,6 +168,12 @@ impl Stream for P2PWire {
                 < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
             {
                 continue;
+            }
+
+            if CACHE.contains_key(&msg.data) {
+                continue;
+            } else {
+                CACHE.insert(msg.data.clone(), ());
             }
 
             return Poll::Ready(Some(Ok(msg)));
