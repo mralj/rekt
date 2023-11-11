@@ -1,3 +1,4 @@
+pub mod cache;
 pub mod errors;
 pub mod messages;
 pub mod p2p_wire;

@@ -8,6 +8,7 @@ use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::eth_message::EthMessage;
 use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
+use crate::p2p::cache::CACHE;
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
@@ -147,9 +148,7 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            let start = std::time::Instant::now();
             msg.snappy_decompress(&mut this.snappy_decoder)?;
-            println!("Decompressing took: {:?}", start.elapsed());
             if msg.kind == MessageKind::P2P {
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
@@ -169,6 +168,15 @@ impl Stream for P2PWire {
                 < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
             {
                 continue;
+            }
+
+            let start = tokio::time::Instant::now();
+            if CACHE.contains_key(&msg.data) {
+                print!("CACHE HIT: {:?}", start.elapsed());
+                continue;
+            } else {
+                CACHE.insert(msg.data.clone(), ());
+                print!("CACHE MISS: {:?}", start.elapsed());
             }
 
             return Poll::Ready(Some(Ok(msg)));
