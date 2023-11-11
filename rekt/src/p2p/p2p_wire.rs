@@ -147,7 +147,9 @@ impl Stream for P2PWire {
                 continue;
             }
 
+            let start = std::time::Instant::now();
             msg.snappy_decompress(&mut this.snappy_decoder)?;
+            println!("Decompressing took: {:?}", start.elapsed());
             if msg.kind == MessageKind::P2P {
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
