@@ -25,10 +25,10 @@ pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => {
-            unsafe {
-                TOTAL += 1;
-            }
-
+            // unsafe {
+            //     TOTAL += 1;
+            // }
+            //
             handle_tx_hashes(msg)
         }
         _ => Ok(EthMessageHandler::None),

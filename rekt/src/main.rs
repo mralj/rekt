@@ -8,6 +8,7 @@ use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::p2p;
+use rekt::p2p::peer::logger;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -81,7 +82,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     run_local_server(disc_server, incoming_listener);
 
-    rekt::eth::msg_handler::logger();
+    rekt::p2p::peer::logger();
+    //rekt::eth::msg_handler::logger();
     let _ = tokio::signal::ctrl_c().await;
 
     Ok(())
