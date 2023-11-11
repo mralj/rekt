@@ -15,9 +15,8 @@ cd $HOME
 source $HOME/.profile
 source $HOME/.bash_profile
 source $HOME/.bashrc
-source $HOME/.screenrc
+source $HOME/.cargo/env
 source /etc/profile
-
 
 cargo version
 
