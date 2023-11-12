@@ -1,6 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::types::hash::H512;
@@ -14,6 +13,7 @@ pub struct PeerInfo {
     pub enode: String,
     pub ip: String,
     pub peer_type: PeerType,
+    pub protocol_version: usize,
 }
 
 impl From<&Peer> for PeerInfo {
@@ -24,6 +24,7 @@ impl From<&Peer> for PeerInfo {
             enode: p.node_record.str.clone(),
             ip: p.node_record.ip.clone(),
             peer_type: p.peer_type,
+            protocol_version: p.protocol_version as usize,
         }
     }
 }

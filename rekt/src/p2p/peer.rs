@@ -65,7 +65,7 @@ pub struct Peer {
 
     pub(super) connection: P2PWire,
 
-    protocol_version: ProtocolVersion,
+    pub(super) protocol_version: ProtocolVersion,
 }
 
 impl Peer {
