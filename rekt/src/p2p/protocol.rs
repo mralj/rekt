@@ -8,9 +8,12 @@ const ETH_PROTOCOL: &str = "eth";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
 pub enum ProtocolVersion {
+    Eth65 = 65,
     Eth66 = 66,
     #[default]
     Eth67 = 67,
+    Eth68 = 68,
+    Unknown = 0,
 }
 
 #[derive(Error, Debug, Copy, Clone)]
@@ -25,8 +28,11 @@ version {0} is not supported"
 impl From<usize> for ProtocolVersion {
     fn from(version: usize) -> Self {
         match version {
+            65 => Self::Eth65,
             66 => Self::Eth66,
-            _ => Self::Eth67,
+            67 => Self::Eth67,
+            68 => Self::Eth68,
+            _ => Self::Unknown,
         }
     }
 }
@@ -46,6 +52,7 @@ impl Protocol {
         vec![
             Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
             Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth65 as usize),
         ]
     }
 
@@ -56,15 +63,18 @@ impl Protocol {
             return None;
         }
 
-        //we don't yet support ETH68 so advance to ETH67/66
+        //we don't yet support ETH68 so advance to ETH67/66/65
         if proto.version == 68 {
             proto = peer_protocols.get(1)?;
         }
 
-        if proto.version == 66 || proto.version == 67 {
-            return Some(proto.clone());
-        }
+        let p = match proto.version {
+            65 => proto.clone(),
+            66 => proto.clone(),
+            67 => proto.clone(),
+            _ => return None,
+        };
 
-        None
+        Some(p)
     }
 }
