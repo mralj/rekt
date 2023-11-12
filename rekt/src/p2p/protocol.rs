@@ -66,7 +66,6 @@ impl Protocol {
         //we don't yet support ETH68 so advance to ETH67/66/65
         if proto.version == 68 {
             proto = peer_protocols.get(1)?;
-            println!("Peer supports ETH67/66/65, we support ETH{}", proto.version);
         }
 
         let p = match proto.version {
