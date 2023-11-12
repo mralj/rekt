@@ -184,6 +184,7 @@ impl Stream for P2PWire {
             }
 
             //let start = tokio::time::Instant::now();
+            unsafe { TOTAL += 1 }
             if CACHE.contains_key(&msg.data) {
                 unsafe { CACHE_HIT += 1 }
                 continue;

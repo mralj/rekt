@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     run_local_server(disc_server, incoming_listener);
 
-    rekt::eth::msg_handler::logger();
+    //rekt::eth::msg_handler::logger();
     rekt::p2p::p2p_wire::logger();
     let _ = tokio::signal::ctrl_c().await;
 
