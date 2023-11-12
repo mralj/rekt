@@ -8,7 +8,7 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
-    p2p::{peer::PeerType, Peer},
+    p2p::{peer::PeerType, peer_info::PeerInfo, Peer},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
@@ -103,7 +103,19 @@ pub fn run_local_server(
             format!("Discovery&Listener servers toggled\n")
         });
 
-        let routes = prep.or(peer_count).or(refresh_tokens).or(disc);
+        let peer_infos = warp::path!("peerlist").and(end()).map(|| {
+            let peers = PEERS
+                .iter()
+                .map(|p| p.value().clone())
+                .collect::<Vec<PeerInfo>>();
+            PeerInfo::slice_to_json(&peers).unwrap()
+        });
+
+        let routes = prep
+            .or(peer_count)
+            .or(refresh_tokens)
+            .or(disc)
+            .or(peer_infos);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }

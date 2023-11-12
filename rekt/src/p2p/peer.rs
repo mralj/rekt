@@ -1,4 +1,5 @@
 use derive_more::Display;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
 
@@ -49,7 +50,7 @@ pub fn is_buy_or_sell_in_progress() -> bool {
 
 const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Display)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Display, Serialize, Deserialize)]
 pub enum PeerType {
     Inbound,
     Outbound,
