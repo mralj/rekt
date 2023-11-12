@@ -17,8 +17,6 @@ use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
 
-static OUR_STATUS_MESSAGE_ETH_66: OnceCell<EthMessage> = OnceCell::new();
-static OUR_STATUS_MESSAGE_ETH_67: OnceCell<EthMessage> = OnceCell::new();
 static OUR_UPGRADE_STATUS_MESSAGE: OnceCell<EthMessage> = OnceCell::new();
 
 #[derive(Copy, Clone, PartialEq, Eq, RlpEncodable, RlpDecodable, Serialize, Deserialize)]
@@ -105,27 +103,14 @@ impl StatusMessage {
     }
 
     pub fn get(proto_v_negotiated: &ProtocolVersion) -> EthMessage {
-        match proto_v_negotiated {
-            ProtocolVersion::Eth66 => OUR_STATUS_MESSAGE_ETH_66.get_or_init(|| {
-                let status = Self {
-                    version: 66,
-                    ..Self::default()
-                };
-                let mut status_rlp = BytesMut::new();
-                status.encode(&mut status_rlp);
-                EthMessage::new(EthProtocol::StatusMsg, status_rlp.freeze())
-            }),
-            ProtocolVersion::Eth67 => OUR_STATUS_MESSAGE_ETH_67.get_or_init(|| {
-                let status = Self {
-                    version: 67,
-                    ..Self::default()
-                };
-                let mut status_rlp = BytesMut::new();
-                status.encode(&mut status_rlp);
-                EthMessage::new(EthProtocol::StatusMsg, status_rlp.freeze())
-            }),
-        }
-        .clone()
+        let proto_v = proto_v_negotiated.to_u8().unwrap();
+        let status = Self {
+            version: proto_v,
+            ..Self::default()
+        };
+        let mut status_rlp = BytesMut::new();
+        status.encode(&mut status_rlp);
+        EthMessage::new(EthProtocol::StatusMsg, status_rlp.freeze())
     }
 
     pub fn rlp_encode(&self) -> Bytes {
