@@ -17,6 +17,7 @@ pub fn init_cache() {
         for _ in 0..u32::MAX {
             CACHE.push(0);
         }
+        println!("Tx cache initialized");
     }
 }
 

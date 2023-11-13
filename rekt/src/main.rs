@@ -4,7 +4,6 @@ use std::sync::Arc;
 use rekt::cli::Cli;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
-use rekt::eth::transactions::cache::init_cache;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
@@ -27,8 +26,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", args);
     let mut config = get_config()?;
 
-    init_cache();
-    println!("TX cache initialized");
+    rekt::eth::transactions::cache::init_cache();
+    rekt::p2p::p2p_wire_cache::init_cache();
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
