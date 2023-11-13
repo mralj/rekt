@@ -21,7 +21,9 @@ use crate::rlpx::TcpWire;
 use crate::rlpx::{utils::pk2id, Connection};
 use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
-use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
+use crate::server::peers::{
+    check_if_already_connected_to_peer, remove_peer_ip, PEERS, PEERS_BY_IP,
+};
 
 pub fn connect_to_node(
     conn_task: ConnectionTask,
@@ -118,7 +120,7 @@ pub fn connect_to_node(
         // of already connected ips
         // But in all other cases we must remove the IP from the set
         if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
-            PEERS_BY_IP.remove(&node.ip);
+            remove_peer_ip(&node.address);
         }
 
         map_err!(task_result);

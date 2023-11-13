@@ -28,7 +28,7 @@ use crate::{
 
 use super::{
     active_peer_session::handle_hello_msg,
-    peers::{PEERS, PEERS_BY_IP},
+    peers::{remove_peer_ip, PEERS, PEERS_BY_IP},
 };
 
 pub struct InboundConnections {
@@ -151,7 +151,7 @@ async fn new_connection_handler(
     // of already connected ips
     // But in all other cases we must remove the IP from the set
     if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
-        PEERS_BY_IP.remove(&node.ip);
+        remove_peer_ip(&node.address);
     }
 
     Ok(())
