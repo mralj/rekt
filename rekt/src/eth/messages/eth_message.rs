@@ -1,4 +1,5 @@
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
+use open_fastrlp::DecodeError;
 
 use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::p2p_wire_message::P2pWireMessage;
@@ -41,6 +42,23 @@ impl EthMessage {
     pub fn is_compressed(&self) -> bool {
         self.compressed == EthMessageCompressionStatus::Compressed
     }
+
+    pub fn snappy_decompress(
+        &mut self,
+        snappy_decoder: &mut snap::raw::Decoder,
+    ) -> Result<(), DecodeError> {
+        let decompressed_len = snap::raw::decompress_len(&self.data)
+            .map_err(|_| DecodeError::Custom("Could not read length for snappy decompress"))?;
+        let mut rlp_msg_bytes = BytesMut::zeroed(decompressed_len);
+
+        snappy_decoder
+            .decompress(&self.data, &mut rlp_msg_bytes)
+            .map_err(|_| DecodeError::Custom("Could not snap decompress msg"))?;
+
+        self.data = rlp_msg_bytes.freeze();
+
+        Ok(())
+    }
 }
 
 impl From<P2pWireMessage> for EthMessage {
@@ -48,7 +66,7 @@ impl From<P2pWireMessage> for EthMessage {
         let id = msg.id - ETH_PROTOCOL_OFFSET;
         Self {
             id: EthProtocol::from(id),
-            data: msg.data.freeze(),
+            data: msg.data,
             compressed: EthMessageCompressionStatus::Uncompressed,
         }
     }
