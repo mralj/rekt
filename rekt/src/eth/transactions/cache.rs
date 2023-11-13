@@ -1,6 +1,6 @@
 use crate::types::hash::H256;
 
-pub static mut CACHE: Vec<bool> = Vec::new();
+pub(super) static mut CACHE: Vec<bool> = Vec::new();
 pub(super) const ALREADY_FETCHED: bool = true;
 pub(super) const NOT_FETCHED: bool = false;
 
