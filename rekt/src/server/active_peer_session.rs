@@ -120,7 +120,7 @@ pub fn connect_to_node(
         // of already connected ips
         // But in all other cases we must remove the IP from the set
         if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
-            remove_peer_ip(&node.address);
+            remove_peer_ip(node.address);
         }
 
         map_err!(task_result);

@@ -22,7 +22,7 @@ use crate::google_sheets::LogToSheets;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
-    add_peer_ip, blacklist_peer, check_if_already_connected_to_peer, PEERS, PEERS_BY_IP,
+    add_peer_ip, blacklist_peer, check_if_already_connected_to_peer, PEERS,
 };
 use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
@@ -116,7 +116,7 @@ impl Peer {
         check_if_already_connected_to_peer(&self.node_record)?;
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
-        add_peer_ip(&self.node_record.address);
+        add_peer_ip(self.node_record.address);
 
         let peer_ptr = UnsafeSyncPtr {
             peer: self as *mut _,

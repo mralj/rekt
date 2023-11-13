@@ -151,7 +151,7 @@ async fn new_connection_handler(
     // of already connected ips
     // But in all other cases we must remove the IP from the set
     if !matches!(task_result, Err(P2PError::AlreadyConnectedToSameIp)) {
-        remove_peer_ip(&node.address);
+        remove_peer_ip(node.address);
     }
 
     Ok(())

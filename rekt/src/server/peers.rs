@@ -37,21 +37,27 @@ pub fn check_if_already_connected_to_peer(node_record: &NodeRecord) -> Result<()
     Ok(())
 }
 
-pub fn remove_peer_ip(ip: &IpAddr) {
-    if let Some(mut entry) = PEERS_BY_IP.get_mut(ip) {
-        if entry.value() > &1 {
-            *entry -= 1;
-        } else {
-            PEERS_BY_IP.remove(ip);
+pub fn remove_peer_ip(ip: IpAddr) {
+    match PEERS_BY_IP.entry(ip) {
+        dashmap::mapref::entry::Entry::Occupied(mut entry) => {
+            if *entry.get() == 1 {
+                entry.remove();
+                return;
+            }
+            *entry.get_mut() -= 1;
         }
+        _ => {}
     }
 }
 
-pub fn add_peer_ip(ip: &IpAddr) {
-    if let Some(mut entry) = PEERS_BY_IP.get_mut(ip) {
-        *entry += 1;
-    } else {
-        PEERS_BY_IP.insert(*ip, 1);
+pub fn add_peer_ip(ip: IpAddr) {
+    match PEERS_BY_IP.entry(ip) {
+        dashmap::mapref::entry::Entry::Occupied(mut entry) => {
+            *entry.get_mut() += 1;
+        }
+        dashmap::mapref::entry::Entry::Vacant(entry) => {
+            entry.insert(1);
+        }
     }
 }
 
