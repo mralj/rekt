@@ -18,7 +18,7 @@ use super::peer::is_buy_in_progress;
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 50; // how many messages are we queuing for write
-const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60 * 5; //seconds
+const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60; //seconds
 
 #[pin_project::pin_project]
 #[derive(Debug)]
