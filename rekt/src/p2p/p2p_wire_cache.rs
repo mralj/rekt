@@ -57,12 +57,7 @@ pub(super) fn insert_tx(data: &Bytes) -> bool {
 
 #[inline(always)]
 fn hash(data: &Bytes) -> usize {
-    let start = tokio::time::Instant::now();
-
     let mut hasher = XxHash32::default();
     hasher.write(data);
-    let h = hasher.finish() as usize;
-    println!("Elapsed: {:?}", start.elapsed());
-
-    h
+    hasher.finish() as usize
 }
