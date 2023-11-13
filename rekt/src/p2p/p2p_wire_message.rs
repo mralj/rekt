@@ -1,4 +1,4 @@
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use derive_more::Display;
 use open_fastrlp::{Decodable, DecodeError};
 
@@ -19,7 +19,7 @@ pub enum MessageKind {
 pub struct P2pWireMessage {
     pub kind: MessageKind,
     pub id: u8,
-    pub data: BytesMut,
+    pub data: Bytes,
 }
 
 impl P2pWireMessage {
@@ -30,7 +30,11 @@ impl P2pWireMessage {
         // after we decoded id, the byte buffer has to move forwards for 1
         // because id was decoded, and we'll have to decode the rest of the message
         data.advance(POSITION_OF_MSG_ID_IN_BYTE_BUFFER);
-        Ok(P2pWireMessage { kind, id, data })
+        Ok(P2pWireMessage {
+            kind,
+            id,
+            data: data.freeze(),
+        })
     }
 
     fn decode_kind(id: u8) -> Result<MessageKind, DecodeError> {
@@ -71,7 +75,7 @@ impl P2pWireMessage {
             .decompress(&self.data, &mut rlp_msg_bytes)
             .map_err(|_| DecodeError::Custom("Could not snap decompress msg"))?;
 
-        self.data = rlp_msg_bytes;
+        self.data = rlp_msg_bytes.freeze();
 
         Ok(())
     }

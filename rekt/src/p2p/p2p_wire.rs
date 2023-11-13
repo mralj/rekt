@@ -148,18 +148,19 @@ impl Stream for P2PWire {
                 continue;
             }
 
-            msg.snappy_decompress(&mut this.snappy_decoder)?;
             if msg.kind == MessageKind::P2P {
+                msg.snappy_decompress(&mut this.snappy_decoder)?;
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
                 }
                 continue;
             }
 
-            let msg = EthMessage::from(msg);
+            let mut msg = EthMessage::from(msg);
             match msg.id {
                 EthProtocol::StatusMsg | EthProtocol::UpgradeStatusMsg => {
-                    return Poll::Ready(Some(Ok(msg)))
+                    msg.snappy_decompress(&mut this.snappy_decoder)?;
+                    return Poll::Ready(Some(Ok(msg)));
                 }
                 EthProtocol::TransactionsMsg | EthProtocol::PooledTransactionsMsg => {
                     if this.established_on.elapsed()
@@ -186,6 +187,7 @@ impl Stream for P2PWire {
                 _ => {}
             }
 
+            msg.snappy_decompress(&mut this.snappy_decoder)?;
             return Poll::Ready(Some(Ok(msg)));
         }
         Poll::Pending
