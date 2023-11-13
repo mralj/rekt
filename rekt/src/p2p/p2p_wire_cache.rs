@@ -30,10 +30,10 @@ pub(super) fn insert_hash(data: &Bytes) -> bool {
         return false;
     }
     unsafe {
-        if CACHE_HASHES[index] == true {
+        if CACHE_HASHES[index] == ALREADY_CACHED {
             return ALREADY_CACHED;
         }
-        CACHE_HASHES[index] = true;
+        CACHE_HASHES[index] = ALREADY_CACHED;
     }
 
     NOT_CACHED
@@ -46,10 +46,10 @@ pub(super) fn insert_tx(data: &Bytes) -> bool {
         return false;
     }
     unsafe {
-        if CACHE_TXS[index] == true {
+        if CACHE_TXS[index] == ALREADY_CACHED {
             return ALREADY_CACHED;
         }
-        CACHE_TXS[index] = true;
+        CACHE_TXS[index] = ALREADY_CACHED;
     }
 
     NOT_CACHED

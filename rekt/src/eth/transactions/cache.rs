@@ -1,46 +1,35 @@
 use crate::types::hash::H256;
 
-pub static mut CACHE: Vec<u8> = Vec::new();
-pub const TX_FETCHED_FLAG: u8 = u8::MAX - 100;
-
-#[derive(Debug, PartialEq)]
-pub enum TxCacheStatus {
-    Fetched,
-    NotFetched,
-    FetchedOrAnnounced,
-    NotAnnounced,
-}
+pub static mut CACHE: Vec<bool> = Vec::new();
+pub(super) const ALREADY_FETCHED: bool = true;
+pub(super) const NOT_FETCHED: bool = false;
 
 pub fn init_cache() {
     unsafe {
         CACHE.reserve_exact(u32::MAX as usize);
         for _ in 0..u32::MAX {
-            CACHE.push(0);
+            CACHE.push(false);
         }
         println!("Tx cache initialized");
     }
 }
 
-pub fn mark_as_fetched(hash: &H256) -> TxCacheStatus {
+pub fn mark_as_fetched(hash: &H256) -> bool {
     unsafe {
         let index = convert_hash_to_index(hash);
-        if CACHE[index] >= TX_FETCHED_FLAG {
-            return TxCacheStatus::Fetched;
+        if CACHE[index] == ALREADY_FETCHED {
+            ALREADY_FETCHED
+        } else {
+            CACHE[index] = ALREADY_FETCHED;
+            NOT_FETCHED
         }
-        CACHE[index] = TX_FETCHED_FLAG;
-        TxCacheStatus::NotFetched
     }
 }
 
-pub fn mark_as_announced(hash: &H256) -> TxCacheStatus {
+pub fn was_fetched(hash: &H256) -> bool {
     unsafe {
         let index = convert_hash_to_index(hash);
-        if CACHE[index] > 0 {
-            return TxCacheStatus::FetchedOrAnnounced;
-        }
-
-        CACHE[index] += 1;
-        return TxCacheStatus::NotAnnounced;
+        CACHE[index] == ALREADY_FETCHED
     }
 }
 
