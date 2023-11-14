@@ -12,6 +12,7 @@ use rekt::server::outbound_connections::OutboundConnections;
 
 use clap::Parser;
 use mimalloc::MiMalloc;
+use rekt::server::peers::BLACKLIST_PEERS_BY_ID;
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
 use rekt::wallets::local_wallets::init_local_wallets;
 use tracing::Level;
@@ -56,6 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         conn_tx.clone(),
     ));
 
+    BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
     OutboundConnections::start(outbound_connections).await;
 
     let disc_server = if our_node.public_ip_retrieved {
