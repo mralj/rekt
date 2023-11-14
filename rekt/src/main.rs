@@ -92,5 +92,7 @@ fn get_all_nodes(static_nodes: &mut Vec<String>) -> Vec<String> {
         .collect::<Vec<String>>();
 
     nodes.append(static_nodes);
+    nodes.sort_unstable();
+    nodes.dedup();
     nodes
 }
