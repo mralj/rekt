@@ -24,11 +24,11 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    google_sheets::get_client().await?;
-
     let args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
+
+    google_sheets::get_client(&args).await?;
 
     rekt::eth::transactions::cache::init_cache();
     rekt::p2p::p2p_wire_cache::init_cache();

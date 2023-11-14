@@ -1,11 +1,16 @@
 use google_sheets4::{
-    hyper::Client,
-    hyper_rustls,
+    client::Hub,
+    hyper::{client::HttpConnector, Client},
+    hyper_rustls::{self, HttpsConnector},
     oauth2::{ServiceAccountAuthenticator, ServiceAccountKey},
     Sheets,
 };
 
-pub async fn get_client() -> anyhow::Result<()> {
+use crate::cli::Cli;
+
+const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
+
+pub async fn get_client(cli: &Cli) -> anyhow::Result<()> {
     println!("Getting sheets client");
 
     let scopes = vec![
@@ -17,8 +22,8 @@ pub async fn get_client() -> anyhow::Result<()> {
     ];
     let secret = get_secret();
     let auth = ServiceAccountAuthenticator::builder(secret).build().await?;
-    let token = auth.token(&scopes).await?;
-    let mut hub = Sheets::new(
+    let _ = auth.token(&scopes).await?;
+    let hub = Sheets::new(
         Client::builder().build(
             hyper_rustls::HttpsConnectorBuilder::new()
                 .with_native_roots()
@@ -30,27 +35,32 @@ pub async fn get_client() -> anyhow::Result<()> {
         auth,
     );
 
-    let spreadsheet_id = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
-    let range = "master!A:Z"; // Adjust the range as needed to cover the data you want to read
+    let range = format!("Sheet{}!A:A", cli.server_index);
+    let index = get_first_empty_row(&hub, &range).await;
 
-    // Make the API call to read the data
+    println!("Index for {range} is {:?}", index);
+    Ok(())
+}
+
+async fn get_first_empty_row(
+    hub: &Sheets<HttpsConnector<HttpConnector>>,
+    range: &str,
+) -> Option<usize> {
     match hub
         .spreadsheets()
-        .values_get(spreadsheet_id, range)
+        .values_get(SPREADSHEET_ID, &range)
         .doit()
         .await
     {
         Ok((_, value_range)) => {
-            // value_range.values contains the data read from the sheet
             if let Some(values) = value_range.values {
-                for row in values {
-                    println!("{:?}", row);
-                }
+                Some(values.len() + 1)
+            } else {
+                Some(1)
             }
         }
-        Err(e) => println!("Error: {}", e),
+        Err(_) => None,
     }
-    Ok(())
 }
 
 fn get_secret() -> ServiceAccountKey {
