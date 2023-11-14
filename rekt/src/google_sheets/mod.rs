@@ -1,4 +1,9 @@
-use google_sheets4::oauth2::{ServiceAccountAuthenticator, ServiceAccountKey};
+use google_sheets4::{
+    hyper::Client,
+    hyper_rustls,
+    oauth2::{ServiceAccountAuthenticator, ServiceAccountKey},
+    Sheets,
+};
 
 pub async fn get_client() -> anyhow::Result<()> {
     println!("Getting sheets client");
@@ -13,7 +18,38 @@ pub async fn get_client() -> anyhow::Result<()> {
     let secret = get_secret();
     let auth = ServiceAccountAuthenticator::builder(secret).build().await?;
     let token = auth.token(&scopes).await?;
+    let mut hub = Sheets::new(
+        Client::builder().build(
+            hyper_rustls::HttpsConnectorBuilder::new()
+                .with_native_roots()
+                .https_or_http()
+                .enable_http1()
+                .enable_http2()
+                .build(),
+        ),
+        auth,
+    );
 
+    let spreadsheet_id = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
+    let range = "master!A:Z"; // Adjust the range as needed to cover the data you want to read
+
+    // Make the API call to read the data
+    match hub
+        .spreadsheets()
+        .values_get(spreadsheet_id, range)
+        .doit()
+        .await
+    {
+        Ok((_, value_range)) => {
+            // value_range.values contains the data read from the sheet
+            if let Some(values) = value_range.values {
+                for row in values {
+                    println!("{:?}", row);
+                }
+            }
+        }
+        Err(e) => println!("Error: {}", e),
+    }
     Ok(())
 }
 
