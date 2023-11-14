@@ -4,6 +4,7 @@ use std::sync::Arc;
 use rekt::cli::Cli;
 use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
+use rekt::google_sheets;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
@@ -23,6 +24,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    google_sheets::get_client().await?;
+
     let args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;

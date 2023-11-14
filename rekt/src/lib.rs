@@ -6,6 +6,7 @@ pub mod contracts;
 pub mod discover;
 pub mod enemies;
 pub mod eth;
+pub mod google_sheets;
 pub mod local_node;
 pub mod local_server;
 pub mod p2p;
