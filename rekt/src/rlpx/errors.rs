@@ -73,6 +73,8 @@ impl From<TryFromIntError> for RLPXError {
 pub enum RLPXSessionError {
     #[error("Unknown Error")]
     UnknownError,
+    #[error("Connection closed")]
+    ConnectionClosed,
     #[error("No message received from TCP stream")]
     NoMessage,
     #[error("RLPX error: {0}")]
