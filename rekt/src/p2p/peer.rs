@@ -1,3 +1,4 @@
+use bytes::BytesMut;
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -6,13 +7,16 @@ use std::time::Duration;
 use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
 
-use open_fastrlp::Decodable;
+use open_fastrlp::{Decodable, Encodable};
 use tracing::error;
 
 use super::errors::P2PError;
+use super::p2p_wire::EthOrP2PMsg;
+use super::p2p_wire_message::P2pWireMessage;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
+use super::{DisconnectReason, P2PMessage, P2PMessageID};
 use crate::eth;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
@@ -120,33 +124,55 @@ impl Peer {
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                match handler_resp {
-                    EthMessageHandler::Response(msg) => {
-                        self.connection.send(msg).await?;
+            match msg {
+                EthOrP2PMsg::P2P(msg) => {
+                    if msg.id == 0x02 {
+                        let mut buf = BytesMut::new();
+                        P2PMessage::Pong.encode(&mut buf);
+                        self.connection
+                            .send(EthOrP2PMsg::P2P(P2pWireMessage {
+                                id: 0x03,
+                                kind: super::p2p_wire_message::MessageKind::P2P,
+                                data: buf.freeze(),
+                            }))
+                            .await?;
+                    } else if msg.id == 0x01 {
+                        return Err(P2PError::DisconnectRequested(DisconnectReason::decode(
+                            &mut &msg.data[..],
+                        )?));
                     }
-                    EthMessageHandler::Buy(mut buy_info) => {
-                        if let Some(buy_txs_eth_message) =
-                            buy_info.token.get_buy_txs(buy_info.gas_price)
-                        {
-                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
-
-                            mark_token_as_bought(buy_info.token.buy_token_address);
-                            unsafe {
-                                BUY_IS_IN_PROGRESS = false;
-                                SELL_IS_IN_PROGRESS = true;
+                }
+                EthOrP2PMsg::Eth(msg) => {
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                        match handler_resp {
+                            EthMessageHandler::Response(msg) => {
+                                self.connection.send(EthOrP2PMsg::Eth(msg)).await?;
                             }
-                            cprintln!(
+                            EthMessageHandler::Buy(mut buy_info) => {
+                                if let Some(buy_txs_eth_message) =
+                                    buy_info.token.get_buy_txs(buy_info.gas_price)
+                                {
+                                    let sent_txs_to_peer_count =
+                                        Peer::send_tx(buy_txs_eth_message).await;
+
+                                    mark_token_as_bought(buy_info.token.buy_token_address);
+                                    unsafe {
+                                        BUY_IS_IN_PROGRESS = false;
+                                        SELL_IS_IN_PROGRESS = true;
+                                    }
+                                    cprintln!(
                                 "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
                                 buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );
 
-                            Self::sell(buy_info.token).await;
+                                    Self::sell(buy_info.token).await;
+                                }
+                            }
+                            EthMessageHandler::None => {}
                         }
                     }
-                    EthMessageHandler::None => {}
                 }
             }
         }
@@ -154,23 +180,27 @@ impl Peer {
 
     async fn handshake(&mut self) -> Result<(), P2PError> {
         let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        match msg {
+            EthOrP2PMsg::Eth(msg) => {
+                if msg.id != EthProtocol::StatusMsg {
+                    error!("Expected status message, got {:?}", msg.id);
+                    return Err(P2PError::ExpectedStatusMessage);
+                }
 
-        if msg.id != EthProtocol::StatusMsg {
-            error!("Expected status message, got {:?}", msg.id);
-            return Err(P2PError::ExpectedStatusMessage);
+                let status_msg = StatusMessage::decode(&mut &msg.data[..])?;
+
+                if StatusMessage::validate(&status_msg, &self.protocol_version).is_err() {
+                    return Err(P2PError::CouldNotValidateStatusMessage);
+                }
+
+                self.connection
+                    .send(EthOrP2PMsg::Eth(StatusMessage::get(&self.protocol_version)))
+                    .await?;
+
+                self.handle_upgrade_status_messages().await
+            }
+            _ => Err(P2PError::ExpectedStatusMessage),
         }
-
-        let status_msg = StatusMessage::decode(&mut &msg.data[..])?;
-
-        if StatusMessage::validate(&status_msg, &self.protocol_version).is_err() {
-            return Err(P2PError::CouldNotValidateStatusMessage);
-        }
-
-        self.connection
-            .send(StatusMessage::get(&self.protocol_version))
-            .await?;
-
-        self.handle_upgrade_status_messages().await
     }
 
     async fn handle_upgrade_status_messages(&mut self) -> Result<(), P2PError> {
@@ -178,13 +208,19 @@ impl Peer {
             return Ok(());
         }
 
-        self.connection.send(UpgradeStatusMessage::get()).await?;
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-        if msg.id != EthProtocol::UpgradeStatusMsg {
-            return Err(P2PError::ExpectedUpgradeStatusMessage);
+        self.connection
+            .send(EthOrP2PMsg::Eth(UpgradeStatusMessage::get()))
+            .await?;
+        match self.connection.next().await.ok_or(P2PError::NoMessage)?? {
+            EthOrP2PMsg::Eth(msg) => {
+                if msg.id == EthProtocol::UpgradeStatusMsg {
+                    return Ok(());
+                }
+            }
+            _ => {}
         }
 
-        Ok(())
+        Err(P2PError::ExpectedUpgradeStatusMessage)
     }
 
     async fn sell(token: Token) {

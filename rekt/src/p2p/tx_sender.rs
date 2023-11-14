@@ -26,7 +26,11 @@ impl Peer {
         let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
             let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
             let message = msg.clone();
-            tokio::spawn(async move { peer_ptr.send(message).await })
+            tokio::spawn(async move {
+                peer_ptr
+                    .send(super::p2p_wire::EthOrP2PMsg::Eth(message))
+                    .await
+            })
         }));
 
         //       println!("iteration took: {:?}", start.elapsed());

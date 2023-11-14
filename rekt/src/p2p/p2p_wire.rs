@@ -123,7 +123,7 @@ impl P2PWire {
 }
 
 impl Stream for P2PWire {
-    type Item = Result<EthMessage, P2PError>;
+    type Item = Result<EthOrP2PMsg, P2PError>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -150,17 +150,14 @@ impl Stream for P2PWire {
 
             if msg.kind == MessageKind::P2P {
                 msg.snappy_decompress(&mut this.snappy_decoder)?;
-                if let Err(e) = this.handle_p2p_msg(msg, cx) {
-                    return Poll::Ready(Some(Err(e)));
-                }
-                continue;
+                return Poll::Ready(Some(Ok(EthOrP2PMsg::P2P(msg))));
             }
 
             let mut msg = EthMessage::from(msg);
             match msg.id {
                 EthProtocol::StatusMsg | EthProtocol::UpgradeStatusMsg => {
                     msg.snappy_decompress(&mut this.snappy_decoder)?;
-                    return Poll::Ready(Some(Ok(msg)));
+                    return Poll::Ready(Some(Ok(EthOrP2PMsg::Eth(msg))));
                 }
                 EthProtocol::TransactionsMsg | EthProtocol::PooledTransactionsMsg => {
                     if this.established_on.elapsed()
@@ -188,13 +185,13 @@ impl Stream for P2PWire {
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;
-            return Poll::Ready(Some(Ok(msg)));
+            return Poll::Ready(Some(Ok(EthOrP2PMsg::Eth(msg))));
         }
         Poll::Pending
     }
 }
 
-impl Sink<EthMessage> for P2PWire {
+impl Sink<EthOrP2PMsg> for P2PWire {
     type Error = P2PError;
 
     fn poll_ready(
@@ -228,27 +225,11 @@ impl Sink<EthMessage> for P2PWire {
         }
     }
 
-    fn start_send(mut self: std::pin::Pin<&mut Self>, item: EthMessage) -> Result<(), Self::Error> {
-        // since the interacting with sink should work as follows:
-        // 1. call poll_ready, if it returns Ready(ok), call start_send,
-        // but if it returns anything other than that, start_send should not be called
-        // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
-        // we should not be in situation where this method was called and queue is full, so smth.
-        // bad happened, return err
-        if item.is_compressed() {
-            // if message is already compressed this is "high-priority" message
-            // remove all queued messages and send this one
-            self.writer_queue.clear();
-            self.writer_queue.push_back(item.data);
-            return Ok(());
-        }
-
-        // note check !item.is_compressed() is not needed, because of lines above
-        // but in case we move code around or change logic, I think it is better to have it here
-        let we_should_not_send_any_unimportant_messages_during_buy =
-            is_buy_in_progress() && !item.is_compressed();
-
-        if we_should_not_send_any_unimportant_messages_during_buy {
+    fn start_send(
+        mut self: std::pin::Pin<&mut Self>,
+        item: EthOrP2PMsg,
+    ) -> Result<(), Self::Error> {
+        if is_buy_in_progress() {
             return Ok(());
         }
 
@@ -256,16 +237,49 @@ impl Sink<EthMessage> for P2PWire {
             return Err(P2PError::TooManyMessagesQueued);
         }
 
-        let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
-        let compressed_size = self
-            .snappy_encoder
-            .compress(&item.data, &mut compressed[1..])
-            .map_err(|_err| P2PError::SnappyCompressError)?;
+        match item {
+            EthOrP2PMsg::P2P(item) => {
+                if item.id == 0x03 {
+                    self.writer_queue.push_back(item.data);
+                }
+            }
+            EthOrP2PMsg::Eth(item) => {
+                // since the interacting with sink should work as follows:
+                // 1. call poll_ready, if it returns Ready(ok), call start_send,
+                // but if it returns anything other than that, start_send should not be called
+                // in poll_ready we make sure to return Ready(Ok) if the queue is not full,
+                // we should not be in situation where this method was called and queue is full, so smth.
+                // bad happened, return err
+                if item.is_compressed() {
+                    // if message is already compressed this is "high-priority" message
+                    // remove all queued messages and send this one
+                    self.writer_queue.clear();
+                    self.writer_queue.push_back(item.data);
+                    return Ok(());
+                }
 
-        compressed[0] = item.id as u8 + ETH_PROTOCOL_OFFSET;
-        compressed.truncate(compressed_size + 1);
+                // note check !item.is_compressed() is not needed, because of lines above
+                // but in case we move code around or change logic, I think it is better to have it here
+                let we_should_not_send_any_unimportant_messages_during_buy =
+                    is_buy_in_progress() && !item.is_compressed();
 
-        self.writer_queue.push_back(compressed.freeze());
+                if we_should_not_send_any_unimportant_messages_during_buy {
+                    return Ok(());
+                }
+
+                let mut compressed =
+                    BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
+                let compressed_size = self
+                    .snappy_encoder
+                    .compress(&item.data, &mut compressed[1..])
+                    .map_err(|_err| P2PError::SnappyCompressError)?;
+
+                compressed[0] = item.id as u8 + ETH_PROTOCOL_OFFSET;
+                compressed.truncate(compressed_size + 1);
+
+                self.writer_queue.push_back(compressed.freeze());
+            }
+        };
         Ok(())
     }
 
@@ -302,4 +316,9 @@ impl Sink<EthMessage> for P2PWire {
 
         Poll::Ready(Ok(()))
     }
+}
+
+pub enum EthOrP2PMsg {
+    Eth(EthMessage),
+    P2P(P2pWireMessage),
 }
