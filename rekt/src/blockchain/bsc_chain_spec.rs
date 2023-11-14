@@ -26,7 +26,6 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| {
         },
         hardforks: BTreeMap::from([
             (Hardfork::Homestead, ForkCondition::Block(0)),
-            (Hardfork::Dao, ForkCondition::Block(0)),
             (Hardfork::Eip150, ForkCondition::Block(0)),
             (Hardfork::Eip155, ForkCondition::Block(0)),
             (Hardfork::Eip158, ForkCondition::Block(0)),
@@ -35,8 +34,8 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| {
             (Hardfork::Petersburg, ForkCondition::Block(0)),
             (Hardfork::Istanbul, ForkCondition::Block(0)),
             (Hardfork::MuirGlacier, ForkCondition::Block(0)),
-            (Hardfork::Niels, ForkCondition::Block(0)),
             (Hardfork::Ramanujan, ForkCondition::Block(0)),
+            (Hardfork::Niels, ForkCondition::Block(0)),
             (Hardfork::MirrorSync, ForkCondition::Block(5184000)),
             (Hardfork::Bruno, ForkCondition::Block(13082000)),
             (Hardfork::Euler, ForkCondition::Block(18907621)),
