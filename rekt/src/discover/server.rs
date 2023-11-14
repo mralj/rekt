@@ -286,4 +286,18 @@ impl Server {
 
         Ok(())
     }
+
+    pub fn get_bsc_node_enodes(&self) -> Vec<String> {
+        self.nodes
+            .iter()
+            .filter(|n| {
+                if let Some(bsc_node) = n.is_bsc_node {
+                    bsc_node
+                } else {
+                    false
+                }
+            })
+            .map(|n| n.node_record.str.clone())
+            .collect::<Vec<_>>()
+    }
 }

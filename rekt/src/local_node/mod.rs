@@ -7,6 +7,7 @@ use secp256k1::{PublicKey, SecretKey};
 
 use crate::blockchain::fork::ForkId;
 use crate::constants::DEFAULT_PORT;
+use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
 #[derive(Debug, Clone)]

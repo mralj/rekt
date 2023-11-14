@@ -120,6 +120,9 @@ impl Server {
                     let mut unknown_nodes = Vec::with_capacity(nodes.len());
 
                     for (id, node) in nodes.into_iter() {
+                        if BLACKLIST_PEERS_BY_ID.contains(&node.id()) {
+                            continue;
+                        }
                         if let Some(already_known_node) = self.nodes.get(&id) {
                             all_nodes.push(already_known_node.clone());
                         } else {

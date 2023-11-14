@@ -19,6 +19,8 @@ pub fn run_local_server(
     disc_server: Option<Arc<Server>>,
     incoming_listener: Arc<InboundConnections>,
 ) {
+    let disc_server_toggler = disc_server.clone();
+    let disc_server_enodes = disc_server.clone();
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
@@ -79,7 +81,7 @@ pub fn run_local_server(
         });
 
         let disc = warp::path!("disc").and(end()).map(move || {
-            if let Some(disc) = &disc_server {
+            if let Some(disc) = &disc_server_toggler {
                 if disc.is_paused() {
                     disc.start_disc_server();
                     cprintln!("<yellow>Discovery server was off now it's ON</>");
@@ -111,11 +113,21 @@ pub fn run_local_server(
             PeerInfo::slice_to_json(&peers).unwrap()
         });
 
+        let get_enodes = warp::path("enodes").and(end()).map(move || {
+            if let Some(disc) = &disc_server_enodes {
+                let enodes = disc.get_bsc_node_enodes();
+                return enodes.join(",\n");
+            } else {
+                return "Discovery server not found".to_string();
+            }
+        });
+
         let routes = prep
             .or(peer_count)
             .or(refresh_tokens)
             .or(disc)
-            .or(peer_infos);
+            .or(peer_infos)
+            .or(get_enodes);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }
