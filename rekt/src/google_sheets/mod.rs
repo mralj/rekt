@@ -1,6 +1,5 @@
 use google_sheets4::{
     api::ValueRange,
-    client::Hub,
     hyper::{client::HttpConnector, Client},
     hyper_rustls::{self, HttpsConnector},
     oauth2::{ServiceAccountAuthenticator, ServiceAccountKey},
@@ -11,7 +10,31 @@ use crate::cli::Cli;
 
 const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
 
-pub async fn get_client(cli: &Cli) -> anyhow::Result<()> {
+pub async fn write_data_to_sheets(cli: &Cli) -> anyhow::Result<()> {
+    let sheets_client = get_client().await?;
+    let range = format!("Sheet{}!A:A", cli.server_index);
+
+    let value_range = ValueRange {
+        values: Some(vec![vec!["Data1".into(), "Data2".into(), "Data3".into()]]), // Data to append
+        ..Default::default()
+    };
+
+    match sheets_client
+        .spreadsheets()
+        .values_append(value_range, SPREADSHEET_ID, &range)
+        .value_input_option("USER_ENTERED")
+        .insert_data_option("INSERT_ROWS")
+        .doit()
+        .await
+    {
+        Err(e) => println!("Error: {}", e),
+        _ => {}
+    }
+
+    Ok(())
+}
+
+pub async fn get_client() -> anyhow::Result<Sheets<HttpsConnector<HttpConnector>>> {
     println!("Getting sheets client");
 
     let scopes = vec![
@@ -24,7 +47,8 @@ pub async fn get_client(cli: &Cli) -> anyhow::Result<()> {
     let secret = get_secret();
     let auth = ServiceAccountAuthenticator::builder(secret).build().await?;
     let _ = auth.token(&scopes).await?;
-    let hub = Sheets::new(
+
+    Ok(Sheets::new(
         Client::builder().build(
             hyper_rustls::HttpsConnectorBuilder::new()
                 .with_native_roots()
@@ -34,33 +58,7 @@ pub async fn get_client(cli: &Cli) -> anyhow::Result<()> {
                 .build(),
         ),
         auth,
-    );
-
-    let range = format!("Sheet{}!A:A", cli.server_index);
-    //let index = get_first_empty_row(&hub, &range).await;
-
-    let value_range = ValueRange {
-        values: Some(vec![vec!["Data1".into(), "Data2".into(), "Data3".into()]]), // Data to append
-        ..Default::default()
-    };
-
-    // Make the API call to append the data
-    match hub
-        .spreadsheets()
-        .values_append(value_range, SPREADSHEET_ID, &range)
-        .value_input_option("USER_ENTERED") // or "RAW"
-        .insert_data_option("INSERT_ROWS") // Specifies how the input data should be inserted.
-        .doit()
-        .await
-    {
-        Ok((_, append_response)) => {
-            println!("Append response: {:?}", append_response);
-        }
-        Err(e) => println!("Error: {}", e),
-    }
-
-    //println!("Index for {range} is {:?}", index);
-    Ok(())
+    ))
 }
 
 async fn get_first_empty_row(
