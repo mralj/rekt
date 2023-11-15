@@ -43,6 +43,30 @@ pub struct Cli {
 
     #[arg(long = "city", default_value = "N/A", value_name = "Server country")]
     pub city: String,
+
+    pub first_wallet: Option<ethers::types::Address>,
+    pub last_wallet: Option<ethers::types::Address>,
+}
+
+impl Cli {
+    pub fn set_first_last_wallets(
+        &mut self,
+        first_wallet: ethers::types::Address,
+        last_wallet: ethers::types::Address,
+    ) {
+        self.first_wallet = Some(first_wallet);
+        self.last_wallet = Some(last_wallet);
+    }
+}
+
+impl Display for Cli {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "server_index: {}, pings_per_server: {}, is_un_important_server: {},name: {}, county: {}, city: {}\n first_wallet: {:?}, last_wallet: {:?}",
+            self.server_index, self.pings_per_server, self.is_un_important_server, self.name, self.country, self.city, self.first_wallet, self.last_wallet
+        )
+    }
 }
 
 impl Default for Cli {
@@ -55,15 +79,8 @@ impl Default for Cli {
             name: "N/A".into(),
             country: "N/A".into(),
             city: "N/A".into(),
+            first_wallet: None,
+            last_wallet: None,
         }
-    }
-}
-impl Display for Cli {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "server_index: {}, pings_per_server: {}, is_un_important_server: {},name: {}, county: {}, city: {}",
-            self.server_index, self.pings_per_server, self.is_un_important_server, self.name, self.country, self.city
-        )
     }
 }

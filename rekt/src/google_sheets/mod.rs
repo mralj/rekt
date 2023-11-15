@@ -46,6 +46,14 @@ pub struct LogToSheets {
 
 impl LogToSheets {
     pub fn new(cli: &Cli, peer: &Peer, buy_info: &BuyTokenInfo) -> Self {
+        let start_wallet = match cli.first_wallet {
+            Some(wallet) => format!("{:#x}", wallet),
+            None => "N/A".into(),
+        };
+        let end_wallet = match cli.last_wallet {
+            Some(wallet) => format!("{:#x}", wallet),
+            None => "N/A".into(),
+        };
         Self {
             token_address: format!("{:#x}", buy_info.token.buy_token_address),
             liquidity_hash: format!("{:#x}", buy_info.hash),
@@ -63,6 +71,8 @@ impl LogToSheets {
             peer_info: peer.info.clone(),
             bsc_scan_token_url: helpers::get_bsc_token_url(buy_info.token.buy_token_address),
             bsc_scan_liquidity_url: helpers::get_bsc_tx_url(buy_info.hash),
+            start_wallet,
+            end_wallet,
             ..Default::default()
         }
     }
