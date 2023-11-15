@@ -9,10 +9,7 @@ use google_sheets4::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{
-    cli::Cli, eth::transactions::decoder::BuyTokenInfo, p2p::Peer, token::token::TokenAddress,
-    utils::helpers,
-};
+use crate::{cli::Cli, eth::transactions::decoder::BuyTokenInfo, p2p::Peer, utils::helpers};
 
 const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
 
@@ -99,7 +96,7 @@ impl Default for LogToSheets {
     }
 }
 
-pub async fn write_data_to_sheets(log_info: &LogToSheets) -> anyhow::Result<()> {
+pub async fn write_data_to_sheets(log_info: LogToSheets) -> anyhow::Result<()> {
     println!(
         "Writing to sheets at: {}",
         chrono::Utc::now()

@@ -45,6 +45,19 @@ pub struct Cli {
     pub city: String,
 }
 
+impl Default for Cli {
+    fn default() -> Self {
+        Self {
+            server_index: 1,
+            pings_per_server: 10,
+            is_un_important_server: false,
+            pings_per_unimportant_server: 1,
+            name: "N/A".into(),
+            country: "N/A".into(),
+            city: "N/A".into(),
+        }
+    }
+}
 impl Display for Cli {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
