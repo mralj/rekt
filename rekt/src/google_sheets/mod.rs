@@ -11,6 +11,7 @@ use serde_json::json;
 
 use crate::{
     cli::Cli, eth::transactions::decoder::BuyTokenInfo, p2p::Peer, token::token::TokenAddress,
+    utils::helpers,
 };
 
 const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
@@ -41,6 +42,9 @@ pub struct LogToSheets {
     pub end_wallet: String,
 
     pub batch_num: u8,
+
+    bsc_scan_token_url: String,
+    bsc_scan_liquidity_url: String,
 }
 
 impl LogToSheets {
@@ -60,6 +64,8 @@ impl LogToSheets {
             peer_td: peer.td,
             peer_enode: peer.node_record.str.clone(),
             peer_info: peer.info.clone(),
+            bsc_scan_token_url: helpers::get_bsc_token_url(buy_info.token.buy_token_address),
+            bsc_scan_liquidity_url: helpers::get_bsc_tx_url(buy_info.hash),
             ..Default::default()
         }
     }
@@ -87,6 +93,8 @@ impl Default for LogToSheets {
             start_wallet: "N/A".into(),
             end_wallet: "N/A".into(),
             name: "N/A".into(),
+            bsc_scan_token_url: "N/A".into(),
+            bsc_scan_liquidity_url: "N/A".into(),
         }
     }
 }
