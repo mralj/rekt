@@ -55,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         all_nodes.clone(),
         conn_rx,
         conn_tx.clone(),
+        args.clone(),
     ));
 
     BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
@@ -71,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let incoming_listener = Arc::new(InboundConnections::new(our_node));
+    let incoming_listener = Arc::new(InboundConnections::new(our_node, args));
     let listener = incoming_listener.clone();
     tokio::spawn(async move {
         if let Err(e) = listener.run().await {

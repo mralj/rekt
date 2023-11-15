@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use clap::Parser;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     #[arg(

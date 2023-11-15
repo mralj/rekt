@@ -24,6 +24,8 @@ pub struct OutboundConnections {
 
     retry_rx: AsyncReceiver<ConnectionTaskError>,
     retry_tx: AsyncSender<ConnectionTaskError>,
+
+    cli: crate::cli::Cli,
 }
 
 impl OutboundConnections {
@@ -33,6 +35,7 @@ impl OutboundConnections {
         nodes: Vec<String>,
         conn_rx: AsyncReceiver<ConnectionTask>,
         conn_tx: AsyncSender<ConnectionTask>,
+        cli: crate::cli::Cli,
     ) -> Self {
         let (retry_tx, retry_rx) = kanal::unbounded_async();
 
@@ -44,6 +47,7 @@ impl OutboundConnections {
             conn_tx,
             retry_rx,
             retry_tx,
+            cli,
         }
     }
 
@@ -77,6 +81,7 @@ impl OutboundConnections {
                     self.our_private_key,
                     self.our_pub_key,
                     self.retry_tx.clone(),
+                    self.cli.clone(),
                 );
             }
         }

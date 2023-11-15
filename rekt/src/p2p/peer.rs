@@ -69,6 +69,8 @@ pub struct Peer {
     pub(super) connection: P2PWire,
 
     pub(super) protocol_version: ProtocolVersion,
+
+    cli: Cli,
 }
 
 impl Peer {
@@ -79,9 +81,11 @@ impl Peer {
         info: String,
         connection: TcpWire,
         peer_type: PeerType,
+        cli: Cli,
     ) -> Self {
         Self {
             id,
+            cli,
             connection: P2PWire::new(connection),
             info,
             peer_type,
@@ -149,9 +153,7 @@ impl Peer {
 
                             Self::sell(buy_info.token.clone()).await;
                             if let Err(e) = google_sheets::write_data_to_sheets(LogToSheets::new(
-                                &Cli::default(),
-                                &self,
-                                &buy_info,
+                                &self.cli, &self, &buy_info,
                             ))
                             .await
                             {

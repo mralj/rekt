@@ -12,6 +12,7 @@ use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::{
+    cli::Cli,
     constants::DEFAULT_PORT,
     local_node::LocalNode,
     p2p::{
@@ -35,14 +36,16 @@ pub struct InboundConnections {
     our_private_key: secp256k1::SecretKey,
 
     is_paused: AtomicBool,
+    cli: crate::cli::Cli,
 }
 
 impl InboundConnections {
-    pub fn new(local_node: LocalNode) -> Self {
+    pub fn new(local_node: LocalNode, cli: Cli) -> Self {
         Self {
             our_pub_key: local_node.public_key,
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
+            cli,
         }
     }
 
@@ -85,10 +88,11 @@ impl InboundConnections {
                 continue;
             }
 
+            let cli = self.cli.clone();
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let transport = rlpx_connection.framed(stream);
-                let _ = new_connection_handler(src, transport, our_secret_key).await;
+                let _ = new_connection_handler(src, transport, our_secret_key, cli).await;
             });
         }
     }
@@ -98,6 +102,7 @@ async fn new_connection_handler(
     address: SocketAddr,
     mut transport: Framed<TcpStream, Connection>,
     secret_key: secp256k1::SecretKey,
+    cli: Cli,
 ) -> Result<(), RLPXSessionError> {
     let external_node_pub_key = handle_auth(&mut transport).await?;
 
@@ -128,6 +133,7 @@ async fn new_connection_handler(
         hello_msg.client_version,
         TcpWire::new(transport),
         PeerType::Inbound,
+        cli,
     );
 
     let task_result = p.run().await;
