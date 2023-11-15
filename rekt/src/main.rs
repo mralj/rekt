@@ -14,6 +14,7 @@ use clap::Parser;
 use mimalloc::MiMalloc;
 use rekt::server::peers::BLACKLIST_PEERS_BY_ID;
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
+use rekt::types::node_record::NodeRecord;
 use rekt::wallets::local_wallets::init_local_wallets;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -97,5 +98,10 @@ fn get_all_nodes(static_nodes: &mut Vec<String>) -> Vec<String> {
     nodes.append(static_nodes);
     nodes.sort_unstable();
     nodes.dedup();
+    let nodes = nodes
+        .iter()
+        .filter(|n| n.parse::<NodeRecord>().is_ok())
+        .cloned()
+        .collect();
     nodes
 }
