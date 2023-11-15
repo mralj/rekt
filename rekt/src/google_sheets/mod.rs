@@ -67,7 +67,7 @@ impl LogToSheets {
 impl Default for LogToSheets {
     fn default() -> Self {
         Self {
-            server_index: 0,
+            server_index: 1,
             token_address: "N/A".into(),
             liquidity_hash: "N/A".into(),
             is_server_important: true,
@@ -92,6 +92,12 @@ impl Default for LogToSheets {
 }
 
 pub async fn write_data_to_sheets(log_info: &LogToSheets) -> anyhow::Result<()> {
+    println!(
+        "Writing to sheets at: {}",
+        chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S:%f")
+            .to_string()
+    );
     let sheets_client = get_client().await?;
     let range = format!("Sheet{}!A:A", log_info.server_index);
 
@@ -133,12 +139,11 @@ pub async fn write_data_to_sheets(log_info: &LogToSheets) -> anyhow::Result<()> 
         _ => {}
     }
 
+    println!("Writing to sheets finished");
     Ok(())
 }
 
 pub async fn get_client() -> anyhow::Result<Sheets<HttpsConnector<HttpConnector>>> {
-    println!("Getting sheets client");
-
     let scopes = vec![
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/drive.file",
