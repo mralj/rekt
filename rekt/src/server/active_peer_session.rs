@@ -76,7 +76,7 @@ pub fn connect_to_node(
             )),
         });
 
-        let _ = stream.set_nodelay(true);
+        //let _ = stream.set_nodelay(true);
 
         let mut transport = rlpx_connection.framed(stream);
         map_err!(handle_auth(&mut transport).await);

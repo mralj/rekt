@@ -77,7 +77,7 @@ impl InboundConnections {
         let listener = socket.listen(1024)?;
         loop {
             let (stream, src) = listener.accept().await?;
-            let _ = stream.set_nodelay(true);
+            //let _ = stream.set_nodelay(true);
 
             if self.is_paused() {
                 tokio::time::sleep(Duration::from_secs(120)).await;
