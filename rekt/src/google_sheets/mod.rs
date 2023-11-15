@@ -138,6 +138,8 @@ pub async fn write_data_to_sheets(log_info: LogToSheets) -> anyhow::Result<()> {
             json!(log_info.peer_info),
             json!(log_info.start_wallet),
             json!(log_info.end_wallet),
+            json!(log_info.bsc_scan_token_url),
+            json!(log_info.bsc_scan_liquidity_url),
         ]]),
         ..Default::default()
     };
