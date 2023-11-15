@@ -26,7 +26,7 @@ impl ConnectionTask {
         this.last_attempt = Instant::now();
         this.attempts += 1;
         //TODO: should we some kind of backoff/smarter logic here?
-        this.next_attempt = Instant::now() + Duration::from_secs(15);
+        this.next_attempt = Instant::now() + Duration::from_secs(20);
 
         this
     }
