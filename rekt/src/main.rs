@@ -23,7 +23,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Cli::parse();
+    let mut args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
 
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", our_node.node_record.str);
 
     init_connection_to_public_nodes().await;
-    init_local_wallets(&args).await;
+    init_local_wallets(&mut args).await;
 
     import_tokens_to_buy();
 
