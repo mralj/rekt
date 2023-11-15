@@ -1,4 +1,5 @@
 use google_sheets4::{
+    api::ValueRange,
     client::Hub,
     hyper::{client::HttpConnector, Client},
     hyper_rustls::{self, HttpsConnector},
@@ -36,9 +37,29 @@ pub async fn get_client(cli: &Cli) -> anyhow::Result<()> {
     );
 
     let range = format!("Sheet{}!A:A", cli.server_index);
-    let index = get_first_empty_row(&hub, &range).await;
+    //let index = get_first_empty_row(&hub, &range).await;
 
-    println!("Index for {range} is {:?}", index);
+    let value_range = ValueRange {
+        values: Some(vec![vec!["Data1".into(), "Data2".into(), "Data3".into()]]), // Data to append
+        ..Default::default()
+    };
+
+    // Make the API call to append the data
+    match hub
+        .spreadsheets()
+        .values_append(value_range, SPREADSHEET_ID, &range)
+        .value_input_option("USER_ENTERED") // or "RAW"
+        .insert_data_option("INSERT_ROWS") // Specifies how the input data should be inserted.
+        .doit()
+        .await
+    {
+        Ok((_, append_response)) => {
+            println!("Append response: {:?}", append_response);
+        }
+        Err(e) => println!("Error: {}", e),
+    }
+
+    //println!("Index for {range} is {:?}", index);
     Ok(())
 }
 
