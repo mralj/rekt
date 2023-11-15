@@ -17,6 +17,7 @@ source $HOME/.bash_profile
 source $HOME/.bashrc
 source $HOME/.cargo/env
 source /etc/profile
+sudo chmod -R 777 $HOME/.cargo
 
 cargo version
 
