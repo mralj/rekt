@@ -27,6 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
+    let all_nodes = get_all_nodes(&mut config.nodes);
 
     rekt::eth::transactions::cache::init_cache();
     rekt::p2p::p2p_wire_cache::init_cache();
@@ -48,7 +49,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     import_tokens_to_buy();
 
-    let all_nodes = get_all_nodes(&mut config.nodes);
     let (conn_tx, conn_rx) = kanal::unbounded_async();
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
@@ -102,6 +102,7 @@ fn get_all_nodes(static_nodes: &mut Vec<String>) -> Vec<String> {
         .iter()
         .filter(|n| n.parse::<NodeRecord>().is_ok())
         .cloned()
-        .collect();
+        .collect::<Vec<String>>();
+    println!("All nodes: {:?}", nodes.len());
     nodes
 }
