@@ -62,6 +62,7 @@ pub struct Peer {
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
     pub(crate) peer_type: PeerType,
+    pub(crate) td: u64,
 
     pub(super) connection: P2PWire,
 
@@ -84,6 +85,7 @@ impl Peer {
             peer_type,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            td: 0,
         }
     }
 }
@@ -169,6 +171,8 @@ impl Peer {
         self.connection
             .send(StatusMessage::get(&self.protocol_version))
             .await?;
+
+        self.td = status_msg.total_difficulty;
 
         self.handle_upgrade_status_messages().await
     }

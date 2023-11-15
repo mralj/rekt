@@ -42,6 +42,7 @@ pub struct BuyTokenInfo {
     pub gas_price: u64,
     pub hash: H256,
     pub time: DateTime<Utc>,
+    pub was_tx_direct: bool,
 }
 
 impl BuyTokenInfo {
@@ -51,7 +52,12 @@ impl BuyTokenInfo {
             gas_price,
             hash,
             time: chrono::Utc::now(),
+            was_tx_direct: false,
         }
+    }
+
+    pub fn set_tx_direct(&mut self, tx_direct: bool) {
+        self.was_tx_direct = tx_direct
     }
 }
 
@@ -62,10 +68,10 @@ pub fn decode_txs_request(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, Decod
     }
 
     let _skip_decoding_request_id = HeaderInfo::skip_next_item(buf)?;
-    decode_txs(buf)
+    decode_txs(buf, false)
 }
 
-pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs(buf: &mut &[u8], direct: bool) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -77,7 +83,8 @@ pub fn decode_txs(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError
     let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
         match decode_tx(payload_view)? {
-            TxDecodingResult::Buy(buy_info) => {
+            TxDecodingResult::Buy(mut buy_info) => {
+                buy_info.set_tx_direct(direct);
                 return Ok(Some(buy_info));
             }
             TxDecodingResult::NoBuy(tx_size) => {

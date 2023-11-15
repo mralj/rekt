@@ -34,14 +34,23 @@ pub struct Cli {
         value_name = "Pings per unimportant server"
     )]
     pub pings_per_unimportant_server: usize,
+
+    #[arg(long = "name", default_value = "N/A", value_name = "Server name")]
+    pub name: String,
+
+    #[arg(long = "country", default_value = "N/A", value_name = "Server country")]
+    pub country: String,
+
+    #[arg(long = "city", default_value = "N/A", value_name = "Server country")]
+    pub city: String,
 }
 
 impl Display for Cli {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "server_index: {}, pings_per_server: {}, is_un_important_server: {}",
-            self.server_index, self.pings_per_server, self.is_un_important_server
+            "server_index: {}, pings_per_server: {}, is_un_important_server: {},name: {}, county: {}, city: {}",
+            self.server_index, self.pings_per_server, self.is_un_important_server, self.name, self.country, self.city
         )
     }
 }

@@ -1,3 +1,4 @@
+use chrono::Utc;
 use google_sheets4::{
     api::ValueRange,
     hyper::{client::HttpConnector, Client},
@@ -5,17 +6,118 @@ use google_sheets4::{
     oauth2::{ServiceAccountAuthenticator, ServiceAccountKey},
     Sheets,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::cli::Cli;
+use crate::{
+    cli::Cli, eth::transactions::decoder::BuyTokenInfo, p2p::Peer, token::token::TokenAddress,
+};
 
 const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
 
-pub async fn write_data_to_sheets(cli: &Cli) -> anyhow::Result<()> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogToSheets {
+    pub token_address: String,
+    pub liquidity_hash: String,
+    pub liq_received_at: String,
+    pub liq_received_at_unix: u64,
+    pub was_tx_direct: bool,
+
+    pub server_index: usize,
+    pub is_server_important: bool,
+    pub name: String,
+    pub our_country: String,
+    pub our_city: String,
+    pub our_td: usize,
+
+    pub peer_td: u64,
+    pub peer_enode: String,
+    pub peer_info: String,
+    pub peer_country: String,
+    pub peer_city: String,
+    pub peer_server: String,
+
+    pub start_wallet: String,
+    pub end_wallet: String,
+
+    pub batch_num: u8,
+}
+
+impl LogToSheets {
+    pub fn new(cli: &Cli, peer: &Peer, buy_info: &BuyTokenInfo) -> Self {
+        Self {
+            token_address: format!("{:#x}", buy_info.token.buy_token_address),
+            liquidity_hash: format!("{:#x}", buy_info.hash),
+            liq_received_at: buy_info.time.format("%Y-%m-%d %H:%M:%S:%f").to_string(),
+            liq_received_at_unix: buy_info.time.timestamp_micros() as u64,
+            was_tx_direct: buy_info.was_tx_direct,
+            is_server_important: !cli.is_un_important_server,
+            server_index: cli.server_index,
+            name: cli.name.clone(),
+            our_country: cli.country.clone(),
+            our_city: cli.city.clone(),
+            our_td: 0,
+            peer_td: peer.td,
+            peer_enode: peer.node_record.str.clone(),
+            peer_info: peer.info.clone(),
+            ..Default::default()
+        }
+    }
+}
+impl Default for LogToSheets {
+    fn default() -> Self {
+        Self {
+            server_index: 0,
+            token_address: "N/A".into(),
+            liquidity_hash: "N/A".into(),
+            is_server_important: true,
+            liq_received_at: "N/A".into(),
+            liq_received_at_unix: 0,
+            was_tx_direct: false,
+            batch_num: 1,
+            our_country: "N/A".into(),
+            our_city: "N/A".into(),
+            our_td: 0,
+            peer_td: 0,
+            peer_country: "N/A".into(),
+            peer_city: "N/A".into(),
+            peer_server: "N/A".into(),
+            peer_enode: "N/A".into(),
+            peer_info: "N/A".into(),
+            start_wallet: "N/A".into(),
+            end_wallet: "N/A".into(),
+            name: "N/A".into(),
+        }
+    }
+}
+
+pub async fn write_data_to_sheets(log_info: &LogToSheets) -> anyhow::Result<()> {
     let sheets_client = get_client().await?;
-    let range = format!("Sheet{}!A:A", cli.server_index);
+    let range = format!("Sheet{}!A:A", log_info.server_index);
 
     let value_range = ValueRange {
-        values: Some(vec![vec!["Data1".into(), "Data2".into(), "Data3".into()]]), // Data to append
+        values: Some(vec![vec![
+            json!(log_info.token_address),
+            json!(log_info.liquidity_hash),
+            json!(log_info.server_index),
+            json!(log_info.name),
+            json!(log_info.is_server_important),
+            json!(log_info.liq_received_at),
+            json!(log_info.liq_received_at_unix),
+            json!(log_info.was_tx_direct),
+            json!(log_info.batch_num),
+            json!(log_info.our_country),
+            json!(log_info.our_city),
+            json!(log_info.our_td),
+            json!(log_info.peer_td),
+            json!(log_info.peer_country),
+            json!(log_info.peer_city),
+            json!(log_info.peer_server),
+            json!(log_info.peer_enode),
+            json!(log_info.peer_info),
+            json!(log_info.start_wallet),
+            json!(log_info.end_wallet),
+        ]]),
         ..Default::default()
     };
 
