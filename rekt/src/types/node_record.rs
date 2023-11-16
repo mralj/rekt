@@ -1,6 +1,6 @@
 use secp256k1::PublicKey;
 use std::{
-    net::{IpAddr, Ipv4Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     num::ParseIntError,
     str::FromStr,
 };
@@ -96,7 +96,8 @@ impl FromStr for NodeRecord {
     type Err = NodeRecordParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(s).map_err(|e| NodeRecordParseError::InvalidUrl(e.to_string()))?;
+        let url = Url::parse(&clean_ipv6_mapped_to_ip_v4(s))
+            .map_err(|e| NodeRecordParseError::InvalidUrl(e.to_string()))?;
 
         let address = match url.host() {
             Some(Host::Ipv4(ip)) => IpAddr::V4(ip),
@@ -140,6 +141,10 @@ impl FromStr for NodeRecord {
             ip: address.to_string(),
         })
     }
+}
+
+fn clean_ipv6_mapped_to_ip_v4(ip: &str) -> String {
+    ip.replace("::ffff:", "")
 }
 
 pub fn id2pk(id: H512) -> Result<PublicKey, secp256k1::Error> {
