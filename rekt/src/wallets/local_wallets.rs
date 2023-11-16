@@ -36,7 +36,7 @@ pub static SELL_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
     RwLock::new(WalletWithNonce::from_str(SELL_WALLET_ADDRESS).expect("Sell wallet is invalid"))
 });
 
-pub async fn init_local_wallets(args: &Cli) {
+pub async fn init_local_wallets(args: &mut Cli) {
     let first_wallet_index = if args.is_un_important_server {
         //note server_index is counted from 1 not 0
         UN_IMPORTANT_WALLETS_START_AT_INDEX
@@ -63,6 +63,11 @@ pub async fn init_local_wallets(args: &Cli) {
     if local_wallets.iter().any(|wallet| wallet.nonce().is_none()) {
         println!("Some local wallets have no nonce");
     }
+
+    args.set_first_last_wallets(
+        local_wallets.first().unwrap().address(),
+        local_wallets.last().unwrap().address(),
+    );
 
     *LOCAL_WALLETS.write().await = local_wallets;
 

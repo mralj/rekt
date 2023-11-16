@@ -14,6 +14,7 @@ use clap::Parser;
 use mimalloc::MiMalloc;
 use rekt::server::peers::BLACKLIST_PEERS_BY_ID;
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
+use rekt::types::node_record::NodeRecord;
 use rekt::wallets::local_wallets::init_local_wallets;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -23,9 +24,10 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Cli::parse();
+    let mut args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
+    let all_nodes = get_all_nodes(&mut config.nodes);
 
     rekt::eth::transactions::cache::init_cache();
     rekt::p2p::p2p_wire_cache::init_cache();
@@ -43,11 +45,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", our_node.node_record.str);
 
     init_connection_to_public_nodes().await;
-    init_local_wallets(&args).await;
+    init_local_wallets(&mut args).await;
 
     import_tokens_to_buy();
 
-    let all_nodes = get_all_nodes(&mut config.nodes);
     let (conn_tx, conn_rx) = kanal::unbounded_async();
     let outbound_connections = Arc::new(OutboundConnections::new(
         our_node.private_key,
@@ -55,6 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         all_nodes.clone(),
         conn_rx,
         conn_tx.clone(),
+        args.clone(),
     ));
 
     BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
@@ -71,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let incoming_listener = Arc::new(InboundConnections::new(our_node));
+    let incoming_listener = Arc::new(InboundConnections::new(our_node, args));
     let listener = incoming_listener.clone();
     tokio::spawn(async move {
         if let Err(e) = listener.run().await {
@@ -96,5 +98,11 @@ fn get_all_nodes(static_nodes: &mut Vec<String>) -> Vec<String> {
     nodes.append(static_nodes);
     nodes.sort_unstable();
     nodes.dedup();
+    let nodes = nodes
+        .iter()
+        .filter(|n| n.parse::<NodeRecord>().is_ok())
+        .cloned()
+        .collect::<Vec<String>>();
+    println!("All nodes: {:?}", nodes.len());
     nodes
 }

@@ -28,6 +28,7 @@ pub fn connect_to_node(
     secret_key: SecretKey,
     pub_key: PublicKey,
     tx: AsyncSender<ConnectionTaskError>,
+    cli: crate::cli::Cli,
 ) {
     tokio::spawn(async move {
         macro_rules! map_err {
@@ -75,7 +76,7 @@ pub fn connect_to_node(
             )),
         });
 
-        let _ = stream.set_nodelay(true);
+        //let _ = stream.set_nodelay(true);
 
         let mut transport = rlpx_connection.framed(stream);
         map_err!(handle_auth(&mut transport).await);
@@ -99,6 +100,7 @@ pub fn connect_to_node(
             hello_msg.client_version,
             TcpWire::new(transport),
             PeerType::Outbound,
+            cli,
         );
 
         let task_result = p.run().await;

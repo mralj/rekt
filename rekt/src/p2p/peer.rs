@@ -13,11 +13,12 @@ use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
 use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
-use crate::eth;
+use crate::cli::Cli;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
+use crate::google_sheets::LogToSheets;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -26,6 +27,7 @@ use crate::server::peers::{
 use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
+use crate::{eth, google_sheets};
 
 use crate::types::node_record::NodeRecord;
 use crate::utils::helpers::{get_bsc_token_url, get_bsc_tx_url};
@@ -62,10 +64,13 @@ pub struct Peer {
     pub(crate) node_record: NodeRecord,
     pub(crate) info: String,
     pub(crate) peer_type: PeerType,
+    pub(crate) td: u64,
 
     pub(super) connection: P2PWire,
 
     pub(super) protocol_version: ProtocolVersion,
+
+    cli: Cli,
 }
 
 impl Peer {
@@ -76,14 +81,17 @@ impl Peer {
         info: String,
         connection: TcpWire,
         peer_type: PeerType,
+        cli: Cli,
     ) -> Self {
         Self {
             id,
+            cli,
             connection: P2PWire::new(connection),
             info,
             peer_type,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            td: 0,
         }
     }
 }
@@ -143,7 +151,14 @@ impl Peer {
                                 get_bsc_tx_url(buy_info.hash)
                             );
 
-                            Self::sell(buy_info.token).await;
+                            Self::sell(buy_info.token.clone()).await;
+                            if let Err(e) = google_sheets::write_data_to_sheets(LogToSheets::new(
+                                &self.cli, &self, &buy_info,
+                            ))
+                            .await
+                            {
+                                error!("Failed to write to sheets: {}", e);
+                            }
                         }
                     }
                     EthMessageHandler::None => {}
@@ -169,6 +184,8 @@ impl Peer {
         self.connection
             .send(StatusMessage::get(&self.protocol_version))
             .await?;
+
+        self.td = status_msg.total_difficulty;
 
         self.handle_upgrade_status_messages().await
     }
