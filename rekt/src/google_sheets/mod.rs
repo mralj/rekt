@@ -13,6 +13,8 @@ use serde_json::json;
 
 use crate::{cli::Cli, eth::transactions::decoder::BuyTokenInfo, p2p::Peer, utils::helpers};
 
+use self::ip_api_helper::get_ip_location_info;
+
 const SPREADSHEET_ID: &str = "1o656_BLxhxnU4ovssiZv41BLqhCRT5qMcSVp1hojPfM";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +49,7 @@ pub struct LogToSheets {
 }
 
 impl LogToSheets {
-    pub fn new(cli: &Cli, peer: &Peer, buy_info: &BuyTokenInfo) -> Self {
+    pub async fn new(cli: &Cli, peer: &Peer, buy_info: &BuyTokenInfo) -> Self {
         let start_wallet = match cli.first_wallet {
             Some(wallet) => format!("{:#x}", wallet),
             None => "N/A".into(),
@@ -56,6 +58,11 @@ impl LogToSheets {
             Some(wallet) => format!("{:#x}", wallet),
             None => "N/A".into(),
         };
+
+        let peer_location_info = get_ip_location_info(&peer.node_record.ip)
+            .await
+            .unwrap_or_default();
+
         Self {
             token_address: format!("{:#x}", buy_info.token.buy_token_address),
             liquidity_hash: format!("{:#x}", buy_info.hash),
@@ -73,8 +80,12 @@ impl LogToSheets {
             peer_info: peer.info.clone(),
             bsc_scan_token_url: helpers::get_bsc_token_url(buy_info.token.buy_token_address),
             bsc_scan_liquidity_url: helpers::get_bsc_tx_url(buy_info.hash),
+            peer_city: peer_location_info.city,
+            peer_country: peer_location_info.country_code_iso3,
+            peer_server: peer_location_info.org,
             start_wallet,
             end_wallet,
+
             ..Default::default()
         }
     }

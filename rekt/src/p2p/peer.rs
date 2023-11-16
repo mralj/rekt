@@ -152,9 +152,9 @@ impl Peer {
                             );
 
                             Self::sell(buy_info.token.clone()).await;
-                            if let Err(e) = google_sheets::write_data_to_sheets(LogToSheets::new(
-                                &self.cli, &self, &buy_info,
-                            ))
+                            if let Err(e) = google_sheets::write_data_to_sheets(
+                                LogToSheets::new(&self.cli, &self, &buy_info).await,
+                            )
                             .await
                             {
                                 error!("Failed to write to sheets: {}", e);
