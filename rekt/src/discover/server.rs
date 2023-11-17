@@ -15,6 +15,7 @@ use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::discover::discover_node::AuthStatus;
 use crate::local_node::LocalNode;
+use crate::p2p::peer::{is_buy_in_progress, BUY_IS_IN_PROGRESS};
 use crate::server::connection_task::ConnectionTask;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
@@ -127,6 +128,11 @@ impl Server {
                     continue;
                 }
 
+                if is_buy_in_progress() {
+                    tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                    continue;
+                }
+
                 let _ = udp_socket.send_to(&packet, dest).await;
             }
         }
@@ -138,6 +144,11 @@ impl Server {
         loop {
             let packet = socket.recv_from(&mut buf).await;
             if self.is_paused() {
+                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                continue;
+            }
+
+            if is_buy_in_progress() {
                 tokio::time::sleep(std::time::Duration::from_secs(120)).await;
                 continue;
             }
@@ -219,6 +230,11 @@ impl Server {
 
         while let Some(_) = stream.next().await {
             if self.is_paused() {
+                continue;
+            }
+
+            if is_buy_in_progress() {
+                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
                 continue;
             }
 

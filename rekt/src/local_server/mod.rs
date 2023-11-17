@@ -116,7 +116,11 @@ pub fn run_local_server(
         let get_enodes = warp::path("enodes").and(end()).map(move || {
             if let Some(disc) = &disc_server_enodes {
                 let enodes = disc.get_bsc_node_enodes();
-                return enodes.join(",\n");
+                return enodes
+                    .iter()
+                    .map(|e| format!("\"{}\"", e))
+                    .collect::<Vec<_>>()
+                    .join(",\n");
             } else {
                 return "Discovery server not found".to_string();
             }
