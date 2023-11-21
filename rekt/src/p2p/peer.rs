@@ -116,7 +116,7 @@ impl Peer {
         check_if_already_connected_to_peer(&self.node_record)?;
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
-        add_peer_ip(self.node_record.address);
+        //add_peer_ip(self.node_record.address);
 
         let peer_ptr = UnsafeSyncPtr {
             peer: self as *mut _,

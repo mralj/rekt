@@ -84,9 +84,9 @@ impl InboundConnections {
                 continue;
             }
 
-            if BLACKLIST_PEERS_BY_IP.contains(&src.ip()) {
-                continue;
-            }
+            // if BLACKLIST_PEERS_BY_IP.contains(&src.ip()) {
+            //     continue;
+            // }
 
             let cli = self.cli.clone();
             tokio::spawn(async move {

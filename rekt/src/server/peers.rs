@@ -28,11 +28,11 @@ pub fn check_if_already_connected_to_peer(node_record: &NodeRecord) -> Result<()
         return Err(P2PError::AlreadyConnected);
     }
 
-    if let Some(entry) = PEERS_BY_IP.get(&node_record.address) {
-        if entry.value() >= &2 {
-            return Err(P2PError::AlreadyConnectedToSameIp);
-        }
-    }
+    // if let Some(entry) = PEERS_BY_IP.get(&node_record.address) {
+    //     if entry.value() >= &2 {
+    //         return Err(P2PError::AlreadyConnectedToSameIp);
+    //     }
+    // }
 
     Ok(())
 }
@@ -63,10 +63,10 @@ pub fn add_peer_ip(ip: IpAddr) {
 
 pub fn blacklist_peer(node_record: &NodeRecord) {
     BLACKLIST_PEERS_BY_ID.insert(node_record.id);
-    BLACKLIST_PEERS_BY_IP.insert(node_record.address);
+    //BLACKLIST_PEERS_BY_IP.insert(node_record.address);
 }
 
 pub fn peer_is_blacklisted(node_record: &NodeRecord) -> bool {
     BLACKLIST_PEERS_BY_ID.contains(&node_record.id)
-        || BLACKLIST_PEERS_BY_IP.contains(&node_record.address)
+    //|| BLACKLIST_PEERS_BY_IP.contains(&node_record.address)
 }
