@@ -136,15 +136,19 @@ pub fn run_local_server(
                         if let Some(this_node_public_ip) = this_node_public_ip {
                             if ip != this_node_public_ip {
                                 add_our_node(format!("{}:6070", node));
+                                println!("Added node: {}", node);
                                 format!("Added node: {}", node)
                             } else {
+                                println!("Can't add our own node: {}", node);
                                 format!("Can't add our own node: {}", node)
                             }
                         } else {
                             add_our_node(format!("{}:6070", node));
+                            println!("Added node: {}", node);
                             format!("Added node: {}", node)
                         }
                     } else {
+                        println!("Failed to add node: {}", node);
                         format!("Failed to add node: {}", node)
                     }
                 });
