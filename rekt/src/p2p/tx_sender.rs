@@ -35,14 +35,9 @@ impl Peer {
         println!("sending took: {:?}", start.elapsed());
         for t in results {
             match t {
-                Ok(t) => match t {
-                    Ok(_) => {
-                        success_count += 1;
-                    }
-                    _ => {} // Err(e) => {
-                            //     cprintln!("<red>Send error: {e}</>",);
-                            // }
-                },
+                Ok(_) => {
+                    success_count += 1;
+                }
                 _ => {} // Err(e) => {
                         //     cprintln!("<red>Send handle error: {e}</>",);
                         // }
