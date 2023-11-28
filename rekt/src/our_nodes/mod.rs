@@ -10,24 +10,36 @@ use crate::{
     },
     token::{
         token::TokenAddress,
-        tokens_to_buy::{get_token_by_address, get_token_to_buy_by_address, mark_token_as_bought},
+        tokens_to_buy::{get_token_to_buy_by_address, mark_token_as_bought},
     },
 };
 
-static mut OUR_NODES: Vec<String> = Vec::new();
+static mut OUR_NODES: Vec<SocketAddr> = Vec::new();
 
 pub fn add_node(node: String) {
     unsafe {
-        OUR_NODES.push(node);
+        match node.parse::<SocketAddr>() {
+            Ok(node) => {
+                if !OUR_NODES.contains(&node) {
+                    OUR_NODES.push(node);
+                }
+            }
+            Err(e) => {
+                println!("Error parsing node: {}", e);
+            }
+        }
     }
 }
 
 pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddress, gas_price: u64) {
+    let start = tokio::time::Instant::now();
     let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
         Ipv4Addr::UNSPECIFIED,
         6070,
     )))
     .await;
+
+    println!("Binding took: {:?}", start.elapsed());
 
     if socket.is_err() {
         println!("Error binding to socket for intra node sending");
@@ -73,6 +85,11 @@ pub fn listen_on_liq_added_signal() {
             match socket.recv_from(&mut buf).await {
                 Ok((len, addr)) => {
                     if len != 28 {
+                        println!("Received invalid liq added signal from {}", addr);
+                        continue;
+                    }
+
+                    if unsafe { !OUR_NODES.contains(&addr) } {
                         println!("Received invalid liq added signal from {}", addr);
                         continue;
                     }
