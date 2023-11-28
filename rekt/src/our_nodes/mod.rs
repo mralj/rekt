@@ -16,7 +16,7 @@ use crate::{
 
 static mut OUR_NODES: Vec<SocketAddr> = Vec::new();
 
-pub fn add_node(node: String) {
+pub fn add_our_node(node: String) {
     unsafe {
         match node.parse::<SocketAddr>() {
             Ok(node) => {

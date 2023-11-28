@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let incoming_listener = Arc::new(InboundConnections::new(our_node, args));
+    let incoming_listener = Arc::new(InboundConnections::new(our_node.clone(), args));
     let listener = incoming_listener.clone();
     tokio::spawn(async move {
         if let Err(e) = listener.run().await {
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    run_local_server(disc_server, incoming_listener);
+    run_local_server(disc_server, incoming_listener, our_node.public_ip);
 
     listen_on_liq_added_signal();
 
