@@ -17,6 +17,7 @@ pub struct LocalNode {
     pub public_key: PublicKey,
     pub public_ip_retrieved: bool,
     pub enr: Enr<SecretKey>,
+    pub public_ip: Option<IpAddr>,
 }
 
 impl LocalNode {
@@ -57,6 +58,7 @@ impl LocalNode {
             public_ip_retrieved,
             enr: local_enr,
             node_record: NodeRecord::new(ip, DEFAULT_PORT, DEFAULT_PORT, public_key),
+            public_ip: Some(ip),
         }
     }
 }
