@@ -26,6 +26,9 @@ static GLOBAL: MiMalloc = MiMalloc;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = Cli::parse();
     println!("{}", args);
+
+    let _td = init_connection_to_public_nodes().await;
+
     let mut config = get_config()?;
     let all_nodes = get_all_nodes(&mut config.nodes);
 
@@ -44,7 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let our_node = LocalNode::new(public_ip::addr().await);
     println!("{:?}", our_node.node_record.str);
 
-    init_connection_to_public_nodes().await;
     init_local_wallets(&mut args).await;
 
     import_tokens_to_buy();

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use ethers::{
     providers::{Http, JsonRpcClient, RetryClient, RetryClientBuilder},
-    types::{BlockNumber, U256},
+    types::{Block, BlockNumber, Transaction, H256, U256},
     utils,
 };
 use futures::stream::FuturesUnordered;
@@ -27,13 +27,31 @@ pub const PUBLIC_NODE_URLS: [&str; 6] = [
 
 static PUBLIC_NODES: Lazy<RwLock<Vec<RetryClient<Http>>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
-pub async fn init_connection_to_public_nodes() {
+pub async fn init_connection_to_public_nodes() -> U256 {
+    let mut highest_known_td = U256::zero();
+
     for rpc_url in PUBLIC_NODE_URLS.iter() {
         let mut public_nodes = PUBLIC_NODES.write().await;
         if let Ok(p) = get_retry_provider(rpc_url) {
-            match JsonRpcClient::request::<_, U256>(&p, "eth_blockNumber", ()).await {
-                Ok(b_no) => {
-                    println!("Connected to public node: {rpc_url}, Highest known block {b_no}");
+            match JsonRpcClient::request::<_, Block<H256>>(
+                &p,
+                "eth_getBlockByNumber",
+                [
+                    utils::serialize::<BlockNumber>(&BlockNumber::Latest.into()),
+                    utils::serialize::<bool>(&false),
+                ],
+            )
+            .await
+            {
+                Ok(highest_block) => {
+                    let td = highest_block.total_difficulty.unwrap_or_default();
+                    if td > highest_known_td {
+                        highest_known_td = td;
+                    }
+                    println!(
+                        "Connected to public node: {rpc_url}, Highest known block {}, TD: {td}",
+                        highest_block.number.unwrap_or_default()
+                    );
                     public_nodes.push(p);
                 }
                 Err(e) => {
@@ -42,6 +60,8 @@ pub async fn init_connection_to_public_nodes() {
             }
         }
     }
+
+    highest_known_td
 }
 
 pub fn get_retry_provider(url: &str) -> Result<RetryClient<Http>, url::ParseError> {
