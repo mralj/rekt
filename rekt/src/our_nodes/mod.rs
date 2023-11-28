@@ -35,6 +35,7 @@ pub fn add_our_node(node: String) {
 }
 
 pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddress, gas_price: u64) {
+    let start = std::time::Instant::now();
     let socket = SOCKET.get();
 
     if socket.is_none() {
@@ -55,9 +56,10 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
 
     join_all(tasks).await;
     println!(
-        "Sending liq added signal to {} nodes of len {}",
+        "Sending liq added signal to {} nodes of len {} in {:?}",
         unsafe { OUR_NODES.len() },
-        buf.len()
+        buf.len(),
+        start.elapsed()
     );
 }
 
@@ -115,7 +117,7 @@ pub async fn listen_on_liq_added_signal() {
                     }
 
                     if unsafe { !OUR_NODES.contains(&addr) } {
-                        println!("Received singal from invalid node {}", addr);
+                        println!("Received signal from invalid node {}", addr);
 
                         continue;
                     }
@@ -124,6 +126,7 @@ pub async fn listen_on_liq_added_signal() {
                         BUY_IS_IN_PROGRESS = true;
                     }
 
+                    let now = chrono::Utc::now();
                     let token = TokenAddress::from_slice(&buf[0..20]);
 
                     let gas = {
@@ -132,18 +135,12 @@ pub async fn listen_on_liq_added_signal() {
                         u64::from_be_bytes(gas_bytes) // Big endian to match to_bytes
                     };
 
-                    println!(
-                        "Received liq added signal from {} for token {:?} with gas price {}",
-                        addr,
-                        TokenAddress::from(token),
-                        gas
-                    );
-
                     if let Some(mut token) = get_token_to_buy_by_address(&token) {
                         if let Some(buy_tx) = token.get_buy_txs(gas) {
                             let peer_count = Peer::send_tx(buy_tx).await;
-                            println!("Sent buy tx to {} peers", peer_count);
                             mark_token_as_bought(token.buy_token_address);
+                            println!("[{peer_count}]Received liq added signal from {} for token {:?} at: {}"
+                            ,addr, TokenAddress::from(token.buy_token_address), now.format("%Y-%m-%d %H:%M:%S:%f"));
                         } else {
                             println!("No buy txs found for token {:?}", token.buy_token_address);
                         }
