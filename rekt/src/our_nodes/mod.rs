@@ -54,9 +54,6 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
     }
 
     join_all(tasks).await;
-    println!("Sent liq added signal to {} nodes", unsafe {
-        OUR_NODES.len()
-    });
 }
 
 pub async fn listen_on_liq_added_signal() {
