@@ -28,7 +28,7 @@ impl Peer {
         let tasks = FuturesUnordered::new();
 
         let peers: Vec<&UnsafeSyncPtr<Peer>> = peers.values().collect();
-        for chunk in peers.chunks(peers.len() / 2) {
+        for chunk in peers.chunks(peers.len() / num_cpus::get()) {
             let chunk_futures = FuturesUnordered::from_iter(chunk.iter().map(|p| {
                 let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
                 let message = msg.clone(); // Assuming msg is defined elsewhere

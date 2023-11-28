@@ -24,6 +24,8 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _cpus = num_cpus::get(); // cache this
+
     let mut args = Cli::parse();
     println!("{}", args);
     let mut config = get_config()?;
