@@ -123,6 +123,17 @@ pub fn get_token_by_address(address: &TokenAddress) -> Option<&Token> {
 }
 
 #[inline(always)]
+pub fn get_token_to_buy_by_address(address: &TokenAddress) -> Option<Token> {
+    unsafe {
+        let idx = TOKENS_TO_BUY
+            .iter()
+            .position(|v| &v.buy_token_address == address)?;
+
+        Some(TOKENS_TO_BUY.swap_remove(idx))
+    }
+}
+
+#[inline(always)]
 pub fn tx_is_enable_buy(
     token: &Token,
     index_of_token_in_buy_list: usize,
