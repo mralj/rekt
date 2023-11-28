@@ -6,7 +6,7 @@ use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
-use rekt::our_nodes::listen_on_liq_added_signal;
+use rekt::our_nodes::{listen_on_liq_added_signal, send_liq_added_signal_to_our_other_nodes};
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -14,6 +14,7 @@ use rekt::server::outbound_connections::OutboundConnections;
 use clap::Parser;
 use mimalloc::MiMalloc;
 use rekt::server::peers::BLACKLIST_PEERS_BY_ID;
+use rekt::token::token::TokenAddress;
 use rekt::token::tokens_to_buy::import_tokens_to_buy;
 use rekt::types::node_record::NodeRecord;
 use rekt::wallets::local_wallets::init_local_wallets;
@@ -95,6 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_local_server(disc_server, incoming_listener, our_node.public_ip);
 
     listen_on_liq_added_signal().await;
+    send_liq_added_signal_to_our_other_nodes(TokenAddress::zero(), 5).await;
 
     let _ = tokio::signal::ctrl_c().await;
 
