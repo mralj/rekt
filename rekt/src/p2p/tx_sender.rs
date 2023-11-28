@@ -36,7 +36,7 @@ impl Peer {
             }));
 
             let task = tokio::spawn(async move {
-                let _ = chunk_futures.collect::<Vec<_>>();
+                let _ = chunk_futures.collect::<Vec<_>>().await;
             });
             tasks.push(task);
         }
