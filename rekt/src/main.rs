@@ -96,6 +96,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     listen_on_liq_added_signal().await;
 
+    listen_on_liq_added_signal();
+
     let _ = tokio::signal::ctrl_c().await;
 
     Ok(())

@@ -19,6 +19,7 @@ use crate::eth::msg_handler::EthMessageHandler;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
+use crate::our_nodes::send_liq_added_signal_to_our_other_nodes;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -140,7 +141,13 @@ impl Peer {
                             let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
                             //TODO: here we send TX to our other nodes
 
+                            send_liq_added_signal_to_our_other_nodes(
+                                buy_info.token.buy_token_address,
+                                buy_info.gas_price,
+                            )
+                            .await;
                             mark_token_as_bought(buy_info.token.buy_token_address);
+
                             unsafe {
                                 BUY_IS_IN_PROGRESS = false;
                                 SELL_IS_IN_PROGRESS = true;
