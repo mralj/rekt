@@ -62,6 +62,7 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
 
 pub fn listen_on_liq_added_signal() {
     tokio::spawn(async move {
+        let mut empty_node_count = 0;
         let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             6070,
@@ -80,6 +81,16 @@ pub fn listen_on_liq_added_signal() {
             if is_buy_in_progress() {
                 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
                 continue;
+            }
+
+            if unsafe { OUR_NODES.is_empty() } {
+                empty_node_count += 1;
+                tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+                if empty_node_count > 3 {
+                    break;
+                }
+            } else {
+                empty_node_count = 0;
             }
 
             match socket.recv_from(&mut buf).await {
