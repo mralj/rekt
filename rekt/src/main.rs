@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     run_local_server(disc_server, incoming_listener, our_node.public_ip);
 
-    listen_on_liq_added_signal();
+    listen_on_liq_added_signal().await;
 
     let _ = tokio::signal::ctrl_c().await;
 
