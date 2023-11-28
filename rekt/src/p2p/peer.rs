@@ -1,6 +1,7 @@
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::i64;
 use std::time::Duration;
 
 use color_print::cprintln;
@@ -186,6 +187,22 @@ impl Peer {
             .await?;
 
         self.td = status_msg.total_difficulty;
+
+        if let Some(latest_known_public_td) = self.cli.td {
+            if self.td >= latest_known_public_td {
+                return Err(P2PError::TDTooLow);
+            }
+
+            let diff = latest_known_public_td - self.td;
+            if diff <= 100_000 {
+                return Err(P2PError::TDTooLow);
+            } else {
+                println!(
+                    "Highest TD:{latest_known_public_td}, Peer TD: {} TD diff: {diff}",
+                    self.td
+                )
+            }
+        }
 
         self.handle_upgrade_status_messages().await
     }

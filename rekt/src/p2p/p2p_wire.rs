@@ -163,11 +163,11 @@ impl Stream for P2PWire {
                     return Poll::Ready(Some(Ok(msg)));
                 }
                 EthProtocol::TransactionsMsg | EthProtocol::PooledTransactionsMsg => {
-                    if this.established_on.elapsed()
-                        < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
-                    {
-                        continue;
-                    }
+                    // if this.established_on.elapsed()
+                    //     < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
+                    // {
+                    //     continue;
+                    // }
 
                     if insert_tx(&msg.data) == ALREADY_CACHED {
                         continue;

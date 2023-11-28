@@ -34,4 +34,6 @@ pub enum P2PError {
     AlreadyConnected,
     #[error("Already connected to the same ip")]
     AlreadyConnectedToSameIp,
+    #[error("TD too low")]
+    TDTooLow,
 }
