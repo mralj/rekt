@@ -28,7 +28,7 @@ impl Peer {
         for peer in PEERS_SELL.lock().await.values() {
             let msg = msg.clone();
             let peer_ptr = unsafe { &mut peer.peer.as_mut().unwrap().connection };
-            tasks.push(tokio::spawn(async move { peer_ptr.send(msg).await }));
+            tasks.push(peer_ptr.send(msg));
         }
 
         let results = join_all(tasks).await;
