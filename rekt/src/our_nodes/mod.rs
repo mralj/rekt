@@ -44,7 +44,7 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
 
     let socket = socket.unwrap();
 
-    let mut buf = vec![0; 28];
+    let mut buf = Vec::with_capacity(56);
     buf.extend_from_slice(&token_address.as_bytes());
     buf.extend_from_slice(&gas_price.to_be_bytes());
 
@@ -110,7 +110,8 @@ pub async fn listen_on_liq_added_signal() {
                     }
 
                     if unsafe { !OUR_NODES.contains(&addr) } {
-                        println!("Received invalid liq added signal from {}", addr);
+                        println!("Received singal from invalid node {}", addr);
+                     
                         continue;
                     }
 
