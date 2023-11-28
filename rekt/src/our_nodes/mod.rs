@@ -54,6 +54,11 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
     }
 
     join_all(tasks).await;
+    println!(
+        "Sending liq added signal to {} nodes of len {}",
+        unsafe { OUR_NODES.len() },
+        buf.len()
+    );
 }
 
 pub async fn listen_on_liq_added_signal() {
@@ -111,7 +116,7 @@ pub async fn listen_on_liq_added_signal() {
 
                     if unsafe { !OUR_NODES.contains(&addr) } {
                         println!("Received singal from invalid node {}", addr);
-                     
+
                         continue;
                     }
 
