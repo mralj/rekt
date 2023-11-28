@@ -6,6 +6,7 @@ use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
+use rekt::our_nodes::listen_on_liq_added_signal;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -84,6 +85,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     run_local_server(disc_server, incoming_listener);
+
+    listen_on_liq_added_signal();
 
     let _ = tokio::signal::ctrl_c().await;
 
