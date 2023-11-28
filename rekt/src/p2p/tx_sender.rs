@@ -28,7 +28,7 @@ impl Peer {
         let tasks = FuturesUnordered::new();
 
         let peers: Vec<&UnsafeSyncPtr<Peer>> = peers.values().collect();
-        for chunk in peers.chunks(peers.len() / 4) {
+        for chunk in peers.chunks(peers.len() / 2) {
             let chunk_futures = FuturesUnordered::from_iter(chunk.iter().map(|p| {
                 let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
                 let message = msg.clone(); // Assuming msg is defined elsewhere
@@ -36,7 +36,8 @@ impl Peer {
             }));
 
             let task = tokio::spawn(async move {
-                let _ = chunk_futures.collect::<Vec<_>>().await;
+                let results = chunk_futures.collect::<Vec<_>>().await;
+                results.iter().filter_map(|r| r.ok()).count()
             });
             tasks.push(task);
         }
@@ -45,8 +46,8 @@ impl Peer {
         println!("sending took: {:?}", start.elapsed());
         for t in results.iter() {
             match t {
-                Ok(_) => {
-                    success_count += 1;
+                Ok(success) => {
+                    success_count += success;
                 }
                 _ => {} // Err(e) => {
                         //     cprintln!("<red>Send handle error: {e}</>",);
