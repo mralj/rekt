@@ -137,19 +137,19 @@ pub fn run_local_server(
                             if ip != this_node_public_ip {
                                 add_our_node(format!("{}:6070", node));
                                 println!("Added node: {}", node);
-                                format!("Added node: {}", node)
+                                format!("Added node: {}\n", node)
                             } else {
                                 println!("Can't add our own node: {}", node);
-                                format!("Can't add our own node: {}", node)
+                                format!("Can't add our own node: {}\n", node)
                             }
                         } else {
                             add_our_node(format!("{}:6070", node));
                             println!("Added node: {}", node);
-                            format!("Added node: {}", node)
+                            format!("Added node: {}\n", node)
                         }
                     } else {
                         println!("Failed to add node: {}", node);
-                        format!("Failed to add node: {}", node)
+                        format!("Failed to add node: {}\n", node)
                     }
                 });
 
