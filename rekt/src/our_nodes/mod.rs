@@ -14,7 +14,10 @@ use crate::{
     },
 };
 
+use once_cell::sync::OnceCell;
+
 static mut OUR_NODES: Vec<SocketAddr> = Vec::new();
+static SOCKET: OnceCell<UdpSocket> = OnceCell::new();
 
 pub fn add_our_node(node: String) {
     unsafe {
@@ -32,16 +35,9 @@ pub fn add_our_node(node: String) {
 }
 
 pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddress, gas_price: u64) {
-    let start = tokio::time::Instant::now();
-    let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-        Ipv4Addr::UNSPECIFIED,
-        6070,
-    )))
-    .await;
+    let socket = SOCKET.get();
 
-    println!("Binding took: {:?}", start.elapsed());
-
-    if socket.is_err() {
+    if socket.is_none() {
         println!("Error binding to socket for intra node sending");
         return;
     }
@@ -60,16 +56,29 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
     join_all(tasks).await;
 }
 
-pub fn listen_on_liq_added_signal() {
+pub async fn listen_on_liq_added_signal() {
+    let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
+        Ipv4Addr::UNSPECIFIED,
+        6070,
+    )))
+    .await;
+
+    if socket.is_err() {
+        println!("Error binding to socket for intra node listening");
+    }
+
+    let socket = socket.unwrap();
+    if let Err(_) = SOCKET.set(socket) {
+        println!("Error binding to socket for intra node listening");
+        return;
+    }
+
     tokio::spawn(async move {
         let mut empty_node_count = 0;
-        let socket = UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
-            6070,
-        )))
-        .await;
 
-        if socket.is_err() {
+        let socket = SOCKET.get();
+
+        if socket.is_none() {
             println!("Error binding to socket for intra node listening");
             return;
         }
