@@ -138,14 +138,13 @@ impl Peer {
                         if let Some(buy_txs_eth_message) =
                             buy_info.token.get_buy_txs(buy_info.gas_price)
                         {
-                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
-                            //TODO: here we send TX to our other nodes
-
                             send_liq_added_signal_to_our_other_nodes(
                                 buy_info.token.buy_token_address,
                                 buy_info.gas_price,
                             )
                             .await;
+                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
+
                             mark_token_as_bought(buy_info.token.buy_token_address);
 
                             unsafe {
