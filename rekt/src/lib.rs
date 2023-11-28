@@ -9,6 +9,7 @@ pub mod eth;
 pub mod google_sheets;
 pub mod local_node;
 pub mod local_server;
+pub mod our_nodes;
 pub mod p2p;
 pub mod public_nodes;
 pub mod rlpx;
