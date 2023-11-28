@@ -188,16 +188,18 @@ impl Peer {
 
         self.td = status_msg.total_difficulty;
 
-        if self.td > 1 {
-            if let Some(latest_known_public_td) = self.cli.td {
-                if self.td >= latest_known_public_td {
-                    return Err(P2PError::TDTooLow);
-                }
+        if self.td <= 1 {
+            return Err(P2PError::TDTooLow);
+        }
 
-                let diff = latest_known_public_td - self.td;
-                if diff <= 100_000 {
-                    return Err(P2PError::TDTooLow);
-                }
+        if let Some(latest_known_public_td) = self.cli.td {
+            if self.td >= latest_known_public_td {
+                return Err(P2PError::TDTooLow);
+            }
+
+            let diff = latest_known_public_td - self.td;
+            if diff <= 100_000 {
+                return Err(P2PError::TDTooLow);
             }
         }
 
