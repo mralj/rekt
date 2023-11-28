@@ -25,9 +25,9 @@ static GLOBAL: MiMalloc = MiMalloc;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = Cli::parse();
+    let td = init_connection_to_public_nodes().await;
+    args.set_td(td);
     println!("{}", args);
-
-    let _td = init_connection_to_public_nodes().await;
 
     let mut config = get_config()?;
     let all_nodes = get_all_nodes(&mut config.nodes);

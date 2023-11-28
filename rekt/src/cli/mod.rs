@@ -46,6 +46,8 @@ pub struct Cli {
 
     pub first_wallet: Option<ethers::types::Address>,
     pub last_wallet: Option<ethers::types::Address>,
+
+    pub td: Option<u64>,
 }
 
 impl Cli {
@@ -57,14 +59,18 @@ impl Cli {
         self.first_wallet = Some(first_wallet);
         self.last_wallet = Some(last_wallet);
     }
+
+    pub fn set_td(&mut self, td: Option<u64>) {
+        self.td = td;
+    }
 }
 
 impl Display for Cli {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "server_index: {}, pings_per_server: {}, is_un_important_server: {},name: {}, county: {}, city: {}\n first_wallet: {:?}, last_wallet: {:?}",
-            self.server_index, self.pings_per_server, self.is_un_important_server, self.name, self.country, self.city, self.first_wallet, self.last_wallet
+            "server_index: {}, pings_per_server: {}, is_un_important_server: {},name: {}, county: {}, city: {}, TD: {},\n first_wallet: {:?}, last_wallet: {:?}",
+            self.server_index, self.pings_per_server, self.is_un_important_server, self.name, self.country, self.city,self.td.unwrap_or_default(),self.first_wallet, self.last_wallet
         )
     }
 }
@@ -81,6 +87,7 @@ impl Default for Cli {
             city: "N/A".into(),
             first_wallet: None,
             last_wallet: None,
+            td: None,
         }
     }
 }

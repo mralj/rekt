@@ -27,7 +27,7 @@ pub const PUBLIC_NODE_URLS: [&str; 6] = [
 
 static PUBLIC_NODES: Lazy<RwLock<Vec<RetryClient<Http>>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
-pub async fn init_connection_to_public_nodes() -> U256 {
+pub async fn init_connection_to_public_nodes() -> Option<u64> {
     let mut highest_known_td = U256::zero();
 
     for rpc_url in PUBLIC_NODE_URLS.iter() {
@@ -61,7 +61,11 @@ pub async fn init_connection_to_public_nodes() -> U256 {
         }
     }
 
-    highest_known_td
+    if highest_known_td.is_zero() {
+        return None;
+    }
+
+    Some(highest_known_td.as_u64())
 }
 
 pub fn get_retry_provider(url: &str) -> Result<RetryClient<Http>, url::ParseError> {
