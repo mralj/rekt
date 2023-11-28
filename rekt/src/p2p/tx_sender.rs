@@ -23,17 +23,35 @@ impl Peer {
     pub async fn send_tx(msg: EthMessage) -> usize {
         let mut success_count: usize = 0;
         let start = tokio::time::Instant::now();
-        let mut tasks = Vec::with_capacity(2_000);
+        // let mut tasks = Vec::with_capacity(2_000);
+        //
+        // for peer in PEERS_SELL.lock().await.values() {
+        //     let msg = msg.clone();
+        //     let peer_ptr = unsafe { &mut peer.peer.as_mut().unwrap().connection };
+        //     tasks.push(peer_ptr.send(msg));
+        // }
+        //
+        // let results = join_all(tasks).await;
+        // println!("sending took: {:?}", start.elapsed());
+        // for t in results {
+        //     match t {
+        //         Ok(_) => {
+        //             success_count += 1;
+        //         }
+        //         _ => {} // Err(e) => {
+        //                 //     cprintln!("<red>Send handle error: {e}</>",);
+        //                 // }
+        //     }
+        // }
+        let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
+            let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+            let message = msg.clone();
+            peer_ptr.send(message)
+        }));
 
-        for peer in PEERS_SELL.lock().await.values() {
-            let msg = msg.clone();
-            let peer_ptr = unsafe { &mut peer.peer.as_mut().unwrap().connection };
-            tasks.push(peer_ptr.send(msg));
-        }
-
-        let results = join_all(tasks).await;
+        let tasks = tasks.collect::<Vec<_>>().await;
         println!("sending took: {:?}", start.elapsed());
-        for t in results {
+        for t in tasks {
             match t {
                 Ok(_) => {
                     success_count += 1;
@@ -43,30 +61,6 @@ impl Peer {
                         // }
             }
         }
-        // let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
-        //     let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
-        //     let message = msg.clone();
-        //     tokio::spawn(async move { peer_ptr.send(message).await })
-        // }));
-        //
-        //
-        // let tasks = tasks.collect::<Vec<_>>().await;
-        // println!("sending took: {:?}", start.elapsed());
-        // for t in tasks {
-        //     match t {
-        //         Ok(t) => match t {
-        //             Ok(_) => {
-        //                 success_count += 1;
-        //             }
-        //             _ => {} // Err(e) => {
-        //                     //     cprintln!("<red>Send error: {e}</>",);
-        //                     // }
-        //         },
-        //         _ => {} // Err(e) => {
-        //                 //     cprintln!("<red>Send handle error: {e}</>",);
-        //                 // }
-        //     }
-        // }
 
         success_count
     }
