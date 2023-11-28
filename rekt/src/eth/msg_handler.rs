@@ -1,6 +1,6 @@
 use open_fastrlp::Decodable;
 
-use crate::types::hash::H256;
+use crate::types::hash::{H256, H512};
 
 use super::eth_message::EthMessage;
 use super::transactions::decoder::{decode_txs, decode_txs_request, BuyTokenInfo};
@@ -15,19 +15,30 @@ pub enum EthMessageHandler {
     None,
 }
 
-pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
+pub fn handle_eth_message(
+    msg: EthMessage,
+    peer_hash: H512,
+    peer_td: u64,
+) -> Result<EthMessageHandler, ETHError> {
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
         EthProtocol::PooledTransactionsMsg => handle_txs(msg),
-        EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg),
+        EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg, peer_hash, peer_td),
         _ => Ok(EthMessageHandler::None),
     }
 }
 
-fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
+fn handle_tx_hashes(
+    msg: EthMessage,
+    peer_hash: H512,
+    peer_td: u64,
+) -> Result<EthMessageHandler, ETHError> {
     //TODO: optimize with custom rlp decoder
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    println!("Got {} hashes", hashes.len());
+    println!(
+        "Got {} hashes from {peer_hash}, of td {peer_td}",
+        hashes.len()
+    );
     if hashes.len() > 300 {
         return Ok(EthMessageHandler::None);
     }

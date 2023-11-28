@@ -129,7 +129,7 @@ impl Peer {
 
         loop {
             let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg, self.id, self.td) {
                 match handler_resp {
                     EthMessageHandler::Response(msg) => {
                         self.connection.send(msg).await?;
