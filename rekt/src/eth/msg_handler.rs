@@ -27,6 +27,7 @@ pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError
 fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     //TODO: optimize with custom rlp decoder
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
+    println!("Got {} hashes", hashes.len());
     if hashes.len() > 300 {
         return Ok(EthMessageHandler::None);
     }
