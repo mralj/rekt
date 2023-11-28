@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use color_print::cprintln;
 use derive_more::Display;
@@ -8,6 +8,7 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
+    our_nodes::add_our_node,
     p2p::{peer::PeerType, peer_info::PeerInfo, Peer},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
@@ -18,6 +19,7 @@ use crate::{
 pub fn run_local_server(
     disc_server: Option<Arc<Server>>,
     incoming_listener: Arc<InboundConnections>,
+    this_node_public_ip: Option<IpAddr>,
 ) {
     let disc_server_toggler = disc_server.clone();
     let disc_server_enodes = disc_server.clone();
@@ -126,12 +128,34 @@ pub fn run_local_server(
             }
         });
 
+        let add_our_node =
+            warp::path!("addournode" / String)
+                .and(end())
+                .map(move |node: String| {
+                    if let Ok(ip) = IpAddr::from_str(&node) {
+                        if let Some(this_node_public_ip) = this_node_public_ip {
+                            if ip != this_node_public_ip {
+                                add_our_node(format!("{}:6070", node));
+                                format!("Added node: {}", node)
+                            } else {
+                                format!("Can't add our own node: {}", node)
+                            }
+                        } else {
+                            add_our_node(format!("{}:6070", node));
+                            format!("Added node: {}", node)
+                        }
+                    } else {
+                        format!("Failed to add node: {}", node)
+                    }
+                });
+
         let routes = prep
             .or(peer_count)
             .or(refresh_tokens)
             .or(disc)
             .or(peer_infos)
-            .or(get_enodes);
+            .or(get_enodes)
+            .or(add_our_node);
         warp::serve(routes).run(([0, 0, 0, 0], 6060)).await;
     });
 }
