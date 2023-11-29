@@ -98,16 +98,16 @@ pub async fn listen_on_liq_added_signal() {
                 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
                 continue;
             }
-
-            if unsafe { OUR_NODES.is_empty() } {
-                empty_node_count += 1;
-                tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
-                if empty_node_count > 3 {
-                    break;
-                }
-            } else {
-                empty_node_count = 0;
-            }
+            //
+            // if unsafe { OUR_NODES.is_empty() } {
+            //     empty_node_count += 1;
+            //     tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+            //     if empty_node_count > 3 {
+            //         break;
+            //     }
+            // } else {
+            //     empty_node_count = 0;
+            // }
 
             match socket.recv_from(&mut buf).await {
                 Ok((len, addr)) => {
