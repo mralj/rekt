@@ -27,13 +27,13 @@ pub fn handle_eth_message(msg: EthMessage) -> Result<EthMessageHandler, ETHError
 fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     //TODO: optimize with custom rlp decoder
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
-    if hashes.len() > 300 {
+    if hashes.len() > 500 {
         return Ok(EthMessageHandler::None);
     }
 
     let hashes_to_request = hashes
         .into_iter()
-        .filter(|hash| !cache::was_fetched(hash))
+        .filter(|hash| !cache::mark_as_requested(*hash))
         .collect::<Vec<_>>();
 
     if hashes_to_request.is_empty() {
