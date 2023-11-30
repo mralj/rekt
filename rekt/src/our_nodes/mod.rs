@@ -1,7 +1,8 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-use futures::future::join_all;
+use futures::{future::join_all, stream::FuturesUnordered};
 use tokio::net::UdpSocket;
+use tokio_stream::StreamExt;
 
 use crate::{
     p2p::{
@@ -50,12 +51,11 @@ pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddres
         buf.extend_from_slice(&token_address.as_bytes());
         buf.extend_from_slice(&gas_price.to_be_bytes());
 
-        let mut tasks = Vec::with_capacity(120);
-        for node in unsafe { OUR_NODES.iter() } {
-            tasks.push(socket.send_to(&buf, node));
-        }
+        let tasks = unsafe {
+            FuturesUnordered::from_iter(OUR_NODES.iter().map(|n| socket.send_to(&buf, n)))
+        };
+        let _: Vec<_> = tasks.collect().await;
 
-        join_all(tasks).await;
         println!(
             "Sending liq added signal to {} nodes of len {} in {:?}",
             unsafe { OUR_NODES.len() },
