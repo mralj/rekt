@@ -36,31 +36,33 @@ pub fn add_our_node(node: String) {
 
 pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddress, gas_price: u64) {
     let start = std::time::Instant::now();
-    let socket = SOCKET.get();
+    tokio::spawn(async move {
+        let socket = SOCKET.get();
 
-    if socket.is_none() {
-        println!("Error binding to socket for intra node sending");
-        return;
-    }
+        if socket.is_none() {
+            println!("Error binding to socket for intra node sending");
+            return;
+        }
 
-    let socket = socket.unwrap();
+        let socket = socket.unwrap();
 
-    let mut buf = Vec::with_capacity(56);
-    buf.extend_from_slice(&token_address.as_bytes());
-    buf.extend_from_slice(&gas_price.to_be_bytes());
+        let mut buf = Vec::with_capacity(56);
+        buf.extend_from_slice(&token_address.as_bytes());
+        buf.extend_from_slice(&gas_price.to_be_bytes());
 
-    let mut tasks = Vec::with_capacity(50);
-    for node in unsafe { OUR_NODES.iter() } {
-        tasks.push(socket.send_to(&buf, node));
-    }
+        let mut tasks = Vec::with_capacity(120);
+        for node in unsafe { OUR_NODES.iter() } {
+            tasks.push(socket.send_to(&buf, node));
+        }
 
-    join_all(tasks).await;
-    println!(
-        "Sending liq added signal to {} nodes of len {} in {:?}",
-        unsafe { OUR_NODES.len() },
-        buf.len(),
-        start.elapsed()
-    );
+        join_all(tasks).await;
+        println!(
+            "Sending liq added signal to {} nodes of len {} in {:?}",
+            unsafe { OUR_NODES.len() },
+            buf.len(),
+            start.elapsed()
+        );
+    });
 }
 
 pub async fn listen_on_liq_added_signal() {
@@ -81,7 +83,7 @@ pub async fn listen_on_liq_added_signal() {
     }
 
     tokio::spawn(async move {
-        let mut empty_node_count = 0;
+        //let mut empty_node_count = 0;
 
         let socket = SOCKET.get();
 
