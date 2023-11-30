@@ -23,38 +23,38 @@ impl Peer {
     pub async fn send_tx(msg: EthMessage) -> usize {
         let mut success_count: usize = 0;
         let start = tokio::time::Instant::now();
-
-        let peers = PEERS_SELL.lock().await;
-        let tasks = FuturesUnordered::new();
-
-        let peers: Vec<&UnsafeSyncPtr<Peer>> = peers.values().collect();
-        for chunk in peers.chunks(peers.len() / num_cpus::get()) {
-            let chunk_futures = FuturesUnordered::from_iter(chunk.iter().map(|p| {
-                let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
-                let message = msg.clone(); // Assuming msg is defined elsewhere
-                peer_ptr.send(message) // Assuming send() returns a Future
-            }));
-
-            let task = tokio::spawn(async move {
-                let results = chunk_futures.collect::<Vec<_>>().await;
-                results.iter().filter_map(|r| r.ok()).count()
-            });
-            tasks.push(task);
-        }
-
-        let results = tasks.collect::<Vec<_>>().await;
-        println!("sending took: {:?}", start.elapsed());
-        for t in results.iter() {
-            match t {
-                Ok(success) => {
-                    success_count += success;
-                }
-                _ => {} // Err(e) => {
-                        //     cprintln!("<red>Send handle error: {e}</>",);
-                        // }
-            }
-        }
-
+        //
+        // let peers = PEERS_SELL.lock().await;
+        // let tasks = FuturesUnordered::new();
+        //
+        // let peers: Vec<&UnsafeSyncPtr<Peer>> = peers.values().collect();
+        // for chunk in peers.chunks(peers.len() / num_cpus::get()) {
+        //     let chunk_futures = FuturesUnordered::from_iter(chunk.iter().map(|p| {
+        //         let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+        //         let message = msg.clone(); // Assuming msg is defined elsewhere
+        //         peer_ptr.send(message) // Assuming send() returns a Future
+        //     }));
+        //
+        //     let task = tokio::spawn(async move {
+        //         let results = chunk_futures.collect::<Vec<_>>().await;
+        //         results.iter().filter_map(|r| r.ok()).count()
+        //     });
+        //     tasks.push(task);
+        // }
+        //
+        // let results = tasks.collect::<Vec<_>>().await;
+        // println!("sending took: {:?}", start.elapsed());
+        // for t in results.iter() {
+        //     match t {
+        //         Ok(success) => {
+        //             success_count += success;
+        //         }
+        //         _ => {} // Err(e) => {
+        //                 //     cprintln!("<red>Send handle error: {e}</>",);
+        //                 // }
+        //     }
+        // }
+        //
         // let mut tasks = Vec::with_capacity(2_000);
         //
         // for peer in PEERS_SELL.lock().await.values() {
@@ -80,30 +80,30 @@ impl Peer {
         //                 // }
         //     }
         // }
-        // let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
-        //     let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
-        //     let message = msg.clone();
-        //     tokio::spawn(async move { peer_ptr.send(message).await })
-        // }));
-        //
-        //
-        // let tasks = tasks.collect::<Vec<_>>().await;
-        // println!("sending took: {:?}", start.elapsed());
-        // for t in tasks {
-        //     match t {
-        //         Ok(t) => match t {
-        //             Ok(_) => {
-        //                 success_count += 1;
-        //             }
-        //             _ => {} // Err(e) => {
-        //                     //     cprintln!("<red>Send error: {e}</>",);
-        //                     // }
-        //         },
-        //         _ => {} // Err(e) => {
-        //                 //     cprintln!("<red>Send handle error: {e}</>",);
-        //                 // }
-        //     }
-        // }
+
+        let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
+            let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+            let message = msg.clone();
+            tokio::spawn(async move { peer_ptr.send(message).await })
+        }));
+
+        let tasks = tasks.collect::<Vec<_>>().await;
+        println!("sending took: {:?}", start.elapsed());
+        for t in tasks {
+            match t {
+                Ok(t) => match t {
+                    Ok(_) => {
+                        success_count += 1;
+                    }
+                    _ => {} // Err(e) => {
+                            //     cprintln!("<red>Send error: {e}</>",);
+                            // }
+                },
+                _ => {} // Err(e) => {
+                        //     cprintln!("<red>Send handle error: {e}</>",);
+                        // }
+            }
+        }
 
         success_count
     }
