@@ -10,8 +10,8 @@ pub(super) static mut CACHE_HASHES: Vec<bool> = Vec::new();
 
 pub fn init_cache() {
     unsafe {
-        CACHE_TXS.reserve_exact(u32::MAX as usize);
-        for _ in 0..u32::MAX {
+        CACHE_TXS.reserve_exact(u32::MAX as usize + 1);
+        for _ in 0..u32::MAX + 1 {
             CACHE_TXS.push(false);
         }
 
