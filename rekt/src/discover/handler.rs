@@ -6,6 +6,7 @@ use crate::{
     blockchain::bsc_chain_spec::BSC_MAINNET_FORK_FILTER,
     server::{
         connection_task::ConnectionTask,
+        errors::ConnectionTaskError,
         peers::{
             blacklist_peer, check_if_already_connected_to_peer, peer_is_blacklisted,
             BLACKLIST_PEERS_BY_ID,
@@ -42,7 +43,7 @@ impl Server {
                 let pong = DiscoverMessage::Pong(PongMessage::new(ping, msg.hash));
                 let packet =
                     DiscoverMessage::create_disc_v4_packet(pong, &self.local_node.private_key);
-                let _ = self.udp_sender.send((msg.from, packet)).await;
+                let _ = self.udp_sender.send((msg.from, packet));
 
                 //TODO: if we received pig from node that has pending lookup
                 // and this node is not authed we can now send find node message
@@ -71,7 +72,7 @@ impl Server {
                     enr_response,
                     &self.local_node.private_key,
                 );
-                let _ = self.udp_sender.send((msg.from, packet)).await;
+                let _ = self.udp_sender.send((msg.from, packet));
             }
             DiscoverMessage::EnrResponse(resp) => {
                 let forks_match = {
@@ -86,7 +87,12 @@ impl Server {
                     node.set_is_bsc(forks_match);
 
                     if forks_match {
-                        let conn_task = ConnectionTask::from(node.node_record.clone());
+                        let conn_task = ConnectionTask::new(
+                            &node.node_record.str,
+                            self.local_node.public_key,
+                            self.local_node.private_key,
+                            self.server_config.clone(),
+                        );
                         if let Err(_) = check_if_already_connected_to_peer(&conn_task.node) {
                             return;
                         }
@@ -94,7 +100,9 @@ impl Server {
                         if peer_is_blacklisted(&node.node_record) {
                             return;
                         }
-                        let _ = self.conn_tx.send(conn_task).await;
+                        let _ = self
+                            .conn_tx
+                            .send(ConnectionTaskError::new_no_err(conn_task));
                     } else {
                         blacklist_peer(&node.node_record);
                     }
