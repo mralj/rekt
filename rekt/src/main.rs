@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     import_tokens_to_buy();
 
     let (conn_tx, conn_rx) = tokio::sync::mpsc::unbounded_channel();
-    let mut outbound_connections = OutboundConnections::new(
+    let outbound_connections = OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         all_nodes.clone(),
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
-    outbound_connections.run().await;
+    outbound_connections.run();
 
     let disc_server = if our_node.public_ip_retrieved {
         let (udp_tx, udp_rx) = tokio::sync::mpsc::unbounded_channel();

@@ -42,48 +42,50 @@ impl OutboundConnections {
         }
     }
 
-    pub async fn run(&mut self) {
-        for node in self.nodes.iter() {
-            let task = ConnectionTask::new(
-                node,
-                self.our_pub_key,
-                self.our_private_key,
-                self.cli.clone(),
-            );
-
-            connect_to_node(task, self.conn_tx.clone());
-        }
-        loop {
-            if let Some(task) = self.conn_rx.recv().await {
-                let task = task.conn_task;
-
-                if is_buy_in_progress() {
-                    tokio::time::sleep(Duration::from_secs(90)).await;
-                }
-
-                if peer_is_blacklisted(&task.node) {
-                    continue;
-                }
-
-                let it_is_not_yet_time_to_retry = !task
-                    .next_attempt
-                    .saturating_duration_since(Instant::now())
-                    .is_zero();
-
-                if it_is_not_yet_time_to_retry {
-                    tokio::time::sleep(
-                        ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
-                            + (task.next_attempt - Instant::now()),
-                    )
-                    .await;
-                }
-
-                if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
-                    continue;
-                }
+    pub fn run(mut self) {
+        tokio::task::spawn(async move {
+            for node in self.nodes.iter() {
+                let task = ConnectionTask::new(
+                    node,
+                    self.our_pub_key,
+                    self.our_private_key,
+                    self.cli.clone(),
+                );
 
                 connect_to_node(task, self.conn_tx.clone());
             }
-        }
+            loop {
+                if let Some(task) = self.conn_rx.recv().await {
+                    let task = task.conn_task;
+
+                    if is_buy_in_progress() {
+                        tokio::time::sleep(Duration::from_secs(90)).await;
+                    }
+
+                    if peer_is_blacklisted(&task.node) {
+                        continue;
+                    }
+
+                    let it_is_not_yet_time_to_retry = !task
+                        .next_attempt
+                        .saturating_duration_since(Instant::now())
+                        .is_zero();
+
+                    if it_is_not_yet_time_to_retry {
+                        tokio::time::sleep(
+                            ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
+                                + (task.next_attempt - Instant::now()),
+                        )
+                        .await;
+                    }
+
+                    if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
+                        continue;
+                    }
+
+                    connect_to_node(task, self.conn_tx.clone());
+                }
+            }
+        });
     }
 }

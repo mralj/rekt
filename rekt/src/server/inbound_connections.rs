@@ -32,7 +32,6 @@ use super::{
 };
 
 pub struct InboundConnections {
-    our_pub_key: PublicKey,
     our_private_key: secp256k1::SecretKey,
 
     is_paused: AtomicBool,
@@ -42,7 +41,6 @@ pub struct InboundConnections {
 impl InboundConnections {
     pub fn new(local_node: LocalNode, cli: Cli) -> Self {
         Self {
-            our_pub_key: local_node.public_key,
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
             cli,
