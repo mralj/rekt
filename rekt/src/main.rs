@@ -51,24 +51,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     import_tokens_to_buy();
 
-    let (conn_tx, conn_rx) = kanal::unbounded_async();
-    let outbound_connections = Arc::new(OutboundConnections::new(
+    let (conn_tx, conn_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut outbound_connections = OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
         all_nodes.clone(),
         conn_rx,
         conn_tx.clone(),
         args.clone(),
-    ));
+    );
 
     BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
-    OutboundConnections::start(outbound_connections).await;
+    outbound_connections.run().await;
 
     let disc_server = if our_node.public_ip_retrieved {
+        let (udp_tx, udp_rx) = tokio::sync::mpsc::unbounded_channel();
         let discover_server = Arc::new(
-            rekt::discover::server::Server::new(our_node.clone(), all_nodes, conn_tx).await?,
+            rekt::discover::server::Server::new(
+                our_node.clone(),
+                all_nodes,
+                conn_tx,
+                udp_tx,
+                args.clone(),
+            )
+            .await?,
         );
-        rekt::discover::server::Server::start(discover_server.clone());
+        rekt::discover::server::Server::start(discover_server.clone(), udp_rx);
         Some(discover_server)
     } else {
         println!("Failed to retrieve public ip, discovery server not started");

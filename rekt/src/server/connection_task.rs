@@ -1,18 +1,28 @@
 use std::time::{Duration, Instant};
 
-use crate::types::node_record::NodeRecord;
+use secp256k1::{PublicKey, SecretKey};
+
+use crate::{cli::Cli, types::node_record::NodeRecord};
 
 #[derive(Debug, Clone)]
 pub struct ConnectionTask {
     pub node: NodeRecord,
+    pub our_sk: SecretKey,
+    pub our_pk: PublicKey,
+
+    pub server_info: Cli,
+
     pub last_attempt: Instant,
     pub next_attempt: Instant,
     pub attempts: u16,
 }
 
 impl ConnectionTask {
-    pub fn new(enode: &str) -> Self {
+    pub fn new(enode: &str, our_pk: PublicKey, our_sk: SecretKey, server_info: Cli) -> Self {
         Self {
+            our_pk,
+            our_sk,
+            server_info,
             node: enode.parse().unwrap(),
             last_attempt: Instant::now(),
             next_attempt: Instant::now(),
@@ -29,16 +39,5 @@ impl ConnectionTask {
         this.next_attempt = Instant::now() + Duration::from_secs(10);
 
         this
-    }
-}
-
-impl From<NodeRecord> for ConnectionTask {
-    fn from(node: NodeRecord) -> Self {
-        Self {
-            node,
-            last_attempt: Instant::now(),
-            next_attempt: Instant::now(),
-            attempts: 1,
-        }
     }
 }

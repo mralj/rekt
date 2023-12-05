@@ -1,10 +1,10 @@
 use std::io;
 use std::time::Duration;
 
-use futures::{SinkExt, StreamExt, TryStreamExt};
-use kanal::AsyncSender;
-use secp256k1::{PublicKey, SecretKey};
+use futures::{SinkExt, TryStreamExt};
+use secp256k1::PublicKey;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
@@ -23,25 +23,17 @@ use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
-pub fn connect_to_node(
-    conn_task: ConnectionTask,
-    secret_key: SecretKey,
-    pub_key: PublicKey,
-    tx: AsyncSender<ConnectionTaskError>,
-    cli: crate::cli::Cli,
-) {
+pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<ConnectionTaskError>) {
     tokio::spawn(async move {
         macro_rules! map_err {
             ($e: expr) => {
                 match $e {
                     Ok(v) => v,
                     Err(e) => {
-                        let _ = tx
-                            .send(ConnectionTaskError::new(
-                                conn_task.next_attempt(),
-                                RLPXSessionError::from(e),
-                            ))
-                            .await;
+                        let _ = tx.send(ConnectionTaskError::new(
+                            conn_task.next_attempt(),
+                            RLPXSessionError::from(e),
+                        ));
                         return;
                     }
                 }
@@ -50,7 +42,7 @@ pub fn connect_to_node(
         map_err!(check_if_already_connected_to_peer(&conn_task.node));
 
         let node = conn_task.node.clone();
-        let rlpx_connection = Connection::new_out(secret_key, node.pub_key);
+        let rlpx_connection = Connection::new_out(conn_task.our_sk, node.pub_key);
 
         // let socket = map_err!(TcpSocket::new_v4());
         // map_err!(socket.set_reuseport(true));
@@ -82,16 +74,18 @@ pub fn connect_to_node(
         map_err!(handle_auth(&mut transport).await);
 
         let (hello_msg, protocol_v) =
-            map_err!(match handle_hello_msg(&pub_key, &mut transport).await {
-                Ok(mut hello_msg) => {
-                    let matched_protocol =
-                        map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
-                            .ok_or(RLPXSessionError::NoMatchingProtocols));
+            map_err!(
+                match handle_hello_msg(&conn_task.our_pk, &mut transport).await {
+                    Ok(mut hello_msg) => {
+                        let matched_protocol =
+                            map_err!(Protocol::match_protocols(&mut hello_msg.protocols)
+                                .ok_or(RLPXSessionError::NoMatchingProtocols));
 
-                    Ok((hello_msg, matched_protocol.version))
+                        Ok((hello_msg, matched_protocol.version))
+                    }
+                    Err(e) => Err(e),
                 }
-                Err(e) => Err(e),
-            });
+            );
 
         let mut p = Peer::new(
             node.clone(),
@@ -100,7 +94,7 @@ pub fn connect_to_node(
             hello_msg.client_version,
             TcpWire::new(transport),
             PeerType::Outbound,
-            cli,
+            conn_task.server_info.clone(),
         );
 
         let task_result = p.run().await;

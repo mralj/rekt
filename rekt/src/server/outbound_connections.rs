@@ -1,10 +1,9 @@
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use kanal::{AsyncReceiver, AsyncSender};
 use secp256k1::{PublicKey, SecretKey};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::p2p::peer::BUY_IS_IN_PROGRESS;
+use crate::p2p::peer::is_buy_in_progress;
 
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
@@ -13,17 +12,13 @@ use super::peers::{peer_is_blacklisted, BLACKLIST_PEERS_BY_ID};
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
-#[derive(Clone)]
 pub struct OutboundConnections {
     nodes: Vec<String>,
     our_pub_key: PublicKey,
     our_private_key: secp256k1::SecretKey,
 
-    conn_rx: AsyncReceiver<ConnectionTask>,
-    conn_tx: AsyncSender<ConnectionTask>,
-
-    retry_rx: AsyncReceiver<ConnectionTaskError>,
-    retry_tx: AsyncSender<ConnectionTaskError>,
+    conn_rx: UnboundedReceiver<ConnectionTaskError>,
+    conn_tx: UnboundedSender<ConnectionTaskError>,
 
     cli: crate::cli::Cli,
 }
@@ -33,92 +28,62 @@ impl OutboundConnections {
         our_private_key: SecretKey,
         our_pub_key: PublicKey,
         nodes: Vec<String>,
-        conn_rx: AsyncReceiver<ConnectionTask>,
-        conn_tx: AsyncSender<ConnectionTask>,
+        conn_rx: UnboundedReceiver<ConnectionTaskError>,
+        conn_tx: UnboundedSender<ConnectionTaskError>,
         cli: crate::cli::Cli,
     ) -> Self {
-        let (retry_tx, retry_rx) = kanal::unbounded_async();
-
         Self {
             nodes,
             our_pub_key,
             our_private_key,
             conn_rx,
             conn_tx,
-            retry_rx,
-            retry_tx,
             cli,
         }
     }
 
-    pub async fn start(self: Arc<Self>) {
-        let task_runner = self.clone();
-        let retry_runner = self.clone();
-
-        tokio::task::spawn(async move { task_runner.run().await });
-
-        tokio::task::spawn(async move {
-            retry_runner.run_retirer().await;
-        });
-
+    pub async fn run(&mut self) {
         for node in self.nodes.iter() {
-            let task = ConnectionTask::new(node);
+            let task = ConnectionTask::new(
+                node,
+                self.our_pub_key,
+                self.our_private_key,
+                self.cli.clone(),
+            );
 
-            let _ = self.conn_tx.send(task).await;
+            connect_to_node(task, self.conn_tx.clone());
         }
-    }
-
-    async fn run(&self) {
         loop {
-            let task = self.conn_rx.recv().await;
-            if let Ok(task) = task {
+            if let Some(task) = self.conn_rx.recv().await {
+                let task = task.conn_task;
+
+                if is_buy_in_progress() {
+                    tokio::time::sleep(Duration::from_secs(90)).await;
+                }
+
                 if peer_is_blacklisted(&task.node) {
                     continue;
                 }
 
-                connect_to_node(
-                    task,
-                    self.our_private_key,
-                    self.our_pub_key,
-                    self.retry_tx.clone(),
-                    self.cli.clone(),
-                );
-            }
-        }
-    }
+                let it_is_not_yet_time_to_retry = !task
+                    .next_attempt
+                    .saturating_duration_since(Instant::now())
+                    .is_zero();
 
-    async fn run_retirer(&self) {
-        loop {
-            let task_r = self.retry_rx.recv().await;
-            unsafe {
-                if BUY_IS_IN_PROGRESS {
-                    tokio::time::sleep(Duration::from_secs(60)).await;
+                if it_is_not_yet_time_to_retry {
+                    tokio::time::sleep(
+                        ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
+                            + (task.next_attempt - Instant::now()),
+                    )
+                    .await;
                 }
-            }
-            if task_r.is_err() {
-                continue;
-            }
-            let task = task_r.unwrap();
-            tracing::info!("{}", task.err);
-            let task = task.conn_task;
-            let it_is_not_yet_time_to_retry = !task
-                .next_attempt
-                .saturating_duration_since(Instant::now())
-                .is_zero();
 
-            if it_is_not_yet_time_to_retry {
-                tokio::time::sleep(
-                    ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK
-                        + (task.next_attempt - Instant::now()),
-                )
-                .await;
-            }
+                if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
+                    continue;
+                }
 
-            if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
-                continue;
+                connect_to_node(task, self.conn_tx.clone());
             }
-
-            let _ = self.conn_tx.send(task).await;
         }
     }
 }

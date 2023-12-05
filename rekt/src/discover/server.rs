@@ -6,8 +6,8 @@ use std::sync::Arc;
 use bytes::Bytes;
 use dashmap::DashMap;
 use futures::stream::FuturesUnordered;
-use kanal::AsyncSender;
 use tokio::net::UdpSocket;
+use tokio::sync::mpsc::{self, UnboundedReceiver};
 use tokio::time::interval;
 use tokio_stream::StreamExt;
 
@@ -15,8 +15,8 @@ use crate::constants::DEFAULT_PORT;
 use crate::discover::decoder::packet_size_is_valid;
 use crate::discover::discover_node::AuthStatus;
 use crate::local_node::LocalNode;
-use crate::p2p::peer::{is_buy_in_progress, BUY_IS_IN_PROGRESS};
-use crate::server::connection_task::ConnectionTask;
+use crate::p2p::peer::is_buy_in_progress;
+use crate::server::errors::ConnectionTaskError;
 use crate::types::hash::H512;
 use crate::types::node_record::NodeRecord;
 
@@ -33,8 +33,7 @@ pub struct Server {
     pub(super) local_node: LocalNode,
     udp_socket: Arc<UdpSocket>,
 
-    pub(super) udp_sender: kanal::AsyncSender<(SocketAddr, Bytes)>,
-    udp_receiver: kanal::AsyncReceiver<(SocketAddr, Bytes)>,
+    pub(super) udp_sender: mpsc::UnboundedSender<(SocketAddr, Bytes)>,
 
     pub(super) nodes: DashMap<H512, DiscoverNode>,
 
@@ -43,16 +42,20 @@ pub struct Server {
     pub(super) pending_neighbours_req: DashMap<H512, PendingNeighboursReq>,
     pub(super) pending_lookups: DashMap<H512, Lookup>,
 
-    pub(super) conn_tx: AsyncSender<ConnectionTask>,
+    pub(super) conn_tx: mpsc::UnboundedSender<ConnectionTaskError>,
 
     pub(super) is_paused: AtomicBool,
+
+    pub(super) server_config: crate::cli::Cli,
 }
 
 impl Server {
     pub async fn new(
         local_node: LocalNode,
         nodes: Vec<String>,
-        conn_tx: AsyncSender<ConnectionTask>,
+        conn_tx: tokio::sync::mpsc::UnboundedSender<ConnectionTaskError>,
+        udp_sender: mpsc::UnboundedSender<(SocketAddr, Bytes)>,
+        server_config: crate::cli::Cli,
     ) -> Result<Self, io::Error> {
         let udp_socket = Arc::new(
             UdpSocket::bind(SocketAddr::V4(SocketAddrV4::new(
@@ -70,15 +73,13 @@ impl Server {
                 .map(|n| (n.node_record.id, n)),
         );
 
-        let (sender, receiver) = kanal::unbounded_async();
-
         Ok(Self {
             local_node,
             udp_socket,
             nodes,
-            udp_sender: sender,
-            udp_receiver: receiver,
+            udp_sender,
             conn_tx,
+            server_config,
             pending_pings: DashMap::with_capacity(10_000),
             pending_neighbours_req: DashMap::with_capacity(100),
             pending_lookups: DashMap::with_capacity(100),
@@ -100,13 +101,13 @@ impl Server {
             .swap(false, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn start(this: Arc<Self>) {
+    pub fn start(this: Arc<Self>, udp_receiver: UnboundedReceiver<(SocketAddr, Bytes)>) {
         let writer = this.clone();
         let reader = this.clone();
         let worker = this.clone();
 
         tokio::spawn(async move {
-            let _ = writer.run_writer().await;
+            let _ = writer.run_writer(udp_receiver).await;
         });
 
         tokio::spawn(async move {
@@ -118,11 +119,14 @@ impl Server {
         });
     }
 
-    async fn run_writer(&self) -> Result<(), io::Error> {
+    async fn run_writer(
+        &self,
+        mut udp_receiver: UnboundedReceiver<(SocketAddr, Bytes)>,
+    ) -> Result<(), io::Error> {
         let udp_socket = self.udp_socket.clone();
 
         loop {
-            if let Ok((dest, packet)) = self.udp_receiver.recv().await {
+            if let Some((dest, packet)) = udp_receiver.recv().await {
                 if self.is_paused() {
                     tokio::time::sleep(std::time::Duration::from_secs(120)).await;
                     continue;
@@ -187,8 +191,7 @@ impl Server {
 
         let _ = self
             .udp_sender
-            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
-            .await;
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet));
     }
 
     pub(super) async fn send_neighbours_packet(&self, lookup_id: H512, to: (Ipv4Addr, u16)) {
@@ -200,8 +203,7 @@ impl Server {
         let (ip, udp) = to;
         let _ = self
             .udp_sender
-            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
-            .await;
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet));
     }
 
     pub(super) async fn send_enr_req_packet(&self, to: (Ipv4Addr, u16)) {
@@ -213,8 +215,7 @@ impl Server {
         let (ip, udp) = to;
         let _ = self
             .udp_sender
-            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet))
-            .await;
+            .send((SocketAddr::V4(SocketAddrV4::new(ip, udp)), packet));
     }
 
     async fn run_worker(&self) -> anyhow::Result<()> {
