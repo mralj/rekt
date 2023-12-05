@@ -36,6 +36,9 @@ pub fn add_our_node(node: String) {
 }
 
 pub async fn send_liq_added_signal_to_our_other_nodes(token_address: TokenAddress, gas_price: u64) {
+    if unsafe { OUR_NODES.is_empty() } {
+        return;
+    }
     let start = std::time::Instant::now();
     tokio::spawn(async move {
         let socket = SOCKET.get();
