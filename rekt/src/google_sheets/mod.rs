@@ -50,6 +50,7 @@ pub struct LogToSheets {
 
 impl LogToSheets {
     pub async fn new(cli: &Cli, peer: &Peer, buy_info: &BuyTokenInfo) -> Self {
+        tokio::time::sleep(std::time::Duration::from_secs(cli.server_index as u64)).await;
         let start_wallet = match cli.first_wallet {
             Some(wallet) => format!("{:#x}", wallet),
             None => "N/A".into(),
