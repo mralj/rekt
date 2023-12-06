@@ -115,7 +115,7 @@ impl Peer {
                 return std::cmp::Ordering::Greater;
             }
 
-            if let Some(ord) = a.td.partial_cmp(&b.td) {
+            if let Some(ord) = b.td.partial_cmp(&a.td) {
                 return ord;
             }
 
