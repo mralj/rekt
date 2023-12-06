@@ -80,8 +80,49 @@ impl Peer {
         //                 // }
         //     }
         // }
+        //
 
-        let tasks = FuturesUnordered::from_iter(PEERS_SELL.lock().await.iter().map(|(_, p)| {
+        let p_l = PEERS_SELL.lock().await;
+        let mut peers = p_l.values().collect::<Vec<_>>();
+
+        peers.sort_by(|a, b| {
+            let a = unsafe { a.peer.as_ref().unwrap() };
+            let b = unsafe { b.peer.as_ref().unwrap() };
+            let a_info = a.info.to_lowercase();
+            let b_info = b.info.to_lowercase();
+
+            if a_info.contains("meganode") && !b_info.contains("meganode") {
+                return std::cmp::Ordering::Less;
+            }
+
+            if !a_info.contains("meganode") && b_info.contains("meganode") {
+                return std::cmp::Ordering::Greater;
+            }
+
+            if a_info.contains("erigon") && !b_info.contains("erigon") {
+                return std::cmp::Ordering::Less;
+            }
+
+            if !a_info.contains("erigon") && b_info.contains("erigon") {
+                return std::cmp::Ordering::Greater;
+            }
+
+            if (a.td == 0 || a.td == 1) && (b.td != 0 && b.td != 1) {
+                return std::cmp::Ordering::Less;
+            }
+
+            if (a.td != 0 && a.td != 1) && (b.td == 0 || b.td == 1) {
+                return std::cmp::Ordering::Greater;
+            }
+
+            if let Some(ord) = a.td.partial_cmp(&b.td) {
+                return ord;
+            }
+
+            return std::cmp::Ordering::Equal;
+        });
+
+        let tasks = FuturesUnordered::from_iter(peers.iter().map(|p| {
             let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
             let message = msg.clone();
             tokio::spawn(async move { peer_ptr.send(message).await })
