@@ -25,7 +25,6 @@ const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60 * 5; //seconds
 pub struct P2PWire {
     #[pin]
     inner: TcpWire,
-    writer_queue: VecDeque<Bytes>,
     snappy_decoder: snap::raw::Decoder,
     snappy_encoder: snap::raw::Encoder,
     established_on: tokio::time::Instant,
@@ -74,7 +73,6 @@ impl P2PWire {
         Self {
             inner: rlpx_wire,
             established_on: tokio::time::Instant::now(),
-            writer_queue: VecDeque::with_capacity(MAX_WRITER_QUEUE_SIZE + 1),
             snappy_decoder: snap::raw::Decoder::default(),
             snappy_encoder: snap::raw::Encoder::new(),
         }
@@ -95,16 +93,8 @@ impl P2PWire {
                 DisconnectReason::decode(&mut &msg.data[..])?,
             )),
             P2PMessageID::Ping => {
-                let no_need_to_send_ping_if_there_are_messages_queued =
-                    !self.writer_queue.is_empty();
-                if no_need_to_send_ping_if_there_are_messages_queued {
-                    return Ok(());
-                }
-
                 let mut buf = BytesMut::new();
                 P2PMessage::Pong.encode(&mut buf);
-
-                self.writer_queue.push_back(buf.freeze());
 
                 // Flushes (writes) sink (maybe writes our Pong message)
                 // To explain "maybe writes" our Pong message:
@@ -115,6 +105,7 @@ impl P2PWire {
                 // p2p/eth msgs.
                 // This is why it is ok to use poll_flush_unpin here and not poll again, because
                 // "we don't care"
+                let _ = self.inner.start_send_unpin(buf.freeze());
                 let _ = self.poll_flush_unpin(cx);
                 Ok(())
             }
@@ -199,27 +190,14 @@ impl Sink<EthMessage> for P2PWire {
         // if the inner sink is ready, then that implies that this sink is ready as well (as it can
         // for sure send data to "inner")
         match this.inner.poll_ready_unpin(cx) {
-            Poll::Pending => {}
-            Poll::Ready(Err(_)) => return Poll::Ready(Err(P2PError::RlpxError)),
-            Poll::Ready(Ok(())) => {
-                if this.poll_flush(cx).is_ready() {
-                    return Poll::Ready(Ok(()));
-                }
-            }
-        }
-
-        // on the other hand if inner sink is not ready to accept new values, we have to check if we
-        // are hitting the limit of the queue, if not, we just queue message and return that we are
-        // ready
-        // else we are in pending state
-        if self.writer_queue.len() < MAX_WRITER_QUEUE_SIZE {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(_)) => Poll::Ready(Err(P2PError::RlpxError)),
+            Poll::Ready(Ok(())) => this.poll_flush(cx),
         }
     }
 
     fn start_send(mut self: std::pin::Pin<&mut Self>, item: EthMessage) -> Result<(), Self::Error> {
+        let mut this = self.as_mut().project();
         // since the interacting with sink should work as follows:
         // 1. call poll_ready, if it returns Ready(ok), call start_send,
         // but if it returns anything other than that, start_send should not be called
@@ -229,9 +207,10 @@ impl Sink<EthMessage> for P2PWire {
         if item.is_compressed() {
             // if message is already compressed this is "high-priority" message
             // remove all queued messages and send this one
-            self.writer_queue.clear();
-            self.writer_queue.push_back(item.data);
-            return Ok(());
+            return this
+                .inner
+                .start_send(item.data)
+                .map_err(|_| P2PError::RlpxError);
         }
 
         // note check !item.is_compressed() is not needed, because of lines above
@@ -243,12 +222,8 @@ impl Sink<EthMessage> for P2PWire {
             return Ok(());
         }
 
-        if self.writer_queue.len() > MAX_WRITER_QUEUE_SIZE {
-            return Err(P2PError::TooManyMessagesQueued);
-        }
-
         let mut compressed = BytesMut::zeroed(1 + snap::raw::max_compress_len(item.data.len()));
-        let compressed_size = self
+        let compressed_size = this
             .snappy_encoder
             .compress(&item.data, &mut compressed[1..])
             .map_err(|_err| P2PError::SnappyCompressError)?;
@@ -256,8 +231,9 @@ impl Sink<EthMessage> for P2PWire {
         compressed[0] = item.id as u8 + ETH_PROTOCOL_OFFSET;
         compressed.truncate(compressed_size + 1);
 
-        self.writer_queue.push_back(compressed.freeze());
-        Ok(())
+        this.inner
+            .start_send_unpin(compressed.freeze())
+            .map_err(|_| P2PError::RlpxError)
     }
 
     fn poll_flush(
@@ -267,20 +243,9 @@ impl Sink<EthMessage> for P2PWire {
         let mut this = self.project();
         // while there are messages in the queue and inner sink is able to send them
         // send the one by one
-        loop {
-            match ready!(this.inner.as_mut().poll_flush(cx)) {
-                Err(_) => return Poll::Ready(Err(P2PError::RlpxError)),
-                Ok(()) => {
-                    if let Some(message) = this.writer_queue.pop_front() {
-                        if this.inner.as_mut().start_send(message).is_err() {
-                            return Poll::Ready(Err(P2PError::RlpxError));
-                        }
-                    } else {
-                        // there are no messages on queue, we are done writing
-                        return Poll::Ready(Ok(()));
-                    }
-                }
-            }
+        match ready!(this.inner.as_mut().poll_flush(cx)) {
+            Err(_) => Poll::Ready(Err(P2PError::RlpxError)),
+            Ok(()) => Poll::Ready(Ok(())),
         }
     }
 
