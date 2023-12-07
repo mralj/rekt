@@ -122,29 +122,38 @@ impl Peer {
             return std::cmp::Ordering::Equal;
         });
 
-        let tasks = FuturesUnordered::from_iter(peers.iter().map(|p| {
-            let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
-            let message = msg.clone();
-            tokio::spawn(async move { peer_ptr.send(message).await })
-        }));
-
-        let tasks = tasks.collect::<Vec<_>>().await;
-        println!("sending took: {:?}", start.elapsed());
-        for t in tasks {
-            match t {
-                Ok(t) => match t {
-                    Ok(_) => {
-                        success_count += 1;
-                    }
-                    _ => {} // Err(e) => {
-                            //     cprintln!("<red>Send error: {e}</>",);
-                            // }
-                },
-                _ => {} // Err(e) => {
-                        //     cprintln!("<red>Send handle error: {e}</>",);
-                        // }
-            }
+        let mut tasks = vec![];
+        for peer in peers {
+            let msg = msg.clone();
+            let peer_ptr = unsafe { &mut peer.peer.as_mut().unwrap().connection };
+            tasks.push(tokio::spawn(async move { peer_ptr.send(msg).await }));
         }
+
+        let results = join_all(tasks).await;
+        println!("sending took: {:?}", start.elapsed());
+        // let tasks = FuturesUnordered::from_iter(peers.iter().map(|p| {
+        //     let peer_ptr = unsafe { &mut p.peer.as_mut().unwrap().connection };
+        //     let message = msg.clone();
+        //     tokio::spawn(async move { peer_ptr.send(message).await })
+        // }));
+        //
+        // let tasks = tasks.collect::<Vec<_>>().await;
+        // println!("sending took: {:?}", start.elapsed());
+        // for t in tasks {
+        //     match t {
+        //         Ok(t) => match t {
+        //             Ok(_) => {
+        //                 success_count += 1;
+        //             }
+        //             _ => {} // Err(e) => {
+        //                     //     cprintln!("<red>Send error: {e}</>",);
+        //                     // }
+        //         },
+        //         _ => {} // Err(e) => {
+        //                 //     cprintln!("<red>Send handle error: {e}</>",);
+        //                 // }
+        //     }
+        // }
 
         success_count
     }
