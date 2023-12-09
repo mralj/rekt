@@ -39,6 +39,8 @@ use crate::wallets::local_wallets::{
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 pub static mut SELL_IS_IN_PROGRESS: bool = false;
+pub static mut START: i64 = 0;
+pub static mut END: i64 = 0;
 
 pub fn is_buy_in_progress() -> bool {
     unsafe { BUY_IS_IN_PROGRESS }
@@ -139,7 +141,7 @@ impl Peer {
                 tx = tx_rx.recv() => {
                     if let Ok(tx) = tx {
                         self.connection.send(tx).await?;
-                        println!("{}", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S:%f"));
+                unsafe { END = chrono::Utc::now().timestamp_micros();                }
                     }
                 }
                 msg = self.connection.next() => {

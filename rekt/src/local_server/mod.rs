@@ -9,7 +9,11 @@ use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
     our_nodes::add_our_node,
-    p2p::{peer::PeerType, peer_info::PeerInfo, Peer},
+    p2p::{
+        peer::{PeerType, END},
+        peer_info::PeerInfo,
+        Peer,
+    },
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
@@ -47,9 +51,12 @@ pub fn run_local_server(
                     let prep_tx = EthMessage::new_compressed_tx_message(
                         generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
                     );
+                    let start = chrono::Utc::now().timestamp_micros();
                     if peer_tx_tx.send(prep_tx).is_ok() {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        let duration = unsafe { END - start };
                         cprintln!(
-                            "<yellow>[{}]Prep sent successfully: {}</>",
+                            "<yellow>[{}]Prep sent successfully: {} in {duration}</>",
                             PEERS.len(),
                             token.buy_token_address
                         );
