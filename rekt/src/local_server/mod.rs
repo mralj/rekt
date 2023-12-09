@@ -54,7 +54,7 @@ pub fn run_local_server(
                     let start = chrono::Utc::now().timestamp_micros();
                     if peer_tx_tx.send(prep_tx).is_ok() {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        let duration = unsafe { END - start };
+                        let duration = END.load(std::sync::atomic::Ordering::SeqCst) - start;
                         cprintln!(
                             "<yellow>[{}]Prep sent successfully: {} in {duration}</>",
                             PEERS.len(),

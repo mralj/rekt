@@ -1,6 +1,7 @@
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::AtomicI64;
 use std::time::Duration;
 use tokio::select;
 
@@ -40,7 +41,7 @@ use crate::wallets::local_wallets::{
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
 pub static mut SELL_IS_IN_PROGRESS: bool = false;
 pub static mut START: i64 = 0;
-pub static mut END: i64 = 0;
+pub static END: AtomicI64 = AtomicI64::new(0);
 
 pub fn is_buy_in_progress() -> bool {
     unsafe { BUY_IS_IN_PROGRESS }
@@ -141,7 +142,7 @@ impl Peer {
                 tx = tx_rx.recv() => {
                     if let Ok(tx) = tx {
                         self.connection.send(tx).await?;
-                unsafe { END = chrono::Utc::now().timestamp_micros();                }
+                        END.store(chrono::Utc::now().timestamp_micros(), std::sync::atomic::Ordering::Relaxed);
                     }
                 }
                 msg = self.connection.next() => {
