@@ -2,6 +2,7 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
+use tokio::select;
 
 use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
@@ -71,6 +72,7 @@ pub struct Peer {
 
     pub(super) protocol_version: ProtocolVersion,
 
+    send_tx_tx: tokio::sync::broadcast::Sender<EthMessage>,
     cli: Cli,
 }
 
@@ -83,6 +85,7 @@ impl Peer {
         connection: TcpWire,
         peer_type: PeerType,
         cli: Cli,
+        tx_tx: tokio::sync::broadcast::Sender<EthMessage>,
     ) -> Self {
         Self {
             id,
@@ -92,6 +95,7 @@ impl Peer {
             peer_type,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
+            send_tx_tx: tx_tx,
             td: 0,
         }
     }
@@ -127,33 +131,38 @@ impl Peer {
             .await
             .insert(self.node_record.id, peer_ptr);
 
+        let mut tx_rx = self.send_tx_tx.subscribe();
+
         loop {
-            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                match handler_resp {
-                    EthMessageHandler::Response(msg) => {
-                        self.connection.send(msg).await?;
+            select! {
+                biased;
+                tx = tx_rx.recv() => {
+                    if let Ok(tx) = tx {
+                        self.connection.send(tx).await?;
+                        println!("{}", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S:%f"));
                     }
-                    EthMessageHandler::Buy(mut buy_info) => {
-                        if let Some(buy_txs_eth_message) =
-                            buy_info.token.get_buy_txs(buy_info.gas_price)
-                        {
-                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
-
-                            send_liq_added_signal_to_our_other_nodes(
-                                buy_info.token.buy_token_address,
-                                buy_info.gas_price,
-                            )
-                            .await;
-
-                            mark_token_as_bought(buy_info.token.buy_token_address);
-
-                            unsafe {
-                                BUY_IS_IN_PROGRESS = false;
-                                SELL_IS_IN_PROGRESS = true;
+                }
+                msg = self.connection.next() => {
+                    let msg = msg.ok_or(P2PError::NoMessage)??;
+                            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                            match handler_resp {
+                                EthMessageHandler::Response(msg) => {
+                                self.connection.send(msg).await?;
                             }
+                            EthMessageHandler::Buy(mut buy_info) => {
+                                if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
+                                   //let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
+
+
+                                   let _r = self.send_tx_tx.send(buy_txs_eth_message);
+                                   send_liq_added_signal_to_our_other_nodes(buy_info.token.buy_token_address, buy_info.gas_price).await;
+                                   mark_token_as_bought(buy_info.token.buy_token_address);
+                                   unsafe {
+                                     BUY_IS_IN_PROGRESS = false;
+                                     SELL_IS_IN_PROGRESS = true;
+                                   }
                             cprintln!(
-                                "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
+                                "<b><green>[{}]Bought token: {}</></>\nliq TX: {} ",
                                 buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
@@ -169,8 +178,11 @@ impl Peer {
                             }
                         }
                     }
-                    EthMessageHandler::None => {}
+                            EthMessageHandler::None => {}
                 }
+
+                }
+            }
             }
         }
     }

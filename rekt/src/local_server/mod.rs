@@ -20,39 +20,48 @@ pub fn run_local_server(
     disc_server: Option<Arc<Server>>,
     incoming_listener: Arc<InboundConnections>,
     this_node_public_ip: Option<IpAddr>,
+    peer_tx_tx: tokio::sync::broadcast::Sender<EthMessage>,
 ) {
     let disc_server_toggler = disc_server.clone();
     let disc_server_enodes = disc_server.clone();
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
-            move |token_address: String| async move {
-                let token_address = match Address::from_str(&token_address) {
-                    Ok(t_a) => t_a,
-                    Err(e) => {
-                        cprintln!("<red>Invalid token address</>: {}", e);
-                        return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress));
-                    }
-                };
+            move |token_address: String| {
+                let peer_tx_tx = peer_tx_tx.clone();
+                async move {
+                    let token_address = match Address::from_str(&token_address) {
+                        Ok(t_a) => t_a,
+                        Err(e) => {
+                            cprintln!("<red>Invalid token address</>: {}", e);
+                            return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress));
+                        }
+                    };
 
-                let token = get_token_by_address(&token_address);
-                if token.is_none() {
-                    cprintln!("<red>Token not found</>");
-                    return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                    let token = get_token_by_address(&token_address);
+                    if token.is_none() {
+                        cprintln!("<red>Token not found</>");
+                        return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                    }
+                    let token = token.unwrap();
+                    let prep_tx = EthMessage::new_compressed_tx_message(
+                        generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
+                    );
+                    if peer_tx_tx.send(prep_tx).is_ok() {
+                        cprintln!(
+                            "<yellow>[{}]Prep sent successfully: {}</>",
+                            PEERS.len(),
+                            token.buy_token_address
+                        );
+                        return Ok(format!(
+                            "Prep sent successfully: {}",
+                            token.buy_token_address
+                        ));
+                    } else {
+                        cprintln!("<red> Pep Broadcast failed");
+                        return Ok(format!("Prep broadcast failed"));
+                    }
                 }
-                let token = token.unwrap();
-                let prep_tx = EthMessage::new_compressed_tx_message(
-                    generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
-                );
-                let cnt = Peer::send_tx(prep_tx).await;
-                cprintln!(
-                    "<yellow>[{cnt}]Prep sent successfully: {}</>",
-                    token.buy_token_address
-                );
-                return Ok(format!(
-                    "Prep sent successfully: {}",
-                    token.buy_token_address
-                ));
             }
         });
 

@@ -14,6 +14,7 @@ use tracing::error;
 use crate::{
     cli::Cli,
     constants::DEFAULT_PORT,
+    eth::eth_message::EthMessage,
     local_node::LocalNode,
     p2p::{
         errors::P2PError,
@@ -36,14 +37,20 @@ pub struct InboundConnections {
 
     is_paused: AtomicBool,
     cli: crate::cli::Cli,
+    peer_tx_rx: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
 }
 
 impl InboundConnections {
-    pub fn new(local_node: LocalNode, cli: Cli) -> Self {
+    pub fn new(
+        local_node: LocalNode,
+        cli: Cli,
+        peer_tx_rx: tokio::sync::broadcast::Sender<EthMessage>,
+    ) -> Self {
         Self {
+            cli,
+            peer_tx_rx,
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
-            cli,
         }
     }
 
@@ -87,10 +94,12 @@ impl InboundConnections {
             }
 
             let cli = self.cli.clone();
+            let peer_tx_rx = self.peer_tx_rx.clone();
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let transport = rlpx_connection.framed(stream);
-                let _ = new_connection_handler(src, transport, our_secret_key, cli).await;
+                let _ =
+                    new_connection_handler(src, transport, our_secret_key, cli, peer_tx_rx).await;
             });
         }
     }
@@ -101,6 +110,7 @@ async fn new_connection_handler(
     mut transport: Framed<TcpStream, Connection>,
     secret_key: secp256k1::SecretKey,
     cli: Cli,
+    peer_tx_rx: tokio::sync::broadcast::Sender<EthMessage>,
 ) -> Result<(), RLPXSessionError> {
     let external_node_pub_key = handle_auth(&mut transport).await?;
 
@@ -132,6 +142,7 @@ async fn new_connection_handler(
         TcpWire::new(transport),
         PeerType::Inbound,
         cli,
+        peer_tx_rx,
     );
 
     let task_result = p.run().await;

@@ -21,6 +21,7 @@ pub struct OutboundConnections {
     conn_tx: UnboundedSender<ConnectionTaskError>,
 
     cli: crate::cli::Cli,
+    peer_tx_rx: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
 }
 
 impl OutboundConnections {
@@ -31,6 +32,7 @@ impl OutboundConnections {
         conn_rx: UnboundedReceiver<ConnectionTaskError>,
         conn_tx: UnboundedSender<ConnectionTaskError>,
         cli: crate::cli::Cli,
+        peer_tx_rx: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
     ) -> Self {
         Self {
             nodes,
@@ -39,6 +41,7 @@ impl OutboundConnections {
             conn_rx,
             conn_tx,
             cli,
+            peer_tx_rx,
         }
     }
 
@@ -52,7 +55,7 @@ impl OutboundConnections {
                     self.cli.clone(),
                 );
 
-                connect_to_node(task, self.conn_tx.clone());
+                connect_to_node(task, self.conn_tx.clone(), self.peer_tx_rx.clone());
             }
             loop {
                 if let Some(task) = self.conn_rx.recv().await {
@@ -83,7 +86,7 @@ impl OutboundConnections {
                         continue;
                     }
 
-                    connect_to_node(task, self.conn_tx.clone());
+                    connect_to_node(task, self.conn_tx.clone(), self.peer_tx_rx.clone());
                 }
             }
         });

@@ -4,11 +4,13 @@ use std::time::Duration;
 use futures::{SinkExt, TryStreamExt};
 use secp256k1::PublicKey;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
+use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
@@ -23,7 +25,11 @@ use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
-pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<ConnectionTaskError>) {
+pub fn connect_to_node(
+    conn_task: ConnectionTask,
+    tx: UnboundedSender<ConnectionTaskError>,
+    peer_tx_rx: Sender<EthMessage>,
+) {
     tokio::spawn(async move {
         macro_rules! map_err {
             ($e: expr) => {
@@ -95,6 +101,7 @@ pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<Connection
             TcpWire::new(transport),
             PeerType::Outbound,
             conn_task.server_info.clone(),
+            peer_tx_rx,
         );
 
         let task_result = p.run().await;
