@@ -52,7 +52,7 @@ pub fn import_tokens_to_buy() {
                             }
                         }
 
-                        token.prepare_buy_txs_per_gas_price().await;
+                        token.prepare_buy_txs_for_gas_price_range().await;
                         println!(
                             "Added token to buy: {}",
                             get_bsc_token_url(token.buy_token_address)

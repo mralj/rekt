@@ -5,12 +5,12 @@ use crate::{
     constants::{TX_ARG_LEN, TX_SIGNATURE_LEN},
     eth::eth_message::EthMessage,
     utils::wei_gwei_converter::{
-        gas_price_is_in_supported_range, gas_price_to_index, get_default_gas_price_range,
-        gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION, MIN_GAS_PRICE,
+        gas_price_is_in_supported_precision, gas_price_is_in_supported_range, gas_price_to_index,
+        get_default_gas_price_range, gwei_to_wei_with_decimals, DEFAULT_GWEI_DECIMAL_PRECISION,
+        MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
-        generate_and_rlp_encode_buy_txs_for_local_wallets, generate_and_rlp_encode_prep_tx,
-        update_nonces_for_local_wallets,
+        generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
     },
 };
 
@@ -119,14 +119,22 @@ impl Token {
         self.enable_buy_config.tx_to
     }
 
-    pub async fn prepare_buy_txs_per_gas_price(&mut self) {
+    pub async fn prepare_buy_txs_for_gas_price(&mut self, gas_price_in_wei: u64) -> EthMessage {
+        let txs =
+            generate_and_rlp_encode_buy_txs_for_local_wallets(&self, U256::from(gas_price_in_wei))
+                .await;
+        EthMessage::new_compressed_tx_message(txs)
+    }
+
+    pub async fn prepare_buy_txs_for_gas_price_range(&mut self) {
         update_nonces_for_local_wallets().await;
         let gas_price_range = get_default_gas_price_range();
         let mut buy_txs =
             Vec::with_capacity((gas_price_range.end() - gas_price_range.start() + 1) as usize);
 
         for gwei in gas_price_range {
-            let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(&self, gwei).await;
+            let wei = gwei_to_wei_with_decimals(gwei, DEFAULT_GWEI_DECIMAL_PRECISION);
+            let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(&self, wei).await;
 
             buy_txs.push(EthMessage::new_compressed_tx_message(txs));
         }
@@ -141,6 +149,10 @@ impl Token {
                 "<red>Gas price is not in supported range: {}</>",
                 gas_price_in_wei
             );
+            return None;
+        }
+
+        if !gas_price_is_in_supported_precision(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION) {
             return None;
         }
 
