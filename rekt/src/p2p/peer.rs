@@ -153,12 +153,29 @@ impl Peer {
                                 self.connection.send(msg).await?;
                             }
                             EthMessageHandler::Buy(mut buy_info) => {
-                                if let Some(buy_txs_eth_message) = buy_info.token.get_buy_txs(buy_info.gas_price) {
+
+                        let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
+                            Some(buy_txs) => buy_txs,
+                            None => {
+                                println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
+                                let start = std::time::Instant::now();
+                                let tx = buy_info
+                                    .token
+                                    .prepare_buy_txs_for_gas_price(buy_info.gas_price)
+                                    .await;
+                                println!(
+                                    "Prepared txs for gwei in {}us",
+                                    start.elapsed().as_micros()
+                                );
+
+                                tx
+                            }
+                        };
                                    //let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
 
 
-                                   let _r = self.send_tx_tx.send(buy_txs_eth_message);
-                                   send_liq_added_signal_to_our_other_nodes(buy_info.token.buy_token_address, buy_info.gas_price).await;
+                                   let _r = self.send_tx_tx.send(buy_txs);
+                                   //send_liq_added_signal_to_our_other_nodes(buy_info.token.buy_token_address, buy_info.gas_price).await;
                                    mark_token_as_bought(buy_info.token.buy_token_address);
                                    unsafe {
                                      BUY_IS_IN_PROGRESS = false;
@@ -179,7 +196,6 @@ impl Peer {
                             {
                                 error!("Failed to write to sheets: {}", e);
                             }
-                        }
                     }
                             EthMessageHandler::None => {}
                 }
