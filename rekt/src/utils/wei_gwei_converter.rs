@@ -51,6 +51,20 @@ pub fn gas_price_is_in_supported_range(gas_price_in_wei: U256) -> bool {
     get_default_gas_price_range().contains(&(gwei as u64))
 }
 
+pub fn gas_price_is_in_supported_precision(
+    gas_price_in_wei: U256,
+    decimal_precision: usize,
+) -> bool {
+    let gwei = wei_to_gwei_with_decimals(gas_price_in_wei, decimal_precision);
+    println!("gwei: {}", gwei);
+    let gwei_back_to_wei = gwei_to_wei_with_decimals(gwei as u64, decimal_precision);
+    println!(
+        "gwei_back_to_wei: {}, original wei {gas_price_in_wei}",
+        gwei_back_to_wei
+    );
+    gwei_back_to_wei == gas_price_in_wei
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -120,6 +134,28 @@ mod test {
                 DEFAULT_GWEI_DECIMAL_PRECISION
             ),
             test_gas_price.into()
+        );
+    }
+
+    #[test]
+    fn gas_price_is_in_supported_decimal_range_test() {
+        assert_eq!(
+            gas_price_is_in_supported_precision(U256::from(3000000000usize), 3),
+            true
+        );
+        assert_eq!(
+            gas_price_is_in_supported_precision(U256::from(3020000000usize), 3),
+            true
+        );
+
+        assert_eq!(
+            gas_price_is_in_supported_precision(U256::from(3000500000usize), 3),
+            false
+        );
+
+        assert_eq!(
+            gas_price_is_in_supported_precision(U256::from(3000500000usize), 4),
+            true
         );
     }
 }

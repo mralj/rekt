@@ -134,31 +134,45 @@ impl Peer {
                         self.connection.send(msg).await?;
                     }
                     EthMessageHandler::Buy(mut buy_info) => {
-                        if let Some(buy_txs_eth_message) =
-                            buy_info.token.get_buy_txs(buy_info.gas_price)
-                        {
-                            let sent_txs_to_peer_count = Peer::send_tx(buy_txs_eth_message).await;
+                        let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
+                            Some(buy_txs) => buy_txs,
+                            None => {
+                                println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
+                                let start = std::time::Instant::now();
+                                let tx = buy_info
+                                    .token
+                                    .prepare_buy_txs_for_gas_price(buy_info.gas_price)
+                                    .await;
+                                println!(
+                                    "Prepared txs for gwei in {}us",
+                                    start.elapsed().as_micros()
+                                );
 
-                            mark_token_as_bought(buy_info.token.buy_token_address);
-                            unsafe {
-                                BUY_IS_IN_PROGRESS = false;
-                                SELL_IS_IN_PROGRESS = true;
+                                tx
                             }
-                            cprintln!(
+                        };
+
+                        let sent_txs_to_peer_count = Peer::send_tx(buy_txs).await;
+
+                        mark_token_as_bought(buy_info.token.buy_token_address);
+                        unsafe {
+                            BUY_IS_IN_PROGRESS = false;
+                            SELL_IS_IN_PROGRESS = true;
+                        }
+                        cprintln!(
                                 "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
                                 buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
                                 get_bsc_token_url(buy_info.token.buy_token_address),
                                 get_bsc_tx_url(buy_info.hash)
                             );
 
-                            Self::sell(buy_info.token.clone()).await;
-                            if let Err(e) = google_sheets::write_data_to_sheets(
-                                LogToSheets::new(&self.cli, &self, &buy_info).await,
-                            )
-                            .await
-                            {
-                                error!("Failed to write to sheets: {}", e);
-                            }
+                        Self::sell(buy_info.token.clone()).await;
+                        if let Err(e) = google_sheets::write_data_to_sheets(
+                            LogToSheets::new(&self.cli, &self, &buy_info).await,
+                        )
+                        .await
+                        {
+                            error!("Failed to write to sheets: {}", e);
                         }
                     }
                     EthMessageHandler::None => {}

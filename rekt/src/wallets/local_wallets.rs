@@ -20,7 +20,7 @@ use super::{
         LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, SELL_WALLET_ADDRESS,
         UN_IMPORTANT_WALLETS_START_AT_INDEX,
     },
-    wallet_with_nonce::WalletWithNonce,
+    wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
 };
 
 pub static LOCAL_WALLETS: Lazy<RwLock<Vec<WalletWithNonce>>> =
@@ -98,17 +98,15 @@ pub async fn update_nonces_for_local_wallets() {
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     token: &Token,
-    gas_price_in_gwei: u64,
+    gas_price_in_wei: WeiGasPrice,
 ) -> Bytes {
     let mut local_wallets = LOCAL_WALLETS.write().await;
 
-    let generate_buy_txs_tasks =
-        FuturesUnordered::from_iter(local_wallets.iter_mut().map(|wallet| {
-            wallet.generate_and_sign_buy_tx(gwei_to_wei_with_decimals(
-                gas_price_in_gwei,
-                DEFAULT_GWEI_DECIMAL_PRECISION,
-            ))
-        }));
+    let generate_buy_txs_tasks = FuturesUnordered::from_iter(
+        local_wallets
+            .iter_mut()
+            .map(|wallet| wallet.generate_and_sign_buy_tx(gas_price_in_wei)),
+    );
 
     let mut buy_txs = generate_buy_txs_tasks
         .filter_map(|tx| async move { tx.ok() })
@@ -118,10 +116,7 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
     if token.prep_in_flight {
         let prep_wallet = &mut PREPARE_WALLET.write().await;
         let prep_tx = prep_wallet
-            .generate_and_sign_prep_tx(
-                token,
-                gwei_to_wei_with_decimals(gas_price_in_gwei + 1, DEFAULT_GWEI_DECIMAL_PRECISION),
-            )
+            .generate_and_sign_prep_tx(token, gas_price_in_wei + 1)
             .await
             .expect("Failed to generate and sign prep tx");
 
