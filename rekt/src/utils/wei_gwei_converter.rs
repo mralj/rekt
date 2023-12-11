@@ -56,12 +56,7 @@ pub fn gas_price_is_in_supported_precision(
     decimal_precision: usize,
 ) -> bool {
     let gwei = wei_to_gwei_with_decimals(gas_price_in_wei, decimal_precision);
-    println!("gwei: {}", gwei);
     let gwei_back_to_wei = gwei_to_wei_with_decimals(gwei as u64, decimal_precision);
-    println!(
-        "gwei_back_to_wei: {}, original wei {gas_price_in_wei}",
-        gwei_back_to_wei
-    );
     gwei_back_to_wei == gas_price_in_wei
 }
 
