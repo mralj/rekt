@@ -21,7 +21,6 @@ use crate::eth::msg_handler::EthMessageHandler;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
-use crate::our_nodes::send_liq_added_signal_to_our_other_nodes;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -177,10 +176,6 @@ impl Peer {
                                    let _r = self.send_tx_tx.send(buy_txs);
                                    //send_liq_added_signal_to_our_other_nodes(buy_info.token.buy_token_address, buy_info.gas_price).await;
                                    mark_token_as_bought(buy_info.token.buy_token_address);
-                                   unsafe {
-                                     BUY_IS_IN_PROGRESS = false;
-                                     SELL_IS_IN_PROGRESS = true;
-                                   }
                             cprintln!(
                                 "<b><green>[{}]Bought token: {}</></>\nliq TX: {} ",
                                 buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
@@ -247,6 +242,11 @@ impl Peer {
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
         tokio::time::sleep(Duration::from_millis(200)).await;
+
+        unsafe {
+            BUY_IS_IN_PROGRESS = false;
+            SELL_IS_IN_PROGRESS = true;
+        }
         for i in 0..token.sell_config.sell_count {
             //this is because for the first sell the nonce is up to date with blockchain
             //only after first sell we need to "update it manually"
