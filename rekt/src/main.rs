@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     import_tokens_to_buy();
 
-    let (peer_tx_tx, _) = tokio::sync::broadcast::channel(2);
+    let (peer_tx_tx, _) = tokio::sync::broadcast::channel(1);
     let (conn_tx, conn_rx) = tokio::sync::mpsc::unbounded_channel();
     let outbound_connections = OutboundConnections::new(
         our_node.private_key,
@@ -105,9 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         peer_tx_tx,
     );
 
-    listen_on_liq_added_signal().await;
-
-    listen_on_liq_added_signal();
+    //  listen_on_liq_added_signal().await;
 
     let _ = tokio::signal::ctrl_c().await;
 
