@@ -145,7 +145,7 @@ impl Peer {
                         END.store(chrono::Utc::now().timestamp_micros(), std::sync::atomic::Ordering::Relaxed);
                     }
                 }
-                msg = self.connection.next() => {
+                msg = self.connection.next(), if !is_buy_in_progress()=> {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
                             if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                             match handler_resp {
