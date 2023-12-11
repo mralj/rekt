@@ -40,8 +40,6 @@ pub enum Hardfork {
     GrayGlacier,
     /// Paris.
     Paris,
-    /// Shanghai.
-    Shanghai,
     /// Ramanujan.
     Ramanujan,
     /// Niels.
@@ -70,6 +68,9 @@ pub enum Hardfork {
     London,
     /// Hertz
     Hertz,
+    HertzFix,
+    Shanghai,
+    Keppler,
 }
 
 impl Hardfork {
