@@ -198,6 +198,7 @@ impl Peer {
         let status_msg = StatusMessage::decode(&mut &msg.data[..])?;
 
         if StatusMessage::validate(&status_msg, &self.protocol_version).is_err() {
+            blacklist_peer(&self.node_record);
             return Err(P2PError::CouldNotValidateStatusMessage);
         }
 

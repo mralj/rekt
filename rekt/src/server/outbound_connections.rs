@@ -4,6 +4,7 @@ use secp256k1::{PublicKey, SecretKey};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::p2p::peer::is_buy_in_progress;
+use crate::rlpx::RLPXSessionError;
 
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
@@ -58,7 +59,14 @@ impl OutboundConnections {
                 if let Some(task) = self.conn_rx.recv().await {
                     if let Some(err) = task.err {
                         tracing::error!("{}", err);
+
+                        match err {
+                            RLPXSessionError::TcpError(_) => continue,
+                            RLPXSessionError::RlpxError(_) => continue,
+                            _ => {}
+                        }
                     }
+
                     let task = task.conn_task;
 
                     if is_buy_in_progress() {
