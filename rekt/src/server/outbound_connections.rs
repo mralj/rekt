@@ -62,6 +62,8 @@ impl OutboundConnections {
 
                         match err {
                             RLPXSessionError::TcpError(_) => continue,
+                            RLPXSessionError::RlpxError(crate::rlpx::RLPXError::DecodeError(_)) => {
+                            }
                             RLPXSessionError::RlpxError(_) => continue,
                             _ => {}
                         }
