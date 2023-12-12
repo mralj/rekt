@@ -56,6 +56,9 @@ impl OutboundConnections {
             }
             loop {
                 if let Some(task) = self.conn_rx.recv().await {
+                    if let Some(err) = task.err {
+                        tracing::error!("{}", err);
+                    }
                     let task = task.conn_task;
 
                     if is_buy_in_progress() {
