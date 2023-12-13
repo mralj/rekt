@@ -135,7 +135,6 @@ fn decode_legacy(
     if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
-    println!("Cache miss");
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
 
@@ -172,7 +171,6 @@ fn decode_dynamic_and_blob_tx_types(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
-    println!("Cache miss");
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     if !tx_metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -215,7 +213,6 @@ fn decode_access_list_tx_type(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
-    println!("Cache miss");
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
 
     if !tx_metadata.list {
