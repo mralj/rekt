@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
@@ -23,7 +24,12 @@ use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
-pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<ConnectionTaskError>) {
+pub async fn connect_to_node(
+    conn_task: ConnectionTask,
+    tx: UnboundedSender<ConnectionTaskError>,
+    conn_permit: Arc<tokio::sync::Semaphore>,
+) {
+    let permit = conn_permit.clone().acquire_owned().await.unwrap();
     tokio::spawn(async move {
         macro_rules! map_err {
             ($e: expr) => {
@@ -87,6 +93,9 @@ pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<Connection
                 }
             );
 
+        //conn attempt succeeded, so we can release the permit
+        drop(permit);
+
         let mut p = Peer::new(
             node.clone(),
             hello_msg.id,
@@ -123,10 +132,12 @@ async fn handle_auth(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<(), RLPXSessionError> {
     transport.send(RLPXMsgOut::Auth).await?;
-    let msg = transport
-        .try_next()
-        .await?
-        .ok_or(RLPXError::InvalidAckData)?;
+    let msg = match transport.try_next().await {
+        Ok(Some(msg)) => msg,
+        Ok(None) => return Err(RLPXSessionError::ConnectionClosed),
+        Err(e) => return Err(RLPXSessionError::RlpxError(e)),
+    };
+    //.ok_or(RLPXError::InvalidAckData)?;
 
     if !matches!(msg, RLPXMsg::Ack) {
         error!("Got unexpected message: {:?}", msg);

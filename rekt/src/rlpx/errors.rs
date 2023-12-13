@@ -103,4 +103,6 @@ pub enum RLPXSessionError {
     UnsupportedProtocol(#[from] p2p::protocol::ProtocolVersionError),
     #[error("P2P error: {0}")]
     P2PError(#[from] P2PError),
+    #[error("Connection Closed")]
+    ConnectionClosed,
 }

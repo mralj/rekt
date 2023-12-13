@@ -1,14 +1,16 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use secp256k1::{PublicKey, SecretKey};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::p2p::peer::is_buy_in_progress;
+use crate::rlpx::RLPXSessionError;
 
 use super::active_peer_session::connect_to_node;
 use super::connection_task::ConnectionTask;
 use super::errors::ConnectionTaskError;
-use super::peers::{peer_is_blacklisted, BLACKLIST_PEERS_BY_ID};
+use super::peers::peer_is_blacklisted;
 
 const ALWAYS_SLEEP_LITTLE_BIT_MORE_BEFORE_RETRYING_TASK: Duration = Duration::from_secs(5);
 
@@ -21,6 +23,7 @@ pub struct OutboundConnections {
     conn_tx: UnboundedSender<ConnectionTaskError>,
 
     cli: crate::cli::Cli,
+    concurrent_conn_attempts: Arc<tokio::sync::Semaphore>,
 }
 
 impl OutboundConnections {
@@ -39,6 +42,7 @@ impl OutboundConnections {
             conn_rx,
             conn_tx,
             cli,
+            concurrent_conn_attempts: Arc::new(tokio::sync::Semaphore::new(256)),
         }
     }
 
@@ -52,16 +56,31 @@ impl OutboundConnections {
                     self.cli.clone(),
                 );
 
-                connect_to_node(task, self.conn_tx.clone());
+                connect_to_node(
+                    task,
+                    self.conn_tx.clone(),
+                    self.concurrent_conn_attempts.clone(),
+                )
+                .await;
             }
             loop {
                 if let Some(task) = self.conn_rx.recv().await {
-                    let task = task.conn_task;
-
                     if is_buy_in_progress() {
                         tokio::time::sleep(Duration::from_secs(90)).await;
                     }
 
+                    if let Some(err) = task.err {
+                        match err {
+                            RLPXSessionError::ConnectionClosed | RLPXSessionError::TcpError(_) => {
+                                if task.conn_task.attempts > 10 {
+                                    continue;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    let task = task.conn_task;
                     if peer_is_blacklisted(&task.node) {
                         continue;
                     }
@@ -79,11 +98,12 @@ impl OutboundConnections {
                         .await;
                     }
 
-                    if BLACKLIST_PEERS_BY_ID.contains(&task.node.id) {
-                        continue;
-                    }
-
-                    connect_to_node(task, self.conn_tx.clone());
+                    connect_to_node(
+                        task,
+                        self.conn_tx.clone(),
+                        self.concurrent_conn_attempts.clone(),
+                    )
+                    .await;
                 }
             }
         });

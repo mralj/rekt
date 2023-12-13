@@ -120,12 +120,7 @@ impl Default for LogToSheets {
 }
 
 pub async fn write_data_to_sheets(log_info: LogToSheets) -> anyhow::Result<()> {
-    println!(
-        "Writing to sheets at: {}",
-        chrono::Utc::now()
-            .format("%Y-%m-%d %H:%M:%S:%f")
-            .to_string()
-    );
+    tokio::time::sleep(std::time::Duration::from_secs(log_info.server_index as u64)).await;
     let sheets_client = get_client().await?;
     let range = format!("Sheet{}!A:A", log_info.server_index);
 
@@ -169,7 +164,12 @@ pub async fn write_data_to_sheets(log_info: LogToSheets) -> anyhow::Result<()> {
         _ => {}
     }
 
-    println!("Writing to sheets finished");
+    println!(
+        "Writing to sheets finished at: {}",
+        chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S:%f")
+            .to_string()
+    );
     Ok(())
 }
 
