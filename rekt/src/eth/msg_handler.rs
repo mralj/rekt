@@ -33,7 +33,7 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 
     let hashes_to_request = hashes
         .into_iter()
-        .filter(|hash| !cache::was_fetched(hash))
+        .filter(|hash| cache::mark_as_requested(hash) == cache::TxCacheStatus::NotRequested)
         .collect::<Vec<_>>();
 
     if hashes_to_request.is_empty() {

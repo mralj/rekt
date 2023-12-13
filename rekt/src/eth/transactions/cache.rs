@@ -1,35 +1,49 @@
 use crate::types::hash::H256;
 
-pub(super) static mut CACHE: Vec<bool> = Vec::new();
-pub(super) const ALREADY_FETCHED: bool = true;
-pub(super) const NOT_FETCHED: bool = false;
+pub(super) static mut CACHE: Vec<u8> = Vec::new();
+pub(super) const ALREADY_FETCHED_MARKER: u8 = 100;
+pub(super) const MAX_REQUEST_COUNT: u8 = 2;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TxCacheStatus {
+    NotRequested,
+    Requested,
+    Fetched,
+    NotFetched,
+}
 
 pub fn init_cache() {
     unsafe {
-        CACHE.reserve_exact(u32::MAX as usize);
-        for _ in 0..u32::MAX {
-            CACHE.push(false);
+        let cache_size = u32::MAX as usize + 1;
+        CACHE.reserve_exact(cache_size);
+        for _ in 0..cache_size {
+            CACHE.push(0);
         }
         println!("Tx cache initialized");
     }
 }
 
-pub fn mark_as_fetched(hash: &H256) -> bool {
+pub fn mark_as_fetched(hash: &H256) -> TxCacheStatus {
     unsafe {
         let index = convert_hash_to_index(hash);
-        if CACHE[index] == ALREADY_FETCHED {
-            ALREADY_FETCHED
+        if CACHE[index] >= ALREADY_FETCHED_MARKER {
+            TxCacheStatus::Fetched
         } else {
-            CACHE[index] = ALREADY_FETCHED;
-            NOT_FETCHED
+            CACHE[index] = ALREADY_FETCHED_MARKER;
+            TxCacheStatus::NotFetched
         }
     }
 }
 
-pub fn was_fetched(hash: &H256) -> bool {
+pub fn mark_as_requested(hash: &H256) -> TxCacheStatus {
     unsafe {
         let index = convert_hash_to_index(hash);
-        CACHE[index] == ALREADY_FETCHED
+        CACHE[index] += 1;
+        if CACHE[index] > MAX_REQUEST_COUNT {
+            TxCacheStatus::Requested
+        } else {
+            TxCacheStatus::NotRequested
+        }
     }
 }
 

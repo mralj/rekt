@@ -132,7 +132,7 @@ fn decode_legacy(
     tx_metadata: HeaderInfo,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_metadata.total_len]);
-    if cache::mark_as_fetched(&hash) == cache::ALREADY_FETCHED {
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
@@ -167,7 +167,7 @@ fn decode_dynamic_and_blob_tx_types(
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let tx_metadata = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
-    if cache::mark_as_fetched(&hash) == cache::ALREADY_FETCHED {
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
@@ -209,7 +209,7 @@ fn decode_access_list_tx_type(
     let tx_metadata = HeaderInfo::decode(buf)?;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
 
-    if cache::mark_as_fetched(&hash) == cache::ALREADY_FETCHED {
+    if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
