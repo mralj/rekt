@@ -1,4 +1,5 @@
 use std::io;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, TryStreamExt};
@@ -23,7 +24,12 @@ use crate::server::connection_task::ConnectionTask;
 use crate::server::errors::ConnectionTaskError;
 use crate::server::peers::{check_if_already_connected_to_peer, PEERS, PEERS_BY_IP};
 
-pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<ConnectionTaskError>) {
+pub async fn connect_to_node(
+    conn_task: ConnectionTask,
+    tx: UnboundedSender<ConnectionTaskError>,
+    conn_permit: Arc<tokio::sync::Semaphore>,
+) {
+    let permit = conn_permit.clone().acquire_owned().await.unwrap();
     tokio::spawn(async move {
         macro_rules! map_err {
             ($e: expr) => {
@@ -86,6 +92,9 @@ pub fn connect_to_node(conn_task: ConnectionTask, tx: UnboundedSender<Connection
                     Err(e) => Err(e),
                 }
             );
+
+        //conn attempt succeeded, so we can release the permit
+        drop(permit);
 
         let mut p = Peer::new(
             node.clone(),
