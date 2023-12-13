@@ -31,16 +31,10 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
         return Ok(EthMessageHandler::None);
     }
 
-    let len = hashes.len();
     let hashes_to_request = hashes
         .into_iter()
         .filter(|hash| cache::mark_as_requested(hash) == cache::TxCacheStatus::NotRequested)
         .collect::<Vec<_>>();
-
-    println!(
-        "Received {len} hashes, will request {}",
-        hashes_to_request.len()
-    );
 
     if hashes_to_request.is_empty() {
         return Ok(EthMessageHandler::None);
