@@ -1,7 +1,6 @@
 pub mod errors;
 pub mod messages;
 pub mod p2p_wire;
-pub mod p2p_wire_cache;
 pub mod p2p_wire_message;
 pub mod peer;
 pub mod peer_info;

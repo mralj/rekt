@@ -12,7 +12,6 @@ use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
 use super::errors::P2PError;
-use super::p2p_wire_cache::{insert_hash, insert_tx, ALREADY_CACHED};
 use super::p2p_wire_message::{MessageKind, P2pWireMessage};
 use super::peer::is_buy_in_progress;
 use super::{DisconnectReason, P2PMessageID};
@@ -162,29 +161,13 @@ impl Stream for P2PWire {
                     msg.snappy_decompress(&mut this.snappy_decoder)?;
                     return Poll::Ready(Some(Ok(msg)));
                 }
-                EthProtocol::TransactionsMsg | EthProtocol::PooledTransactionsMsg => {
+                _ => {
                     if this.established_on.elapsed()
                         < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
                     {
                         continue;
                     }
-
-                    if insert_tx(&msg.data) == ALREADY_CACHED {
-                        continue;
-                    }
                 }
-                EthProtocol::NewPooledTransactionHashesMsg => {
-                    if this.established_on.elapsed()
-                        < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
-                    {
-                        continue;
-                    }
-
-                    if insert_hash(&msg.data) == ALREADY_CACHED {
-                        continue;
-                    }
-                }
-                _ => {}
             }
 
             msg.snappy_decompress(&mut this.snappy_decoder)?;

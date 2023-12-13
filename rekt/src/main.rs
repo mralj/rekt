@@ -32,7 +32,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let all_nodes = get_all_nodes(&mut config.nodes);
 
     rekt::eth::transactions::cache::init_cache();
-    rekt::p2p::p2p_wire_cache::init_cache();
 
     let file = File::create("log.txt")?;
     let subscriber = FmtSubscriber::builder()
