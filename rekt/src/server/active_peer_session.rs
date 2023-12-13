@@ -123,10 +123,12 @@ async fn handle_auth(
     transport: &mut Framed<TcpStream, Connection>,
 ) -> Result<(), RLPXSessionError> {
     transport.send(RLPXMsgOut::Auth).await?;
-    let msg = transport
-        .try_next()
-        .await?
-        .ok_or(RLPXError::InvalidAckData)?;
+    let msg = match transport.try_next().await {
+        Ok(Some(msg)) => msg,
+        Ok(None) => return Err(RLPXSessionError::ConnectionClosed),
+        Err(e) => return Err(RLPXSessionError::RlpxError(e)),
+    };
+    //.ok_or(RLPXError::InvalidAckData)?;
 
     if !matches!(msg, RLPXMsg::Ack) {
         error!("Got unexpected message: {:?}", msg);
