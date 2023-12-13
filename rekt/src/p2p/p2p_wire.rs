@@ -7,7 +7,7 @@ use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::eth_message::EthMessage;
-use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
+use crate::eth::types::protocol::ETH_PROTOCOL_OFFSET;
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
@@ -17,7 +17,6 @@ use super::peer::is_buy_in_progress;
 use super::{DisconnectReason, P2PMessageID};
 
 const MAX_WRITER_QUEUE_SIZE: usize = 50; // how many messages are we queuing for write
-const IGNORE_RECENTLY_CONNECTED_PEERS_DURATION: u64 = 60 * 5; //seconds
 
 #[pin_project::pin_project]
 #[derive(Debug)]
@@ -156,20 +155,6 @@ impl Stream for P2PWire {
             }
 
             let mut msg = EthMessage::from(msg);
-            match msg.id {
-                EthProtocol::StatusMsg | EthProtocol::UpgradeStatusMsg => {
-                    msg.snappy_decompress(&mut this.snappy_decoder)?;
-                    return Poll::Ready(Some(Ok(msg)));
-                }
-                _ => {
-                    if this.established_on.elapsed()
-                        < tokio::time::Duration::from_secs(IGNORE_RECENTLY_CONNECTED_PEERS_DURATION)
-                    {
-                        continue;
-                    }
-                }
-            }
-
             msg.snappy_decompress(&mut this.snappy_decoder)?;
             return Poll::Ready(Some(Ok(msg)));
         }
