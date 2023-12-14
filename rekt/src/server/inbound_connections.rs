@@ -1,7 +1,7 @@
 use std::{
     io,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    sync::atomic::AtomicBool,
+    sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
 
@@ -35,6 +35,8 @@ pub struct InboundConnections {
     our_private_key: secp256k1::SecretKey,
 
     is_paused: AtomicBool,
+    concurrent_conn_attempts: Arc<tokio::sync::Semaphore>,
+
     cli: crate::cli::Cli,
 }
 
@@ -43,6 +45,7 @@ impl InboundConnections {
         Self {
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
+            concurrent_conn_attempts: Arc::new(tokio::sync::Semaphore::new(256)),
             cli,
         }
     }
@@ -74,6 +77,13 @@ impl InboundConnections {
         let our_secret_key = self.our_private_key;
         let listener = socket.listen(1024)?;
         loop {
+            let semaphore = self
+                .concurrent_conn_attempts
+                .clone()
+                .acquire_owned()
+                .await
+                .unwrap();
+
             let (stream, src) = listener.accept().await?;
             //let _ = stream.set_nodelay(true);
 
@@ -90,7 +100,8 @@ impl InboundConnections {
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let transport = rlpx_connection.framed(stream);
-                let _ = new_connection_handler(src, transport, our_secret_key, cli).await;
+                let _ =
+                    new_connection_handler(src, transport, our_secret_key, cli, semaphore).await;
             });
         }
     }
@@ -101,6 +112,7 @@ async fn new_connection_handler(
     mut transport: Framed<TcpStream, Connection>,
     secret_key: secp256k1::SecretKey,
     cli: Cli,
+    semaphore: tokio::sync::OwnedSemaphorePermit,
 ) -> Result<(), RLPXSessionError> {
     let external_node_pub_key = handle_auth(&mut transport).await?;
 
@@ -124,6 +136,7 @@ async fn new_connection_handler(
         }
     };
 
+    drop(semaphore);
     let mut p = Peer::new(
         node.clone(),
         hello_msg.id,
