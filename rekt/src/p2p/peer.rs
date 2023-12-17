@@ -141,12 +141,13 @@ impl Peer {
 
         loop {
             select! {
+                biased;
                 tx = tx_receiver.recv() => {
                     if let Ok(tx) = tx {
                         self.connection.send(tx).await?;
                     }
                 },
-                msg = self.connection.next() => {
+                msg = self.connection.next(), if !is_buy_in_progress() => {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
                     if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                         match handler_resp {
@@ -182,7 +183,7 @@ impl Peer {
                         }
                     }
                 },
-                ping = ping_recv.recv() => {
+                ping = ping_recv.recv(), if !is_buy_in_progress() => {
                     if ping.is_some() {
                         self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
                     }
