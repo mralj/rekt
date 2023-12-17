@@ -247,7 +247,7 @@ impl Peer {
             SELL_IS_IN_PROGRESS = true;
         }
         cprintln!(
-            "<b><green>[{}][{duration}]Bought token: {}</></>\nliq TX: {} ",
+            "<b><green>[{}][{duration} micros]Bought token: {}</></>\nliq TX: {} ",
             buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
             get_bsc_token_url(buy_info.token.buy_token_address),
             get_bsc_tx_url(buy_info.hash)

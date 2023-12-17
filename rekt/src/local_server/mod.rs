@@ -56,9 +56,10 @@ pub fn run_local_server(
                     );
                     tx_sender.send(prep_tx);
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                    let duration = END.load(std::sync::atomic::Ordering::SeqCst);
+                    let duration = END.load(std::sync::atomic::Ordering::SeqCst)
+                        - START.load(std::sync::atomic::Ordering::SeqCst);
                     cprintln!(
-                        "<yellow>[{}][{duration}]Prep sent successfully: {}</>",
+                        "<yellow>[{}][{duration} micros]Prep sent successfully: {}</>",
                         PEERS.len(),
                         token.buy_token_address
                     );
