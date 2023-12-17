@@ -105,7 +105,6 @@ impl P2PWire {
                 let mut buf = BytesMut::new();
                 P2PMessage::Pong.encode(&mut buf);
                 let b = buf.freeze();
-                println!("{:?}", b);
 
                 self.writer_queue.push_back(b);
 
@@ -153,7 +152,6 @@ impl Stream for P2PWire {
 
             if msg.kind == MessageKind::P2P {
                 msg.snappy_decompress(&mut this.snappy_decoder)?;
-                println!("{:?}", msg);
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
                 }

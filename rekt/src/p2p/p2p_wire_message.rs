@@ -84,6 +84,7 @@ impl P2pWireMessage {
         match msg_id {
             1 => true,  // P2P/Disconnect
             2 => true,  // P2P/Ping
+            3 => true,  // P2P/Pong
             16 => true, // ETH/Status
             27 => true, // ETH/UpgradeStatus
             18 => true, // ETH/Transactions
