@@ -96,8 +96,6 @@ impl P2PWire {
                 DisconnectReason::decode(&mut &msg.data[..])?,
             )),
             P2PMessageID::Ping => {
-                println!("Ping received");
-                return Ok(());
                 let no_need_to_send_ping_if_there_are_messages_queued =
                     !self.writer_queue.is_empty();
                 if no_need_to_send_ping_if_there_are_messages_queued {
@@ -106,8 +104,10 @@ impl P2PWire {
 
                 let mut buf = BytesMut::new();
                 P2PMessage::Pong.encode(&mut buf);
+                let b = buf.freeze();
+                println!("{:?}", b);
 
-                self.writer_queue.push_back(buf.freeze());
+                self.writer_queue.push_back(b);
 
                 // Flushes (writes) sink (maybe writes our Pong message)
                 // To explain "maybe writes" our Pong message:
@@ -152,8 +152,8 @@ impl Stream for P2PWire {
             }
 
             if msg.kind == MessageKind::P2P {
-                println!("{:?}", msg);
                 msg.snappy_decompress(&mut this.snappy_decoder)?;
+                println!("{:?}", msg);
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
                 }
