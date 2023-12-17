@@ -5,11 +5,13 @@ use std::time::Duration;
 use futures::{SinkExt, TryStreamExt};
 use secp256k1::PublicKey;
 use tokio::net::TcpStream;
+use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::timeout;
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
+use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
@@ -28,6 +30,7 @@ pub async fn connect_to_node(
     conn_task: ConnectionTask,
     tx: UnboundedSender<ConnectionTaskError>,
     conn_permit: Arc<tokio::sync::Semaphore>,
+    tx_sender: Sender<EthMessage>,
 ) {
     let permit = conn_permit.clone().acquire_owned().await.unwrap();
     tokio::spawn(async move {
@@ -104,6 +107,7 @@ pub async fn connect_to_node(
             TcpWire::new(transport),
             PeerType::Outbound,
             conn_task.server_info.clone(),
+            tx_sender,
         );
 
         let task_result = p.run().await;

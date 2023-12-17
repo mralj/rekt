@@ -51,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     import_tokens_to_buy();
 
     let (conn_tx, conn_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx_sender, _) = tokio::sync::broadcast::channel(2);
     let outbound_connections = OutboundConnections::new(
         our_node.private_key,
         our_node.public_key,
@@ -58,6 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         conn_rx,
         conn_tx.clone(),
         args.clone(),
+        tx_sender.clone(),
     );
 
     BLACKLIST_PEERS_BY_ID.insert(our_node.node_record.id);
@@ -82,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let incoming_listener = Arc::new(InboundConnections::new(our_node, args));
+    let incoming_listener = Arc::new(InboundConnections::new(our_node, args, tx_sender.clone()));
     let listener = incoming_listener.clone();
     tokio::spawn(async move {
         if let Err(e) = listener.run().await {
@@ -90,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    run_local_server(disc_server, incoming_listener);
+    run_local_server(disc_server, incoming_listener, tx_sender);
 
     let _ = tokio::signal::ctrl_c().await;
 
