@@ -88,10 +88,7 @@ impl P2PWire {
 
         match p2p_msg_id {
             P2PMessageID::Hello => Ok(()),
-            P2PMessageID::Pong => {
-                println!("Pong received");
-                Ok(())
-            }
+            P2PMessageID::Pong => Ok(()),
             P2PMessageID::Disconnect => Err(P2PError::DisconnectRequested(
                 DisconnectReason::decode(&mut &msg.data[..])?,
             )),
@@ -204,7 +201,6 @@ impl Sink<EthMessage> for P2PWire {
             let mut buf = BytesMut::new();
             P2PMessage::Ping.encode(&mut buf);
 
-            println!("Sending Ping");
             self.writer_queue.push_back(buf.freeze());
             return Ok(());
         }
