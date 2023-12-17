@@ -2,6 +2,9 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
+use tokio::select;
+use tokio::sync::mpsc;
+use tokio::time::interval;
 
 use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
@@ -126,56 +129,28 @@ impl Peer {
             .await
             .insert(self.node_record.id, peer_ptr);
 
+        let (ping_send, mut ping_recv) = tokio::sync::mpsc::channel(1);
+        Self::start_pinger(ping_send);
+
         loop {
-            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                match handler_resp {
-                    EthMessageHandler::Response(msg) => {
-                        self.connection.send(msg).await?;
-                    }
-                    EthMessageHandler::Buy(mut buy_info) => {
-                        let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
-                            Some(buy_txs) => buy_txs,
-                            None => {
-                                println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
-                                let start = std::time::Instant::now();
-                                let tx = buy_info
-                                    .token
-                                    .prepare_buy_txs_for_gas_price(buy_info.gas_price)
-                                    .await;
-                                println!(
-                                    "Prepared txs for gwei in {}us",
-                                    start.elapsed().as_micros()
-                                );
-
-                                tx
+            select! {
+                msg = self.connection.next() => {
+                    let msg = msg.ok_or(P2PError::NoMessage)??;
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                        match handler_resp {
+                            EthMessageHandler::None => {},
+                            EthMessageHandler::Response(msg) => {
+                                self.connection.send(msg).await?;
                             }
-                        };
-
-                        let sent_txs_to_peer_count = Peer::send_tx(buy_txs).await;
-
-                        mark_token_as_bought(buy_info.token.buy_token_address);
-                        unsafe {
-                            BUY_IS_IN_PROGRESS = false;
-                            SELL_IS_IN_PROGRESS = true;
-                        }
-                        cprintln!(
-                                "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
-                                buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
-                                get_bsc_token_url(buy_info.token.buy_token_address),
-                                get_bsc_tx_url(buy_info.hash)
-                            );
-
-                        Self::sell(buy_info.token.clone()).await;
-                        if let Err(e) = google_sheets::write_data_to_sheets(
-                            LogToSheets::new(&self.cli, &self, &buy_info).await,
-                        )
-                        .await
-                        {
-                            error!("Failed to write to sheets: {}", e);
+                            EthMessageHandler::Buy(token) => {
+                               //TODO: handle this
+                            }
                         }
                     }
-                    EthMessageHandler::None => {}
+                },
+                _ = ping_recv.recv() => {
+                     //TODO: handle ping
+                    //self.connection.send(EthMessage::new_ping_message()).await?;
                 }
             }
         }
@@ -258,5 +233,23 @@ impl Peer {
         tokio::time::sleep(Duration::from_millis(3 * BLOCK_DURATION_IN_MILLIS)).await;
         update_nonces_for_local_wallets().await;
         remove_all_tokens_to_buy();
+    }
+
+    pub(crate) fn start_pinger(ping_sender: mpsc::Sender<()>) {
+        tokio::spawn(async move {
+            let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+                std::time::Duration::from_secs(15), // same as in geth
+            ));
+
+            while let Some(_) = stream.next().await {
+                if is_buy_in_progress() {
+                    continue;
+                }
+
+                if let Err(_) = ping_sender.send(()).await {
+                    return;
+                }
+            }
+        });
     }
 }
