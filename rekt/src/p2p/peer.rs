@@ -1,6 +1,7 @@
 use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::AtomicI64;
 use std::time::Duration;
 use tokio::select;
 use tokio::sync::{broadcast, mpsc};
@@ -55,6 +56,9 @@ pub fn is_buy_or_sell_in_progress() -> bool {
 }
 
 const BLOCK_DURATION_IN_MILLIS: u64 = 3000;
+
+pub static START: AtomicI64 = AtomicI64::new(0);
+pub static END: AtomicI64 = AtomicI64::new(0);
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Display, Serialize, Deserialize)]
 pub enum PeerType {
@@ -145,6 +149,7 @@ impl Peer {
                 tx = tx_receiver.recv() => {
                     if let Ok(tx) = tx {
                         self.connection.send(tx).await?;
+                        END.store(chrono::Utc::now().timestamp_micros(), std::sync::atomic::Ordering::SeqCst);
                     }
                 },
                 msg = self.connection.next(), if !is_buy_in_progress() => {
@@ -170,6 +175,7 @@ impl Peer {
                                                     tx
                                                     }
                                             };
+                        START.store(chrono::Utc::now().timestamp_micros(), std::sync::atomic::Ordering::SeqCst);
                         self.tx_sender.send(buy_txs);
                         self.sell(&buy_info).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
@@ -233,13 +239,15 @@ impl Peer {
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
         tokio::time::sleep(Duration::from_millis(200)).await;
+        let duration = END.load(std::sync::atomic::Ordering::SeqCst)
+            - START.load(std::sync::atomic::Ordering::SeqCst);
         mark_token_as_bought(buy_info.token.buy_token_address);
         unsafe {
             BUY_IS_IN_PROGRESS = false;
             SELL_IS_IN_PROGRESS = true;
         }
         cprintln!(
-            "<b><green>[{}]Bought token: {}</></>\nliq TX: {} ",
+            "<b><green>[{}][{duration}]Bought token: {}</></>\nliq TX: {} ",
             buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
             get_bsc_token_url(buy_info.token.buy_token_address),
             get_bsc_tx_url(buy_info.hash)
