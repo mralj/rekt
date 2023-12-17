@@ -149,8 +149,7 @@ impl Peer {
                     }
                 },
                 _ = ping_recv.recv() => {
-                     //TODO: handle ping
-                    //self.connection.send(EthMessage::new_ping_message()).await?;
+                    self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
                 }
             }
         }

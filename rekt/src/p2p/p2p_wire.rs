@@ -7,7 +7,7 @@ use num_traits::FromPrimitive;
 use open_fastrlp::{Decodable, DecodeError, Encodable};
 
 use crate::eth::eth_message::EthMessage;
-use crate::eth::types::protocol::ETH_PROTOCOL_OFFSET;
+use crate::eth::types::protocol::{EthProtocol, ETH_PROTOCOL_OFFSET};
 use crate::p2p::P2PMessage;
 use crate::rlpx::TcpWire;
 
@@ -197,6 +197,13 @@ impl Sink<EthMessage> for P2PWire {
     }
 
     fn start_send(mut self: std::pin::Pin<&mut Self>, item: EthMessage) -> Result<(), Self::Error> {
+        if item.id == EthProtocol::DevP2PPing {
+            let mut buf = BytesMut::new();
+            P2PMessage::Ping.encode(&mut buf);
+
+            self.writer_queue.push_back(buf.freeze());
+            return Ok(());
+        }
         // since the interacting with sink should work as follows:
         // 1. call poll_ready, if it returns Ready(ok), call start_send,
         // but if it returns anything other than that, start_send should not be called

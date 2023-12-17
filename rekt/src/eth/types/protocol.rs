@@ -22,6 +22,7 @@ pub enum EthProtocol {
     PooledTransactionsMsg = 0x0a,
     // Protocol messages overloaded in eth/67
     UpgradeStatusMsg = 0x0b,
+    DevP2PPing = 0xfe,
     Unknown = 0xff,
 }
 
