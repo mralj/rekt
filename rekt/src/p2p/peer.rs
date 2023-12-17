@@ -148,8 +148,10 @@ impl Peer {
                         }
                     }
                 },
-                _ = ping_recv.recv() => {
-                    self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
+                ping = ping_recv.recv() => {
+                    if ping.is_some() {
+                        self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
+                    }
                 }
             }
         }
