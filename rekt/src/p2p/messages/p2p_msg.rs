@@ -56,7 +56,12 @@ impl Encodable for P2PMessage {
                 m.encode(out);
             }
             P2PMessage::Disconnect(_r) => todo!(),
-            P2PMessage::Ping => todo!(),
+            P2PMessage::Ping => {
+                P2PMessageID::Ping.encode(out);
+                out.put_u8(0x01);
+                out.put_u8(0x00);
+                out.put_u8(open_fastrlp::EMPTY_LIST_CODE);
+            }
             P2PMessage::Pong => {
                 P2PMessageID::Pong.encode(out);
                 // Pong payload is _always_ snappy encoded
