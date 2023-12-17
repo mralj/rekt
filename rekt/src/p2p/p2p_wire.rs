@@ -96,6 +96,7 @@ impl P2PWire {
                 DisconnectReason::decode(&mut &msg.data[..])?,
             )),
             P2PMessageID::Ping => {
+                println!("Ping received");
                 return Ok(());
                 let no_need_to_send_ping_if_there_are_messages_queued =
                     !self.writer_queue.is_empty();
