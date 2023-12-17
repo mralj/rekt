@@ -88,7 +88,10 @@ impl P2PWire {
 
         match p2p_msg_id {
             P2PMessageID::Hello => Ok(()),
-            P2PMessageID::Pong => Ok(()),
+            P2PMessageID::Pong => {
+                println!("Pong received");
+                Ok(())
+            }
             P2PMessageID::Disconnect => Err(P2PError::DisconnectRequested(
                 DisconnectReason::decode(&mut &msg.data[..])?,
             )),
