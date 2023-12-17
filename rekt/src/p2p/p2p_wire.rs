@@ -152,6 +152,7 @@ impl Stream for P2PWire {
             }
 
             if msg.kind == MessageKind::P2P {
+                println!("{:?}", msg);
                 msg.snappy_decompress(&mut this.snappy_decoder)?;
                 if let Err(e) = this.handle_p2p_msg(msg, cx) {
                     return Poll::Ready(Some(Err(e)));
