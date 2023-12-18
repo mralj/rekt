@@ -17,7 +17,7 @@ use crate::{
 
 use super::{
     local_wallets_list::{
-        LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, SELL_WALLET_ADDRESS,
+        LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, PRIORITY_WALLET_ADDRESS, SELL_WALLET_ADDRESS,
         UN_IMPORTANT_WALLETS_START_AT_INDEX,
     },
     wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
@@ -34,6 +34,12 @@ pub static PREPARE_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
 
 pub static SELL_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
     RwLock::new(WalletWithNonce::from_str(SELL_WALLET_ADDRESS).expect("Sell wallet is invalid"))
+});
+
+pub static PRIORITY_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
+    RwLock::new(
+        WalletWithNonce::from_str(PRIORITY_WALLET_ADDRESS).expect("Priority wallet is invalid"),
+    )
 });
 
 pub async fn init_local_wallets(args: &mut Cli) {
@@ -80,6 +86,11 @@ pub async fn init_local_wallets(args: &mut Cli) {
     if SELL_WALLET.read().await.nonce().is_none() {
         panic!("Sell wallet has no nonce");
     }
+
+    PRIORITY_WALLET.write().await.update_nonce().await;
+    if PRIORITY_WALLET.read().await.nonce().is_none() {
+        panic!("Priority wallet has no nonce");
+    }
 }
 
 pub async fn update_nonces_for_local_wallets() {
@@ -94,6 +105,9 @@ pub async fn update_nonces_for_local_wallets() {
 
     let sell_wallet = &mut SELL_WALLET.write().await;
     sell_wallet.update_nonce().await;
+
+    let priority_wallet = &mut PRIORITY_WALLET.write().await;
+    priority_wallet.update_nonce().await;
 }
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
@@ -123,6 +137,18 @@ pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
         buy_txs.push(prep_tx);
     }
 
+    if let Some(priority_tx) = &token.priority_tx {
+        let priority_wallet = &mut PRIORITY_WALLET.write().await;
+        let priority_tx = priority_wallet
+            .generate_and_sign_buy_tx(Token::get_gas_price_for_high_priority_tx(
+                priority_tx.min_gas_price,
+                priority_tx.max_gas_price,
+            ))
+            .await
+            .expect("Failed to generate and sign priority tx");
+
+        buy_txs.push(priority_tx);
+    }
     snappy_compress_rlp_bytes(rlp_encode_list_of_bytes(&buy_txs))
 }
 
