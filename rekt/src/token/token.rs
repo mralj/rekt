@@ -50,7 +50,7 @@ pub struct Token {
     #[serde(rename = "doPrep", default)]
     pub prep_in_flight: bool,
 
-    #[serde(rename = "includePriority", default)]
+    #[serde(rename = "priority_tx", default)]
     pub priority_tx: Option<PriorityTx>,
 
     #[serde(rename = "isPcs", default)]
