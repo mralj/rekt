@@ -1,4 +1,5 @@
 use ethers::types::{Address, U256};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -48,6 +49,9 @@ pub struct Token {
     /// needs to be sent alongside  buy txs
     #[serde(rename = "doPrep", default)]
     pub prep_in_flight: bool,
+
+    #[serde(rename = "priority_tx", default)]
+    pub priority_tx: Option<PriorityTx>,
 
     #[serde(rename = "isPcs", default)]
     pub liq_will_be_added_via_pcs: bool,
@@ -112,6 +116,14 @@ pub struct FromConfig {
     pub min_nonce: u64,
     #[serde(rename = "maxNonce", default)]
     pub max_nonce: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PriorityTx {
+    #[serde(rename = "min", default)]
+    pub min_gas_price: u64,
+    #[serde(rename = "max", default)]
+    pub max_gas_price: u64,
 }
 
 impl Token {
@@ -182,6 +194,16 @@ impl Token {
         }
 
         tx_data[arg_position - 1] == self.enable_buy_config.trade_status_arg_value
+    }
+
+    pub fn get_gas_price_for_high_priority_tx(min: u64, max: u64) -> U256 {
+        //we randomly pick some gas price in range 40-50 gwei
+        let gas_price = (&mut rand::thread_rng()).gen_range(
+            min * 10u64.pow(DEFAULT_GWEI_DECIMAL_PRECISION as u32)
+                ..max * 10u64.pow(DEFAULT_GWEI_DECIMAL_PRECISION as u32),
+        );
+
+        gwei_to_wei_with_decimals(gas_price, DEFAULT_GWEI_DECIMAL_PRECISION)
     }
 }
 
@@ -266,7 +288,8 @@ mod test {
                 max_token_buy_limit: 0,
                 prep_in_flight: false,
                 from: None,
-                liq_will_be_added_via_pcs: false
+                liq_will_be_added_via_pcs: false,
+                priority_tx: None
             }
         );
     }
@@ -300,6 +323,7 @@ mod test {
             from: None,
             prep_in_flight: false,
             liq_will_be_added_via_pcs: false,
+            priority_tx: None,
         };
 
         let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");
