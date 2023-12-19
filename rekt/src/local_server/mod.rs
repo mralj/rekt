@@ -8,11 +8,7 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
-    p2p::{
-        peer::{PeerType, END, START},
-        peer_info::PeerInfo,
-        Peer,
-    },
+    p2p::{peer::PeerType, peer_info::PeerInfo},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
@@ -50,16 +46,10 @@ pub fn run_local_server(
                     let prep_tx = EthMessage::new_compressed_tx_message(
                         generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
                     );
-                    START.store(
-                        chrono::Utc::now().timestamp_micros(),
-                        std::sync::atomic::Ordering::SeqCst,
-                    );
-                    tx_sender.send(prep_tx);
+                    let _ = tx_sender.send(prep_tx);
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                    let duration = END.load(std::sync::atomic::Ordering::SeqCst)
-                        - START.load(std::sync::atomic::Ordering::SeqCst);
                     cprintln!(
-                        "<yellow>[{}][{duration} micros]Prep sent successfully: {}</>",
+                        "<yellow>[{}]Prep sent successfully: {}</>",
                         PEERS.len(),
                         token.buy_token_address
                     );
