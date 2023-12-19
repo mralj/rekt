@@ -73,10 +73,10 @@ pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
         }
     };
 
-    let response = match response.json::<ApiResponse>().await {
+    let response = match response.text().await {
         Ok(r) => r,
         Err(e) => {
-            println!("Puissant send_private_tx err: {}", e);
+            println!("Puissant send_private_tx err: {} \n", e);
             return Ok(());
         }
     };
