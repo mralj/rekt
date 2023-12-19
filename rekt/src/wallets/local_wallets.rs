@@ -182,6 +182,15 @@ pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: boo
     rlp_encode_list_of_bytes(&vec![tx])
 }
 
+pub async fn generate_mev_bid(gas_price_in_gwei: u64) -> Bytes {
+    let high_priority_wallet = &mut PRIORITY_WALLET.write().await;
+    let tx = high_priority_wallet
+        .generate_mev_tx(gwei_to_wei(gas_price_in_gwei))
+        .await
+        .expect("Failed to generate and sign mev tx");
+    rlp_encode_list_of_bytes(&vec![tx])
+}
+
 fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::Bytes {
     let mut out = BytesMut::with_capacity(txs_rlp_encoded.len() * 2);
     Header {

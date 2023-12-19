@@ -4,6 +4,8 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::wallets::local_wallets::generate_mev_bid;
+
 const PUISSANT_API_URL: &str = "https://puissant-bsc.48.club";
 const PUISSANT_EXPLORER_URL: &str = "https://explorer.48.club/api/v1";
 
@@ -47,6 +49,49 @@ pub async fn get_score() {
             return;
         }
     }
+}
+
+pub async fn send_mev(tx: Bytes, id: u64, bid_gas_price_in_gwei: u64) -> anyhow::Result<()> {
+    let client = reqwest::Client::new();
+    let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
+
+    let data = json!({
+        "id": id,
+        "jsonrpc": "2.0",
+        "method": "eth_sendPuissant",
+        "params": [{
+            "txs": [format!("0x{}", hex::encode(bid)) , format!("0x{}", hex::encode(&tx))],
+            "maxTimestamp": chrono::Utc::now().timestamp_millis() as u64 + 1000 * 12,
+            "acceptReverting": [],
+            "bidGasPrice": bid_gas_price_in_gwei
+        }]
+    });
+
+    let response = match client
+        .post(PUISSANT_API_URL)
+        .header("Content-Type", "application/json")
+        .json(&data)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Puissant send_private_tx err: {}", e);
+            return Ok(());
+        }
+    };
+
+    let response = match response.text().await {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Puissant send_private_tx err: {} \n", e);
+            return Ok(());
+        }
+    };
+
+    println!("Response: {:?}", response);
+
+    Ok(())
 }
 
 pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
@@ -124,6 +169,25 @@ impl Display for ScoreResponse {
         )
     }
 }
+
+// #[derive(Serialize, Deserialize, Debug)]
+// struct MevArgs {
+//     txs: Vec<String>,
+//     #[serde(rename = "maxTimestamp")]
+//     max_timestamp: u64,
+//     #[serde(rename = "acceptReverting")]
+//     txs_hashes_which_can_fail: Vec<String>,
+// }
+//
+// impl MevArgs {
+//     pub fn new(txs: Vec<String>, txs_hashes_which_can_fail: Vec<String>) -> Self {
+//         Self {
+//             txs,
+//             max_timestamp: chrono::Utc::now().timestamp_millis() as u64 + 1000 * 12,
+//             txs_hashes_which_can_fail,
+//         }
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ApiResponse {
