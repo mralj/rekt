@@ -8,11 +8,12 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
+    mev,
     p2p::{peer::PeerType, peer_info::PeerInfo},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
-    wallets::local_wallets::generate_and_rlp_encode_prep_tx,
+    wallets::local_wallets::{generate_rlp_prep_tx, generate_rlp_snappy_prep_tx},
 };
 
 pub fn run_local_server(
@@ -43,16 +44,19 @@ pub fn run_local_server(
                         return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
                     }
                     let token = token.unwrap();
-                    let prep_tx = EthMessage::new_compressed_tx_message(
-                        generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
-                    );
-                    let _ = tx_sender.send(prep_tx);
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                    cprintln!(
-                        "<yellow>[{}]Prep sent successfully: {}</>",
-                        PEERS.len(),
-                        token.buy_token_address
-                    );
+                    // let prep_tx = EthMessage::new_compressed_tx_message(
+                    //     generate_rlp_snappy_prep_tx(token, MIN_GAS_PRICE).await,
+                    // );
+                    // let _ = tx_sender.send(prep_tx);
+                    let prep_tx = generate_rlp_prep_tx(token, MIN_GAS_PRICE).await.0;
+                    let _ = mev::puissant::send_private_tx(prep_tx, 1).await;
+
+                    // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    // cprintln!(
+                    //     "<yellow>[{}]Prep sent successfully: {}</>",
+                    //     PEERS.len(),
+                    //     token.buy_token_address
+                    // );
                     return Ok(format!(
                         "Prep sent successfully: {}",
                         token.buy_token_address
