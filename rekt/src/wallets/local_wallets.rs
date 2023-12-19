@@ -188,7 +188,8 @@ pub async fn generate_mev_bid(gas_price_in_gwei: u64) -> Bytes {
         .generate_mev_tx(gwei_to_wei(gas_price_in_gwei))
         .await
         .expect("Failed to generate and sign mev tx");
-    rlp_encode_list_of_bytes(&vec![tx])
+
+    tx.0
 }
 
 fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::Bytes {
