@@ -56,7 +56,7 @@ pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
         "id": id,
         "jsonrpc": "2.0",
         "method": "eth_sendPrivateRawTransaction",
-        "params": [tx]
+        "params": [hex::encode(tx)]
     });
 
     let response = match client
