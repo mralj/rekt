@@ -6,6 +6,7 @@ use rekt::config::get_config;
 use rekt::constants::BOOTSTRAP_NODES;
 use rekt::local_node::LocalNode;
 use rekt::local_server::run_local_server;
+use rekt::mev;
 use rekt::public_nodes::nodes::init_connection_to_public_nodes;
 use rekt::server::inbound_connections::InboundConnections;
 use rekt::server::outbound_connections::OutboundConnections;
@@ -28,6 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut args = Cli::parse();
     println!("{}", args);
+
+    mev::puissant::ping().await;
+    mev::puissant::get_score().await;
+
     let mut config = get_config()?;
     let all_nodes = get_all_nodes(&mut config.nodes);
 
