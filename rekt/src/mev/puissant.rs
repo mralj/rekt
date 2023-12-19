@@ -59,8 +59,6 @@ pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
         "params": [format!("0x{}", hex::encode(&tx))]
     });
 
-    println!("{}", data);
-
     let response = match client
         .post(PUISSANT_API_URL)
         .header("Content-Type", "application/json")
@@ -75,7 +73,7 @@ pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
         }
     };
 
-    let response = match response.text().await {
+    let response = match response.json::<ApiResponse>().await {
         Ok(r) => r,
         Err(e) => {
             println!("Puissant send_private_tx err: {} \n", e);
