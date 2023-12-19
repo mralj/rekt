@@ -48,7 +48,7 @@ pub fn run_local_server(
                     //     generate_rlp_snappy_prep_tx(token, MIN_GAS_PRICE).await,
                     // );
                     // let _ = tx_sender.send(prep_tx);
-                    let prep_tx = generate_rlp_prep_tx(token, MIN_GAS_PRICE).await.0;
+                    let prep_tx = generate_rlp_prep_tx(token, 60).await.0;
                     let _ = mev::puissant::send_private_tx(prep_tx, 1).await;
 
                     // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
