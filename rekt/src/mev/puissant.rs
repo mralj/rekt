@@ -52,17 +52,14 @@ pub async fn get_score() {
 pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
 
-    println!("{}", hex::encode(&tx));
     let data = json!({
         "id": id,
         "jsonrpc": "2.0",
         "method": "eth_sendPrivateRawTransaction",
-        "params": [hex::encode(tx)]
+        "params": [format!("0x{}", hex::encode(&tx))]
     });
 
     println!("{}", data);
-
-    return Ok(());
 
     let response = match client
         .post(PUISSANT_API_URL)
