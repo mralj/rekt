@@ -61,7 +61,7 @@ pub async fn send_mev(tx: Bytes, id: u64, bid_gas_price_in_gwei: u64) -> anyhow:
         "method": "eth_sendPuissant",
         "params": [{
             "txs": [format!("0x{}", hex::encode(bid)) , format!("0x{}", hex::encode(&tx))],
-            "maxTimestamp": chrono::Utc::now().timestamp_millis() as u64 + 1000 * 12,
+            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + 12,
             "acceptReverting": [],
             "bidGasPrice": bid_gas_price_in_gwei
         }]
