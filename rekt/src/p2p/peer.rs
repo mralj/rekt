@@ -2,6 +2,9 @@ use derive_more::Display;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
+use tokio::select;
+use tokio::sync::{broadcast, mpsc};
+use tokio::time::interval;
 
 use color_print::cprintln;
 use futures::{SinkExt, StreamExt};
@@ -12,11 +15,11 @@ use tracing::error;
 use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
-use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
 use crate::cli::Cli;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
 use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
+use crate::eth::transactions::decoder::BuyTokenInfo;
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
 use crate::p2p::p2p_wire::P2PWire;
@@ -24,7 +27,6 @@ use crate::rlpx::TcpWire;
 use crate::server::peers::{
     blacklist_peer, check_if_already_connected_to_peer, PEERS, PEERS_BY_IP,
 };
-use crate::token::token::Token;
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
 use crate::{eth, google_sheets};
@@ -70,6 +72,8 @@ pub struct Peer {
 
     pub(super) protocol_version: ProtocolVersion,
 
+    tx_sender: broadcast::Sender<EthMessage>,
+
     cli: Cli,
 }
 
@@ -82,6 +86,7 @@ impl Peer {
         connection: TcpWire,
         peer_type: PeerType,
         cli: Cli,
+        tx_sender: broadcast::Sender<EthMessage>,
     ) -> Self {
         Self {
             id,
@@ -89,6 +94,7 @@ impl Peer {
             connection: P2PWire::new(connection),
             info,
             peer_type,
+            tx_sender,
             node_record: enode,
             protocol_version: ProtocolVersion::from(protocol),
             td: 0,
@@ -118,55 +124,44 @@ impl Peer {
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
 
-        let peer_ptr = UnsafeSyncPtr {
-            peer: self as *mut _,
-        };
-        PEERS_SELL
-            .lock()
-            .await
-            .insert(self.node_record.id, peer_ptr);
+        let (ping_send, mut ping_recv) = tokio::sync::mpsc::channel(1);
+        Self::start_pinger(ping_send);
+
+        let mut tx_receiver = self.tx_sender.subscribe();
 
         loop {
-            let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
-            if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
-                match handler_resp {
-                    EthMessageHandler::Response(msg) => {
-                        self.connection.send(msg).await?;
+            select! {
+                biased;
+                tx = tx_receiver.recv() => {
+                    if let Ok(tx) = tx {
+                        self.connection.send(tx).await?;
                     }
-                    EthMessageHandler::Buy(mut buy_info) => {
-                        let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
-                            Some(buy_txs) => buy_txs,
-                            None => {
-                                println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
-                                let start = std::time::Instant::now();
-                                let tx = buy_info
-                                    .token
-                                    .prepare_buy_txs_for_gas_price(buy_info.gas_price)
-                                    .await;
-                                println!(
-                                    "Prepared txs for gwei in {}us",
-                                    start.elapsed().as_micros()
-                                );
-
-                                tx
+                },
+                msg = self.connection.next(), if !is_buy_in_progress() => {
+                    let msg = msg.ok_or(P2PError::NoMessage)??;
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                        match handler_resp {
+                            EthMessageHandler::None => {},
+                            EthMessageHandler::Response(msg) => {
+                                self.connection.send(msg).await?;
                             }
-                        };
-
-                        let sent_txs_to_peer_count = Peer::send_tx(buy_txs).await;
-
-                        mark_token_as_bought(buy_info.token.buy_token_address);
-                        unsafe {
-                            BUY_IS_IN_PROGRESS = false;
-                            SELL_IS_IN_PROGRESS = true;
-                        }
-                        cprintln!(
-                                "<b><green>[{}][{sent_txs_to_peer_count}] Bought token: {}</></>\nliq TX: {} ",
-                                buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
-                                get_bsc_token_url(buy_info.token.buy_token_address),
-                                get_bsc_tx_url(buy_info.hash)
-                            );
-
-                        Self::sell(buy_info.token.clone()).await;
+                            EthMessageHandler::Buy(mut buy_info) => {
+                               let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
+                                                Some(buy_txs) => buy_txs,
+                                                None => {
+                                                    println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
+                                                    let start = std::time::Instant::now();
+                                                    let tx = buy_info
+                                                             .token
+                                                             .prepare_buy_txs_for_gas_price(buy_info.gas_price)
+                                                             .await;
+                                                    println!("Prepared txs for gwei in {}us",
+                                                             start.elapsed().as_micros());
+                                                    tx
+                                                    }
+                                            };
+                        let _ = self.tx_sender.send(buy_txs);
+                        self.sell(&buy_info).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
                             LogToSheets::new(&self.cli, &self, &buy_info).await,
                         )
@@ -174,8 +169,14 @@ impl Peer {
                         {
                             error!("Failed to write to sheets: {}", e);
                         }
+                            }
+                        }
                     }
-                    EthMessageHandler::None => {}
+                },
+                ping = ping_recv.recv(), if !is_buy_in_progress() => {
+                    if ping.is_some() {
+                        self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
+                    }
                 }
             }
         }
@@ -218,10 +219,23 @@ impl Peer {
         Ok(())
     }
 
-    async fn sell(token: Token) {
+    async fn sell(&self, buy_info: &BuyTokenInfo) {
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
         tokio::time::sleep(Duration::from_millis(200)).await;
+        mark_token_as_bought(buy_info.token.buy_token_address);
+        unsafe {
+            BUY_IS_IN_PROGRESS = false;
+            SELL_IS_IN_PROGRESS = true;
+        }
+        cprintln!(
+            "<b><green>[{}]Bought token: {}</></>\nliq TX: {} ",
+            buy_info.time.format("%Y-%m-%d %H:%M:%S:%f"),
+            get_bsc_token_url(buy_info.token.buy_token_address),
+            get_bsc_tx_url(buy_info.hash)
+        );
+
+        let token = &buy_info.token;
         for i in 0..token.sell_config.sell_count {
             //this is because for the first sell the nonce is up to date with blockchain
             //only after first sell we need to "update it manually"
@@ -230,10 +244,9 @@ impl Peer {
                 generate_and_rlp_encode_sell_tx(increment_sell_nonce_after_first_sell).await,
             );
 
-            let count = Peer::send_tx(sell_tx).await;
-
+            let _ = self.tx_sender.send(sell_tx);
             cprintln!(
-                "<blue>[{count}][{}/{}]Selling token: {:#x}</>",
+                "<blue>[{}/{}]Selling token: {:#x}</>",
                 i + 1,
                 token.sell_config.sell_count,
                 token.buy_token_address
@@ -258,5 +271,23 @@ impl Peer {
         tokio::time::sleep(Duration::from_millis(3 * BLOCK_DURATION_IN_MILLIS)).await;
         update_nonces_for_local_wallets().await;
         remove_all_tokens_to_buy();
+    }
+
+    pub(crate) fn start_pinger(ping_sender: mpsc::Sender<()>) {
+        tokio::spawn(async move {
+            let mut stream = tokio_stream::wrappers::IntervalStream::new(interval(
+                std::time::Duration::from_secs(15), // same as in geth
+            ));
+
+            while let Some(_) = stream.next().await {
+                if is_buy_in_progress() {
+                    continue;
+                }
+
+                if let Err(_) = ping_sender.send(()).await {
+                    return;
+                }
+            }
+        });
     }
 }

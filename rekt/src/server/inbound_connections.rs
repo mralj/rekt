@@ -7,18 +7,21 @@ use std::{
 
 use futures::{SinkExt, TryStreamExt};
 use secp256k1::PublicKey;
-use tokio::net::{TcpSocket, TcpStream};
+use tokio::{
+    net::{TcpSocket, TcpStream},
+    sync::broadcast,
+};
 use tokio_util::codec::{Decoder, Framed};
 use tracing::error;
 
 use crate::{
     cli::Cli,
     constants::DEFAULT_PORT,
+    eth::eth_message::EthMessage,
     local_node::LocalNode,
     p2p::{
         errors::P2PError,
         peer::{is_buy_or_sell_in_progress, PeerType},
-        tx_sender::PEERS_SELL,
         Peer, Protocol,
     },
     rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
@@ -38,15 +41,17 @@ pub struct InboundConnections {
     concurrent_conn_attempts: Arc<tokio::sync::Semaphore>,
 
     cli: crate::cli::Cli,
+    tx_sender: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
 }
 
 impl InboundConnections {
-    pub fn new(local_node: LocalNode, cli: Cli) -> Self {
+    pub fn new(local_node: LocalNode, cli: Cli, tx_sender: broadcast::Sender<EthMessage>) -> Self {
         Self {
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
             concurrent_conn_attempts: Arc::new(tokio::sync::Semaphore::new(256)),
             cli,
+            tx_sender,
         }
     }
 
@@ -97,11 +102,19 @@ impl InboundConnections {
             }
 
             let cli = self.cli.clone();
+            let tx_sender = self.tx_sender.clone();
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let transport = rlpx_connection.framed(stream);
-                let _ =
-                    new_connection_handler(src, transport, our_secret_key, cli, semaphore).await;
+                let _ = new_connection_handler(
+                    src,
+                    transport,
+                    our_secret_key,
+                    cli,
+                    semaphore,
+                    tx_sender,
+                )
+                .await;
             });
         }
     }
@@ -113,6 +126,7 @@ async fn new_connection_handler(
     secret_key: secp256k1::SecretKey,
     cli: Cli,
     semaphore: tokio::sync::OwnedSemaphorePermit,
+    tx_sender: broadcast::Sender<EthMessage>,
 ) -> Result<(), RLPXSessionError> {
     let external_node_pub_key = handle_auth(&mut transport).await?;
 
@@ -145,6 +159,7 @@ async fn new_connection_handler(
         TcpWire::new(transport),
         PeerType::Inbound,
         cli,
+        tx_sender,
     );
 
     let task_result = p.run().await;
@@ -156,7 +171,6 @@ async fn new_connection_handler(
         }
     }
     PEERS.remove(&node.id);
-    PEERS_SELL.lock().await.remove(&node.id);
 
     // In case we got already connected to same ip error we do not remove the IP from the set
     // of already connected ips

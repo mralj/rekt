@@ -24,6 +24,7 @@ pub struct OutboundConnections {
 
     cli: crate::cli::Cli,
     concurrent_conn_attempts: Arc<tokio::sync::Semaphore>,
+    tx_sender: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
 }
 
 impl OutboundConnections {
@@ -34,6 +35,7 @@ impl OutboundConnections {
         conn_rx: UnboundedReceiver<ConnectionTaskError>,
         conn_tx: UnboundedSender<ConnectionTaskError>,
         cli: crate::cli::Cli,
+        tx_sender: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
     ) -> Self {
         Self {
             nodes,
@@ -42,6 +44,7 @@ impl OutboundConnections {
             conn_rx,
             conn_tx,
             cli,
+            tx_sender,
             concurrent_conn_attempts: Arc::new(tokio::sync::Semaphore::new(256)),
         }
     }
@@ -60,6 +63,7 @@ impl OutboundConnections {
                     task,
                     self.conn_tx.clone(),
                     self.concurrent_conn_attempts.clone(),
+                    self.tx_sender.clone(),
                 )
                 .await;
             }
@@ -102,6 +106,7 @@ impl OutboundConnections {
                         task,
                         self.conn_tx.clone(),
                         self.concurrent_conn_attempts.clone(),
+                        self.tx_sender.clone(),
                     )
                     .await;
                 }

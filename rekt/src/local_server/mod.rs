@@ -8,7 +8,7 @@ use warp::{filters::path::end, reject::Reject, Filter};
 use crate::{
     discover::server::Server,
     eth::eth_message::EthMessage,
-    p2p::{peer::PeerType, peer_info::PeerInfo, Peer},
+    p2p::{peer::PeerType, peer_info::PeerInfo},
     server::{inbound_connections::InboundConnections, peers::PEERS},
     token::tokens_to_buy::{get_token_by_address, remove_all_tokens_to_buy},
     utils::wei_gwei_converter::MIN_GAS_PRICE,
@@ -18,39 +18,46 @@ use crate::{
 pub fn run_local_server(
     disc_server: Option<Arc<Server>>,
     incoming_listener: Arc<InboundConnections>,
+    tx_sender: tokio::sync::broadcast::Sender<EthMessage>,
 ) {
     let disc_server_toggler = disc_server.clone();
     let disc_server_enodes = disc_server.clone();
     tokio::task::spawn(async move {
         //TODO: extract this into at least separate function (and maybe even file)
         let prep = warp::path!("prep" / String).and_then({
-            move |token_address: String| async move {
-                let token_address = match Address::from_str(&token_address) {
-                    Ok(t_a) => t_a,
-                    Err(e) => {
-                        cprintln!("<red>Invalid token address</>: {}", e);
-                        return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress));
-                    }
-                };
+            move |token_address: String| {
+                let tx_sender = tx_sender.clone();
 
-                let token = get_token_by_address(&token_address);
-                if token.is_none() {
-                    cprintln!("<red>Token not found</>");
-                    return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                async move {
+                    let token_address = match Address::from_str(&token_address) {
+                        Ok(t_a) => t_a,
+                        Err(e) => {
+                            cprintln!("<red>Invalid token address</>: {}", e);
+                            return Err(warp::reject::custom(LocalServerErr::InvalidTokenAddress));
+                        }
+                    };
+
+                    let token = get_token_by_address(&token_address);
+                    if token.is_none() {
+                        cprintln!("<red>Token not found</>");
+                        return Err(warp::reject::custom(LocalServerErr::TokenNotFound));
+                    }
+                    let token = token.unwrap();
+                    let prep_tx = EthMessage::new_compressed_tx_message(
+                        generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
+                    );
+                    let _ = tx_sender.send(prep_tx);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    cprintln!(
+                        "<yellow>[{}]Prep sent successfully: {}</>",
+                        PEERS.len(),
+                        token.buy_token_address
+                    );
+                    return Ok(format!(
+                        "Prep sent successfully: {}",
+                        token.buy_token_address
+                    ));
                 }
-                let token = token.unwrap();
-                let prep_tx = EthMessage::new_compressed_tx_message(
-                    generate_and_rlp_encode_prep_tx(token, MIN_GAS_PRICE).await,
-                );
-                let cnt = Peer::send_tx(prep_tx).await;
-                cprintln!(
-                    "<yellow>[{cnt}]Prep sent successfully: {}</>",
-                    token.buy_token_address
-                );
-                return Ok(format!(
-                    "Prep sent successfully: {}",
-                    token.buy_token_address
-                ));
             }
         });
 

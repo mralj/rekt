@@ -39,6 +39,14 @@ impl EthMessage {
         }
     }
 
+    pub fn new_devp2p_ping_message() -> Self {
+        Self {
+            data: Bytes::new(),
+            id: EthProtocol::DevP2PPing,
+            compressed: EthMessageCompressionStatus::Compressed,
+        }
+    }
+
     pub fn is_compressed(&self) -> bool {
         self.compressed == EthMessageCompressionStatus::Compressed
     }
