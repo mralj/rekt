@@ -15,7 +15,6 @@ use tracing::error;
 use super::errors::P2PError;
 use super::peer_info::PeerInfo;
 use super::protocol::ProtocolVersion;
-use super::tx_sender::{UnsafeSyncPtr, PEERS_SELL};
 use crate::cli::Cli;
 use crate::eth::eth_message::EthMessage;
 use crate::eth::msg_handler::EthMessageHandler;
@@ -124,14 +123,6 @@ impl Peer {
 
         PEERS.insert(self.node_record.id, PeerInfo::from(self as &Peer));
         PEERS_BY_IP.insert(self.node_record.ip.clone());
-
-        let peer_ptr = UnsafeSyncPtr {
-            peer: self as *mut _,
-        };
-        PEERS_SELL
-            .lock()
-            .await
-            .insert(self.node_record.id, peer_ptr);
 
         let (ping_send, mut ping_recv) = tokio::sync::mpsc::channel(1);
         Self::start_pinger(ping_send);

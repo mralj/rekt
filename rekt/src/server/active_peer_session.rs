@@ -15,7 +15,6 @@ use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
-use crate::p2p::tx_sender::PEERS_SELL;
 use crate::p2p::{self, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::{RLPXMsg, RLPXMsgOut};
@@ -119,7 +118,6 @@ pub async fn connect_to_node(
             }
         }
         PEERS.remove(&node.id);
-        PEERS_SELL.lock().await.remove(&node.id);
 
         // In case we got already connected to same ip error we do not remove the IP from the set
         // of already connected ips

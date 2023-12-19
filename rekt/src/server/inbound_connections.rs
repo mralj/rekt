@@ -22,7 +22,6 @@ use crate::{
     p2p::{
         errors::P2PError,
         peer::{is_buy_or_sell_in_progress, PeerType},
-        tx_sender::PEERS_SELL,
         Peer, Protocol,
     },
     rlpx::{Connection, RLPXError, RLPXMsg, RLPXSessionError, TcpWire},
@@ -172,7 +171,6 @@ async fn new_connection_handler(
         }
     }
     PEERS.remove(&node.id);
-    PEERS_SELL.lock().await.remove(&node.id);
 
     // In case we got already connected to same ip error we do not remove the IP from the set
     // of already connected ips
