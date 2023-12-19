@@ -63,7 +63,6 @@ pub async fn send_mev(tx: Bytes, id: u64, bid_gas_price_in_gwei: u64) -> anyhow:
             "txs": [format!("0x{}", hex::encode(bid)) , format!("0x{}", hex::encode(&tx))],
             "maxTimestamp": chrono::Utc::now().timestamp() as u64 + 12,
             "acceptReverting": [],
-            "bidGasPrice": bid_gas_price_in_gwei
         }]
     });
 

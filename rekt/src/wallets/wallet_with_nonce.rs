@@ -129,7 +129,7 @@ impl WalletWithNonce {
         let tx = TransactionRequest {
             from: Some(self.address()),
             to: Some(ethers::types::NameOrAddress::Address(self.address())),
-            gas: Some(U256::from(21_000)),
+            gas: Some(U256::from(22_000)),
             gas_price: Some(gas_price),
             data: None,
             nonce: self.nonce,
