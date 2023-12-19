@@ -1,6 +1,8 @@
 use std::fmt::{Display, Formatter};
 
+use bytes::Bytes;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 const PUISSANT_API_URL: &str = "https://puissant-bsc.48.club";
 const PUISSANT_EXPLORER_URL: &str = "https://explorer.48.club/api/v1";
@@ -47,6 +49,43 @@ pub async fn get_score() {
     }
 }
 
+pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
+    let client = reqwest::Client::new();
+
+    let data = json!({
+        "id": id,
+        "jsonrpc": "2.0",
+        "method": "eth_sendPrivateRawTransaction",
+        "params": [tx]
+    });
+
+    let response = match client
+        .post(PUISSANT_API_URL)
+        .header("Content-Type", "application/json")
+        .json(&data)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Puissant send_private_tx err: {}", e);
+            return Ok(());
+        }
+    };
+
+    let response = match response.json::<ApiResponse>().await {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Puissant send_private_tx err: {}", e);
+            return Ok(());
+        }
+    };
+
+    println!("Response: {:?}", response);
+
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct PingResponse {
     message: String,
@@ -83,5 +122,19 @@ impl Display for ScoreResponse {
             "[{}] score for {} is {}",
             self.status, self.data.address, self.data.score
         )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ApiResponse {
+    #[serde(rename = "jsonrpc")]
+    json_rpc: String,
+    id: u64,
+    result: String,
+}
+
+impl Display for ApiResponse {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}", self.id, self.result)
     }
 }
