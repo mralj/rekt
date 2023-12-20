@@ -43,6 +43,7 @@ pub struct BuyTokenInfo {
     pub hash: H256,
     pub time: DateTime<Utc>,
     pub was_tx_direct: bool,
+    pub liq_tx: Bytes,
 }
 
 impl BuyTokenInfo {
@@ -53,25 +54,37 @@ impl BuyTokenInfo {
             hash,
             time: chrono::Utc::now(),
             was_tx_direct: false,
+            liq_tx: Bytes::new(),
         }
     }
 
     pub fn set_tx_direct(&mut self, tx_direct: bool) {
         self.was_tx_direct = tx_direct
     }
+
+    pub fn set_liq_tx(&mut self, liq_tx: Bytes) {
+        self.liq_tx = liq_tx
+    }
 }
 
-pub fn decode_txs_request(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs_request(
+    buf: &mut &[u8],
+    clone_of_txs: Bytes,
+) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
 
     let _skip_decoding_request_id = HeaderInfo::skip_next_item(buf)?;
-    decode_txs(buf, false)
+    decode_txs(buf, clone_of_txs, false)
 }
 
-pub fn decode_txs(buf: &mut &[u8], direct: bool) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs(
+    buf: &mut &[u8],
+    mut clone_of_txs: Bytes,
+    direct: bool,
+) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
@@ -81,14 +94,18 @@ pub fn decode_txs(buf: &mut &[u8], direct: bool) -> Result<Option<BuyTokenInfo>,
     // original buffer remains the same
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
+    clone_of_txs.advance(metadata.payload_length);
+
     while !payload_view.is_empty() {
         match decode_tx(payload_view)? {
             TxDecodingResult::Buy(mut buy_info) => {
                 buy_info.set_tx_direct(direct);
+                buy_info.set_liq_tx(clone_of_txs);
                 return Ok(Some(buy_info));
             }
             TxDecodingResult::NoBuy(tx_size) => {
                 payload_view.advance(tx_size);
+                clone_of_txs.advance(tx_size);
                 continue;
             }
         };

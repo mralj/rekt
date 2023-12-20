@@ -4,7 +4,10 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::wallets::local_wallets::generate_mev_bid;
+use crate::{
+    utils::wei_gwei_converter::gwei_to_wei,
+    wallets::local_wallets::{generate_mev_bid, PRIORITY_WALLET},
+};
 
 const PUISSANT_API_URL: &str = "https://puissant-bsc.48.club";
 const PUISSANT_EXPLORER_URL: &str = "https://explorer.48.club/api/v1";
@@ -52,20 +55,33 @@ pub async fn get_score() {
 }
 
 pub async fn send_mev(
-    tx: Bytes,
     id: u64,
     bid_gas_price_in_gwei: u64,
+    ttl: u64,
+    target_tx: Bytes,
 ) -> anyhow::Result<ApiResponse> {
     let client = reqwest::Client::new();
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
+
+    let priority_wallet = &mut PRIORITY_WALLET.write().await;
+    let tx = priority_wallet
+        .generate_and_sign_buy_tx(gwei_to_wei(3))
+        .await
+        .expect("Failed to generate and sign priority tx");
+
+    let txs = [
+        format!("0x{}", hex::encode(bid)),
+        format!("0x{}", hex::encode(&target_tx)),
+        format!("0x{}", hex::encode(&tx)),
+    ];
 
     let data = json!({
         "id": id,
         "jsonrpc": "2.0",
         "method": "eth_sendPuissant",
         "params": [{
-            "txs": [format!("0x{}", hex::encode(bid)) , format!("0x{}", hex::encode(&tx))],
-            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + 120,
+            "txs": txs,
+            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + ttl,
             "acceptReverting": [],
         }]
     });
