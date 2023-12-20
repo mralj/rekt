@@ -224,7 +224,7 @@ impl Display for MevStatusResponse {
 impl Display for MevStatusResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let output = format!(
-            "[{}] {} {} {} {}\n",
+            "[{}] Block: {},  Validator: {}, Status: {}, Info: {}\n",
             self.id, self.block, self.validator, self.status, self.info
         );
 
@@ -242,7 +242,7 @@ impl Display for MevStatusTx {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{}] {} {} {}",
+            "[{}] Status: {}, Accept revert? {}, Created at: {}",
             self.hash, self.status, self.accept_revert, self.created
         )
     }
