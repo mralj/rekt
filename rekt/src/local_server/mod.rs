@@ -52,16 +52,26 @@ pub fn run_local_server(
                     match mev::puissant::send_mev(prep_tx, 1, 60).await {
                         Ok(resp) => {
                             println!("Puissant response: {}", resp);
-                            for _ in 1..4 {
+                            let mut cnt = 0;
+                            let mut status_resp = None;
+                            while cnt < 5 {
                                 match mev::puissant::get_mev_status(&resp.result).await {
                                     Ok(status) => {
-                                        println!("Puissant status: {}", status);
+                                        status_resp = Some(status);
                                     }
                                     Err(e) => {
+                                        cnt += 1;
                                         println!("Puissant status err: {}", e);
+                                        tokio::time::sleep(tokio::time::Duration::from_secs(1))
+                                            .await;
                                     }
                                 }
-                                tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                            }
+
+                            if let Some(status) = status_resp {
+                                println!("Puissant status: {}", status);
+                            } else {
+                                println!("Puissant status not found");
                             }
                         }
                         Err(e) => {

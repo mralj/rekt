@@ -207,8 +207,10 @@ pub struct MevStatusResult {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MevStatusTx {
+    #[serde(rename = "tx_hash")]
     hash: String,
     status: String,
+    revert_msg: String,
     accept_revert: bool,
     created: i64,
 }
