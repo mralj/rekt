@@ -86,7 +86,7 @@ pub async fn send_mev(
         "method": "eth_sendPuissant",
         "params": [{
             "txs": txs,
-            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + ttl,
+            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + ttl * 3,
             "acceptReverting": [],
         }]
     });
