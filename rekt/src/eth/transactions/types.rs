@@ -2,7 +2,7 @@ use derive_more::Display;
 
 use super::errors::DecodeTxError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Display)]
 pub(super) enum TxType {
     Legacy,
     AccessList,
