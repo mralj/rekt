@@ -33,7 +33,7 @@ pub static PCS_V3_LIQ_CONTRACT: Address =
         .expect("Invalid PCS V2 router address");
 
 pub enum TxDecodingResult {
-    NoBuy(usize),
+    NoBuy(usize, usize),
     Buy(BuyTokenInfo),
 }
 
@@ -44,14 +44,16 @@ pub struct BuyTokenInfo {
     pub time: DateTime<Utc>,
     pub was_tx_direct: bool,
     pub liq_tx: Bytes,
+    total_tx_len: usize,
 }
 
 impl BuyTokenInfo {
-    pub fn new(token: Token, gas_price: u64, hash: H256) -> Self {
+    pub fn new(token: Token, gas_price: u64, hash: H256, total_tx_len: usize) -> Self {
         Self {
             token,
             gas_price,
             hash,
+            total_tx_len,
             time: chrono::Utc::now(),
             was_tx_direct: false,
             liq_tx: Bytes::new(),
@@ -102,12 +104,13 @@ pub fn decode_txs(
         match decode_tx(payload_view)? {
             TxDecodingResult::Buy(mut buy_info) => {
                 buy_info.set_tx_direct(direct);
+                clone_of_txs.truncate(buy_info.total_tx_len);
                 buy_info.set_liq_tx(clone_of_txs);
                 return Ok(Some(buy_info));
             }
-            TxDecodingResult::NoBuy(tx_size) => {
-                payload_view.advance(tx_size);
-                clone_of_txs.advance(tx_size);
+            TxDecodingResult::NoBuy(tx_leftover_size, total_tx_size) => {
+                payload_view.advance(tx_leftover_size);
+                clone_of_txs.advance(total_tx_size);
                 continue;
             }
         };
@@ -151,8 +154,9 @@ fn decode_legacy(
     tx_metadata: HeaderInfo,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_metadata.total_len]);
+    let total_len = tx_metadata.total_len;
     if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len, total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
@@ -161,7 +165,10 @@ fn decode_legacy(
 
     let nonce = u64::decode(payload_view)?;
     if !tx_nonce_is_ok(nonce) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        return Ok(TxDecodingResult::NoBuy(
+            tx_metadata.payload_length,
+            total_len,
+        ));
     }
 
     let gas_price = u64::decode(payload_view)?;
@@ -170,14 +177,32 @@ fn decode_legacy(
     let recipient = match ethers::types::H160::decode(payload_view) {
         Ok(v) => v,
         Err(_errored_because_this_tx_is_contract_creation) => {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_len,
+            ));
         }
     };
 
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
-        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
+        return handle_pcs(
+            tx_metadata,
+            total_len,
+            payload_view,
+            hash,
+            recipient,
+            gas_price,
+        );
     }
-    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
+    handle_token(
+        tx_metadata,
+        total_len,
+        payload_view,
+        hash,
+        nonce,
+        gas_price,
+        recipient,
+    )
 }
 
 fn decode_dynamic_and_blob_tx_types(
@@ -185,9 +210,10 @@ fn decode_dynamic_and_blob_tx_types(
     buf: &mut &[u8],
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let tx_metadata = HeaderInfo::decode(buf)?;
+    let total_len = tx_metadata.total_len;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
     if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len, total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
@@ -200,7 +226,10 @@ fn decode_dynamic_and_blob_tx_types(
 
     let nonce = u64::decode(payload_view)?;
     if !tx_nonce_is_ok(nonce) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        return Ok(TxDecodingResult::NoBuy(
+            tx_metadata.payload_length,
+            total_len,
+        ));
     }
 
     let gas_price = u64::decode(payload_view)?;
@@ -211,14 +240,32 @@ fn decode_dynamic_and_blob_tx_types(
     let recipient = match ethers::types::H160::decode(payload_view) {
         Ok(v) => v,
         Err(_errored_because_this_tx_is_contract_creation) => {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_len,
+            ));
         }
     };
 
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
-        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
+        return handle_pcs(
+            tx_metadata,
+            total_len,
+            payload_view,
+            hash,
+            recipient,
+            gas_price,
+        );
     }
-    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
+    handle_token(
+        tx_metadata,
+        total_len,
+        payload_view,
+        hash,
+        nonce,
+        gas_price,
+        recipient,
+    )
 }
 
 fn decode_access_list_tx_type(
@@ -226,10 +273,11 @@ fn decode_access_list_tx_type(
     buf: &mut &[u8],
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let tx_metadata = HeaderInfo::decode(buf)?;
+    let total_len = tx_metadata.total_len;
     let hash = eth_tx_hash(tx_type, &buf[..tx_metadata.total_len]);
 
     if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
+        return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len, total_len));
     }
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
@@ -243,7 +291,10 @@ fn decode_access_list_tx_type(
 
     let nonce = u64::decode(payload_view)?;
     if !tx_nonce_is_ok(nonce) {
-        return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+        return Ok(TxDecodingResult::NoBuy(
+            tx_metadata.payload_length,
+            total_len,
+        ));
     }
 
     let gas_price = u64::decode(payload_view)?;
@@ -252,14 +303,32 @@ fn decode_access_list_tx_type(
     let recipient = match ethers::types::H160::decode(payload_view) {
         Ok(v) => v,
         Err(_errored_because_this_tx_is_contract_creation) => {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_len,
+            ));
         }
     };
 
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
-        return handle_pcs(tx_metadata, payload_view, hash, recipient, gas_price);
+        return handle_pcs(
+            tx_metadata,
+            total_len,
+            payload_view,
+            hash,
+            recipient,
+            gas_price,
+        );
     }
-    handle_token(tx_metadata, payload_view, hash, nonce, gas_price, recipient)
+    handle_token(
+        tx_metadata,
+        total_len,
+        payload_view,
+        hash,
+        nonce,
+        gas_price,
+        recipient,
+    )
 }
 
 fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> H256 {
@@ -273,6 +342,7 @@ fn eth_tx_hash(tx_type: TxType, raw_tx: &[u8]) -> H256 {
 
 fn handle_token(
     tx_metadata: Header,
+    total_tx_len: usize,
     payload_view: &mut &[u8],
     hash: H256,
     nonce: u64,
@@ -281,7 +351,12 @@ fn handle_token(
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let (token, index) = match get_token_to_buy(&recipient, nonce) {
         Some((t, i)) => (t, i),
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
+        None => {
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_tx_len,
+            ))
+        }
     };
 
     let _skip_decoding_value = HeaderInfo::skip_next_item(payload_view);
@@ -289,7 +364,12 @@ fn handle_token(
 
     let token = match tx_is_enable_buy(token, index, &data) {
         Some(token) => token,
-        None => return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length)),
+        None => {
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_tx_len,
+            ))
+        }
     };
 
     unsafe {
@@ -297,26 +377,31 @@ fn handle_token(
     }
 
     Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-        token, gas_price, hash,
+        token,
+        gas_price,
+        hash,
+        total_tx_len,
     )))
 }
 
 fn handle_pcs(
     tx_metadata: Header,
+    total_tx_len: usize,
     payload_view: &mut &[u8],
     hash: H256,
     recipient: ethers::types::H160,
     gas_price: u64,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     if recipient == *PCS_V2_ROUTER {
-        return handle_pcs_v2(tx_metadata, payload_view, hash, gas_price);
+        return handle_pcs_v2(tx_metadata, total_tx_len, payload_view, hash, gas_price);
     }
 
-    return handle_pcs_v3(tx_metadata, payload_view, hash, gas_price);
+    return handle_pcs_v3(tx_metadata, total_tx_len, payload_view, hash, gas_price);
 }
 
 fn handle_pcs_v2(
     tx_metadata: Header,
+    total_tx_len: usize,
     payload_view: &mut &[u8],
     hash: H256,
     gas_price: u64,
@@ -330,7 +415,10 @@ fn handle_pcs_v2(
             get_token_to_buy(&Address::from_slice(first_position_token), 0)
         {
             if !token.liq_will_be_added_via_pcs {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+                return Ok(TxDecodingResult::NoBuy(
+                    tx_metadata.payload_length,
+                    total_tx_len,
+                ));
             }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
@@ -339,7 +427,10 @@ fn handle_pcs_v2(
             let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
 
             return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                token, gas_price, hash,
+                token,
+                gas_price,
+                hash,
+                total_tx_len,
             )));
         }
 
@@ -350,7 +441,10 @@ fn handle_pcs_v2(
             get_token_to_buy(&Address::from_slice(second_position_token), 0)
         {
             if !token.liq_will_be_added_via_pcs {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+                return Ok(TxDecodingResult::NoBuy(
+                    tx_metadata.payload_length,
+                    total_tx_len,
+                ));
             }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
@@ -359,7 +453,10 @@ fn handle_pcs_v2(
             let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
 
             return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                token, gas_price, hash,
+                token,
+                gas_price,
+                hash,
+                total_tx_len,
             )));
         }
     }
@@ -370,7 +467,10 @@ fn handle_pcs_v2(
             get_token_to_buy(&Address::from_slice(first_position_token), 0)
         {
             if !token.liq_will_be_added_via_pcs {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+                return Ok(TxDecodingResult::NoBuy(
+                    tx_metadata.payload_length,
+                    total_tx_len,
+                ));
             }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
@@ -379,16 +479,23 @@ fn handle_pcs_v2(
             let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
 
             return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                token, gas_price, hash,
+                token,
+                gas_price,
+                hash,
+                total_tx_len,
             )));
         }
     }
 
-    Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length))
+    Ok(TxDecodingResult::NoBuy(
+        tx_metadata.payload_length,
+        total_tx_len,
+    ))
 }
 
 fn handle_pcs_v3(
     tx_metadata: Header,
+    total_tx_len: usize,
     payload_view: &mut &[u8],
     hash: H256,
     gas_price: u64,
@@ -402,7 +509,10 @@ fn handle_pcs_v3(
             get_token_to_buy(&Address::from_slice(first_position_token), 0)
         {
             if !token.liq_will_be_added_via_pcs {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+                return Ok(TxDecodingResult::NoBuy(
+                    tx_metadata.payload_length,
+                    total_tx_len,
+                ));
             }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
@@ -411,7 +521,10 @@ fn handle_pcs_v3(
             let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
 
             return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                token, gas_price, hash,
+                token,
+                gas_price,
+                hash,
+                total_tx_len,
             )));
         }
 
@@ -422,7 +535,10 @@ fn handle_pcs_v3(
             get_token_to_buy(&Address::from_slice(second_position_token), 0)
         {
             if !token.liq_will_be_added_via_pcs {
-                return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+                return Ok(TxDecodingResult::NoBuy(
+                    tx_metadata.payload_length,
+                    total_tx_len,
+                ));
             }
             unsafe {
                 BUY_IS_IN_PROGRESS = true;
@@ -431,18 +547,27 @@ fn handle_pcs_v3(
             let token = unsafe { TOKENS_TO_BUY.swap_remove(index) };
 
             return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                token, gas_price, hash,
+                token,
+                gas_price,
+                hash,
+                total_tx_len,
             )));
         }
     }
 
     if data.starts_with(&[0xac, 0x96, 0x50, 0xd8]) {
         if !contains(&data, &[0x13, 0xea, 0xd5, 0x62]) {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_tx_len,
+            ));
         }
 
         if !contains(&data, &[0x88, 0x31, 0x64, 0x56]) {
-            return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
+            return Ok(TxDecodingResult::NoBuy(
+                tx_metadata.payload_length,
+                total_tx_len,
+            ));
         }
 
         unsafe {
@@ -455,14 +580,20 @@ fn handle_pcs_v3(
                     BUY_IS_IN_PROGRESS = true;
                     let token = TOKENS_TO_BUY.swap_remove(i);
                     return Ok(TxDecodingResult::Buy(BuyTokenInfo::new(
-                        token, gas_price, hash,
+                        token,
+                        gas_price,
+                        hash,
+                        total_tx_len,
                     )));
                 }
             }
         }
     }
 
-    Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length))
+    Ok(TxDecodingResult::NoBuy(
+        tx_metadata.payload_length,
+        total_tx_len,
+    ))
 }
 
 fn recipient_is_to_pcs(recipient: &ethers::types::H160) -> bool {
