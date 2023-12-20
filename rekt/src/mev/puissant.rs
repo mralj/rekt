@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    token::token::Token,
     utils::wei_gwei_converter::gwei_to_wei,
-    wallets::local_wallets::{generate_mev_bid, PRIORITY_WALLET},
+    wallets::local_wallets::{generate_mev_bid, PREPARE_WALLET, PRIORITY_WALLET},
 };
 
 const PUISSANT_API_URL: &str = "https://puissant-bsc.48.club";
@@ -61,6 +62,7 @@ pub async fn send_mev(
     ttl: u64,
     target_tx: Bytes,
     gas_price: u64,
+    token: &Token,
 ) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
@@ -72,8 +74,15 @@ pub async fn send_mev(
         .await
         .expect("Failed to generate and sign priority tx");
 
+    let prep_wallet = &mut PREPARE_WALLET.write().await;
+    let prep_tx = prep_wallet
+        .generate_and_sign_prep_tx(token, U256::from(gas_price + 1))
+        .await
+        .expect("Failed to generate and sign prepare tx");
+
     let txs = [
         format!("0x{}", hex::encode(bid)),
+        format!("0x{}", hex::encode(&prep_tx)),
         format!("0x{}", hex::encode(&target_tx)),
         format!("0x{}", hex::encode(&tx)),
     ];

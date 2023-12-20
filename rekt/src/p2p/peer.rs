@@ -161,7 +161,7 @@ impl Peer {
                                                     tx
                                                     }
                                             };
-                        mev::puissant::send_mev(1, 60,3,buy_info.liq_tx.clone(), buy_info.gas_price).await;
+                        mev::puissant::send_mev(1, 60,3,buy_info.liq_tx.clone(), buy_info.gas_price, &buy_info.token).await;
                         let _ = self.tx_sender.send(buy_txs);
                         self.sell(&buy_info).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
