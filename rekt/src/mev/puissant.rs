@@ -51,7 +51,11 @@ pub async fn get_score() {
     }
 }
 
-pub async fn send_mev(tx: Bytes, id: u64, bid_gas_price_in_gwei: u64) -> anyhow::Result<()> {
+pub async fn send_mev(
+    tx: Bytes,
+    id: u64,
+    bid_gas_price_in_gwei: u64,
+) -> anyhow::Result<ApiResponse> {
     let client = reqwest::Client::new();
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
 
@@ -66,31 +70,29 @@ pub async fn send_mev(tx: Bytes, id: u64, bid_gas_price_in_gwei: u64) -> anyhow:
         }]
     });
 
-    let response = match client
+    let response = client
         .post(PUISSANT_API_URL)
         .header("Content-Type", "application/json")
         .json(&data)
         .send()
-        .await
-    {
+        .await?;
+
+    let response = response.json::<ApiResponse>().await?;
+    Ok(response)
+}
+
+pub async fn get_mev_status(id: &str) -> anyhow::Result<MevStatusResponse> {
+    let url = format!("{}/puissant/{}", PUISSANT_EXPLORER_URL, id);
+    let response = match reqwest::get(&url).await {
         Ok(r) => r,
         Err(e) => {
-            println!("Puissant send_private_tx err: {}", e);
-            return Ok(());
+            println!("Puissant get_mev_status err: {}", e);
+            anyhow::bail!("Puissant get_mev_status err: {}", e);
         }
     };
 
-    let response = match response.text().await {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Puissant send_private_tx err: {} \n", e);
-            return Ok(());
-        }
-    };
-
-    println!("Response: {:?}", response);
-
-    Ok(())
+    let response = response.json::<MevStatusResponse>().await?;
+    Ok(response)
 }
 
 pub async fn send_private_tx(tx: Bytes, id: u64) -> anyhow::Result<()> {
@@ -169,35 +171,77 @@ impl Display for ScoreResponse {
     }
 }
 
-// #[derive(Serialize, Deserialize, Debug)]
-// struct MevArgs {
-//     txs: Vec<String>,
-//     #[serde(rename = "maxTimestamp")]
-//     max_timestamp: u64,
-//     #[serde(rename = "acceptReverting")]
-//     txs_hashes_which_can_fail: Vec<String>,
-// }
-//
-// impl MevArgs {
-//     pub fn new(txs: Vec<String>, txs_hashes_which_can_fail: Vec<String>) -> Self {
-//         Self {
-//             txs,
-//             max_timestamp: chrono::Utc::now().timestamp_millis() as u64 + 1000 * 12,
-//             txs_hashes_which_can_fail,
-//         }
-//     }
-// }
-
 #[derive(Serialize, Deserialize, Debug)]
-struct ApiResponse {
+pub struct ApiResponse {
     #[serde(rename = "jsonrpc")]
-    json_rpc: String,
-    id: u64,
-    result: String,
+    pub json_rpc: String,
+    pub id: u64,
+    pub result: String,
 }
 
 impl Display for ApiResponse {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}] {}", self.id, self.result)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MevStatusResponse {
+    message: String,
+    status: u16,
+    #[serde(rename = "value")]
+    result: MevStatusResult,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MevStatusResult {
+    #[serde(rename = "uuid")]
+    id: String,
+    block: String,
+    validator: String,
+    status: String,
+    info: String,
+    txs: Vec<MevStatusTx>,
+    created: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MevStatusTx {
+    hash: String,
+    status: String,
+    accept_revert: bool,
+    created: i64,
+}
+
+impl Display for MevStatusResponse {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] {}\n{}", self.status, self.message, self.result)
+    }
+}
+
+impl Display for MevStatusResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let output = format!(
+            "[{}] {} {} {} {}\n",
+            self.id, self.block, self.validator, self.status, self.info
+        );
+
+        let mut tx_output: String = "".to_string();
+        for tx in &self.txs {
+            tx_output.push_str(&format!("{}\n", tx));
+        }
+        let output = output + &tx_output;
+
+        write!(f, "{}", output)
+    }
+}
+
+impl Display for MevStatusTx {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}] {} {} {}",
+            self.hash, self.status, self.accept_revert, self.created
+        )
     }
 }

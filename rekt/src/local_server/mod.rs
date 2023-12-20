@@ -49,14 +49,19 @@ pub fn run_local_server(
                     // );
                     // let _ = tx_sender.send(prep_tx);
                     let prep_tx = generate_rlp_prep_tx(token, MIN_GAS_PRICE).await.0;
-                    let _ = mev::puissant::send_mev(prep_tx, 1, 60).await;
+                    if let Ok(resp) = mev::puissant::send_mev(prep_tx, 1, 60).await {
+                        println!("Puissant response: {}", resp);
+                        if let Ok(status) = mev::puissant::get_mev_status(&resp.result).await {
+                            println!("Puissant status: {}\n", status);
+                        }
+                    }
 
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                    cprintln!(
-                        "<yellow>[{}]Prep sent successfully: {}</>",
-                        PEERS.len(),
-                        token.buy_token_address
-                    );
+                    // tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    // cprintln!(
+                    //     "<yellow>[{}]Prep sent successfully: {}</>",
+                    //     PEERS.len(),
+                    //     token.buy_token_address
+                    // );
                     return Ok(format!(
                         "Prep sent successfully: {}",
                         token.buy_token_address
