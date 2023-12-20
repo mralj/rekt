@@ -74,15 +74,8 @@ pub async fn send_mev(
         .await
         .expect("Failed to generate and sign priority tx");
 
-    let prep_wallet = &mut PREPARE_WALLET.write().await;
-    let prep_tx = prep_wallet
-        .generate_and_sign_prep_tx(token, U256::from(gas_price + 1))
-        .await
-        .expect("Failed to generate and sign prepare tx");
-
     let txs = [
         format!("0x{}", hex::encode(bid)),
-        format!("0x{}", hex::encode(&prep_tx)),
         format!("0x{}", hex::encode(&target_tx)),
         format!("0x{}", hex::encode(&tx)),
     ];
