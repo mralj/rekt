@@ -154,7 +154,7 @@ fn decode_legacy(
     tx_metadata: HeaderInfo,
 ) -> Result<TxDecodingResult, DecodeTxError> {
     let hash = eth_tx_hash(TxType::Legacy, &buf[..tx_metadata.total_len]);
-    let total_len = tx_metadata.total_len;
+    let total_len = tx_metadata.total_len + 1; // for buff advancing
     if cache::mark_as_fetched(&hash) == cache::TxCacheStatus::Fetched {
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len, total_len));
     }
