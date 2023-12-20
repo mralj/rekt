@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use chrono::{DateTime, Utc};
 use ethers::types::Address;
 use open_fastrlp::{Decodable, DecodeError, Header, HeaderInfo};
@@ -150,8 +150,7 @@ fn decode_legacy(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
-    let mut tx = Vec::with_capacity(tx_metadata.total_len);
-    tx[..tx_metadata.total_len].copy_from_slice(&buf[..tx_metadata.total_len]);
+    let tx = Bytes::copy_from_slice(&buf[..tx_metadata.total_len]);
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     let payload_view = &mut &buf[..tx_metadata.payload_length];
@@ -170,8 +169,6 @@ fn decode_legacy(
             return Ok(TxDecodingResult::NoBuy(tx_metadata.payload_length));
         }
     };
-
-    let tx = Bytes::from(tx);
 
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
         return handle_pcs(tx_metadata, tx, payload_view, hash, recipient, gas_price);
@@ -197,9 +194,13 @@ fn decode_dynamic_and_blob_tx_types(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
-    let mut tx = Vec::with_capacity(tx_metadata.total_len);
-    tx.push(tx_type as u8);
-    tx[1..tx_metadata.total_len].copy_from_slice(&buf[..tx_metadata.total_len]);
+    let mut tx = BytesMut::with_capacity(tx_metadata.total_len + 1);
+    tx.extend_from_slice(&[tx_type as u8]);
+    tx.extend_from_slice(&buf[..tx_metadata.total_len]);
+    let tx = tx.freeze();
+    // let mut tx = Vec::with_capacity(tx_metadata.total_len);
+    // tx.push(tx_type as u8);
+    // tx[1..tx_metadata.total_len].copy_from_slice(&buf[..tx_metadata.total_len]);
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
     if !tx_metadata.list {
@@ -226,7 +227,6 @@ fn decode_dynamic_and_blob_tx_types(
         }
     };
 
-    let tx = Bytes::from(tx);
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
         return handle_pcs(tx_metadata, tx, payload_view, hash, recipient, gas_price);
     }
@@ -252,9 +252,10 @@ fn decode_access_list_tx_type(
         return Ok(TxDecodingResult::NoBuy(tx_metadata.total_len));
     }
 
-    let mut tx = Vec::with_capacity(tx_metadata.total_len);
-    tx.push(tx_type as u8);
-    tx[1..tx_metadata.total_len].copy_from_slice(&buf[..tx_metadata.total_len]);
+    let mut tx = BytesMut::with_capacity(tx_metadata.total_len + 1);
+    tx.extend_from_slice(&[tx_type as u8]);
+    tx.extend_from_slice(&buf[..tx_metadata.total_len]);
+    let tx = tx.freeze();
 
     let tx_metadata = Header::decode_from_info(buf, tx_metadata)?;
 
@@ -280,7 +281,6 @@ fn decode_access_list_tx_type(
         }
     };
 
-    let tx = Bytes::from(tx);
     if unsafe { PCS_LIQ } && recipient_is_to_pcs(&recipient) {
         return handle_pcs(tx_metadata, tx, payload_view, hash, recipient, gas_price);
     }
