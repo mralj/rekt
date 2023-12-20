@@ -94,7 +94,7 @@ pub fn decode_txs(
     // original buffer remains the same
     // the data for processing is of length specified in the RLP header a.k.a metadata
     let payload_view = &mut &buf[..metadata.payload_length];
-    clone_of_txs.advance(metadata.payload_length);
+    clone_of_txs.truncate(metadata.payload_length);
 
     while !payload_view.is_empty() {
         match decode_tx(payload_view)? {
