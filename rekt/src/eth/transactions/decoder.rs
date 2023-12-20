@@ -85,10 +85,12 @@ pub fn decode_txs(
     mut clone_of_txs: Bytes,
     direct: bool,
 ) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
-    let metadata = Header::decode(buf)?;
+    let metadata = HeaderInfo::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
+    clone_of_txs.advance(metadata.header_len);
+    let metadata = Header::decode_from_info(buf, metadata)?;
 
     // note that for processing we are just "viewing" into the data
     // original buffer remains the same
