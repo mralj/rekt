@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use bytes::Bytes;
+use ethers::types::U256;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -59,6 +60,7 @@ pub async fn send_mev(
     bid_gas_price_in_gwei: u64,
     ttl: u64,
     target_tx: Bytes,
+    gas_price: u64,
 ) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
@@ -66,7 +68,7 @@ pub async fn send_mev(
     let priority_wallet = &mut PRIORITY_WALLET.write().await;
     priority_wallet.update_nonce_locally();
     let tx = priority_wallet
-        .generate_and_sign_buy_tx(gwei_to_wei(3))
+        .generate_and_sign_buy_tx(U256::from(gas_price))
         .await
         .expect("Failed to generate and sign priority tx");
 
