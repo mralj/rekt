@@ -64,6 +64,7 @@ pub async fn send_mev(
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
 
     let priority_wallet = &mut PRIORITY_WALLET.write().await;
+    priority_wallet.update_nonce_locally();
     let tx = priority_wallet
         .generate_and_sign_buy_tx(gwei_to_wei(3))
         .await
