@@ -58,11 +58,12 @@ pub fn run_local_server(
                                 match mev::puissant::get_mev_status(&resp.result).await {
                                     Ok(status) => {
                                         status_resp = Some(status);
+                                        break;
                                     }
                                     Err(e) => {
                                         cnt += 1;
                                         println!("Puissant status err: {}", e);
-                                        tokio::time::sleep(tokio::time::Duration::from_secs(1))
+                                        tokio::time::sleep(tokio::time::Duration::from_secs(30))
                                             .await;
                                     }
                                 }
