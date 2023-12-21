@@ -48,10 +48,8 @@ fn handle_tx_hashes(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
 
 fn handle_txs(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     let buy_info = match msg.id {
-        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..], msg.data.clone(), true),
-        EthProtocol::PooledTransactionsMsg => {
-            decode_txs_request(&mut &msg.data[..], msg.data.clone())
-        }
+        EthProtocol::TransactionsMsg => decode_txs(&mut &msg.data[..], true),
+        EthProtocol::PooledTransactionsMsg => decode_txs_request(&mut &msg.data[..]),
         _ => Ok(None),
     };
 

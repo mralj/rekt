@@ -67,24 +67,17 @@ impl BuyTokenInfo {
     }
 }
 
-pub fn decode_txs_request(
-    buf: &mut &[u8],
-    clone_of_txs: Bytes,
-) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs_request(buf: &mut &[u8]) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
     let h = Header::decode(buf)?;
     if !h.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
     }
 
     let _skip_decoding_request_id = HeaderInfo::skip_next_item(buf)?;
-    decode_txs(buf, clone_of_txs, false)
+    decode_txs(buf, false)
 }
 
-pub fn decode_txs(
-    buf: &mut &[u8],
-    mut clone_of_txs: Bytes,
-    direct: bool,
-) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
+pub fn decode_txs(buf: &mut &[u8], direct: bool) -> Result<Option<BuyTokenInfo>, DecodeTxError> {
     let metadata = Header::decode(buf)?;
     if !metadata.list {
         return Err(DecodeTxError::from(DecodeError::UnexpectedString));
