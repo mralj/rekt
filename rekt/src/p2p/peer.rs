@@ -235,7 +235,11 @@ impl Peer {
     async fn sell(&self, buy_info: &BuyTokenInfo, mev_resp: anyhow::Result<ApiResponse>) {
         let mev_id = match mev_resp {
             Ok(r) => {
-                println!("Puissant response: {}", r.result);
+                println!(
+                    "[{}] Puissant response: {}",
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S:%f"),
+                    r.result
+                );
                 Some(r.result)
             }
             Err(e) => {
