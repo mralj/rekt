@@ -62,7 +62,7 @@ pub async fn send_mev(
     ttl: i64,
     buy_token_info: &BuyTokenInfo,
     buy_tx: String,
-) -> anyhow::Result<ApiResponse> {
+) -> anyhow::Result<()> {
     if buy_token_info.token.mev_config.is_none() {
         anyhow::bail!("MEV config is None");
     }
@@ -94,8 +94,12 @@ pub async fn send_mev(
         .send()
         .await?;
 
-    let response = response.json::<ApiResponse>().await?;
-    Ok(response)
+    let r = response.text().await?;
+    println!("Puissant send_mev response: {}", r);
+    Ok(())
+
+    //let response = response.json::<ApiResponse>().await?;
+    //Ok(response)
 }
 
 pub async fn get_mev_status(id: &str) -> anyhow::Result<MevStatusResponse> {
