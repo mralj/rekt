@@ -63,6 +63,7 @@ pub struct Token {
     #[serde(skip)]
     pub buy_txs: Option<Vec<EthMessage>>,
 
+    #[serde(rename = "mev", default)]
     pub mev_config: Option<MevConfig>,
 }
 
