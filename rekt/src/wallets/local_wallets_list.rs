@@ -6,6 +6,9 @@ pub const SELL_WALLET_ADDRESS: &str =
 pub const PRIORITY_WALLET_ADDRESS: &str =
     "009814ccfb0cb00e26cd233337febf960053b5d55d598de82037c858f8cee71c";
 
+pub const MEV_WALLET_ADDRESS: &str =
+    "06be5c058b316f7aaf91d359b3df660137975da7112156ec8a6457899abd330d";
+
 pub const UN_IMPORTANT_WALLETS_START_AT_INDEX: usize = 800;
 
 pub const LOCAL_WALLETS_LIST: [&str; 850] = [

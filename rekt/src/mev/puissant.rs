@@ -7,7 +7,6 @@ use serde_json::json;
 
 use crate::{
     token::token::Token,
-    utils::wei_gwei_converter::gwei_to_wei,
     wallets::local_wallets::{generate_mev_bid, PREPARE_WALLET, PRIORITY_WALLET},
 };
 
