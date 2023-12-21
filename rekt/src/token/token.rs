@@ -136,7 +136,9 @@ pub struct MevConfig {
     pub min_bid: u64,
     #[serde(rename = "max", default)]
     pub max_bid: u64,
+    #[serde(skip)]
     pub bid_tx: String,
+    #[serde(skip)]
     pub buy_txs: Vec<String>,
 }
 
