@@ -17,8 +17,8 @@ use crate::{
 
 use super::{
     local_wallets_list::{
-        LOCAL_WALLETS_LIST, PREPARE_WALLET_ADDRESS, PRIORITY_WALLET_ADDRESS, SELL_WALLET_ADDRESS,
-        UN_IMPORTANT_WALLETS_START_AT_INDEX,
+        LOCAL_WALLETS_LIST, MEV_WALLET_ADDRESS, PREPARE_WALLET_ADDRESS, PRIORITY_WALLET_ADDRESS,
+        SELL_WALLET_ADDRESS, UN_IMPORTANT_WALLETS_START_AT_INDEX,
     },
     wallet_with_nonce::{WalletWithNonce, WeiGasPrice},
 };
@@ -40,6 +40,10 @@ pub static PRIORITY_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
     RwLock::new(
         WalletWithNonce::from_str(PRIORITY_WALLET_ADDRESS).expect("Priority wallet is invalid"),
     )
+});
+
+pub static MEV_WALLET: Lazy<RwLock<WalletWithNonce>> = Lazy::new(|| {
+    RwLock::new(WalletWithNonce::from_str(MEV_WALLET_ADDRESS).expect("MEV wallet is invalid"))
 });
 
 pub async fn init_local_wallets(args: &mut Cli) {
@@ -91,6 +95,11 @@ pub async fn init_local_wallets(args: &mut Cli) {
     if PRIORITY_WALLET.read().await.nonce().is_none() {
         panic!("Priority wallet has no nonce");
     }
+
+    MEV_WALLET.write().await.update_nonce().await;
+    if MEV_WALLET.read().await.nonce().is_none() {
+        panic!("MEV wallet has no nonce");
+    }
 }
 
 pub async fn update_nonces_for_local_wallets() {
@@ -108,6 +117,9 @@ pub async fn update_nonces_for_local_wallets() {
 
     let priority_wallet = &mut PRIORITY_WALLET.write().await;
     priority_wallet.update_nonce().await;
+
+    let mev_wallet = &mut MEV_WALLET.write().await;
+    mev_wallet.update_nonce().await;
 }
 
 pub async fn generate_and_rlp_encode_buy_txs_for_local_wallets(
@@ -180,6 +192,16 @@ pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: boo
         .expect("Failed to generate and sign sell tx");
 
     rlp_encode_list_of_bytes(&vec![tx])
+}
+
+pub async fn generate_mev_bid(gas_price_in_gwei: u64) -> Bytes {
+    let high_priority_wallet = &mut MEV_WALLET.write().await;
+    let tx = high_priority_wallet
+        .generate_mev_tx(gwei_to_wei(gas_price_in_gwei))
+        .await
+        .expect("Failed to generate and sign mev tx");
+
+    tx.0
 }
 
 fn rlp_encode_list_of_bytes(txs_rlp_encoded: &[ethers::types::Bytes]) -> bytes::Bytes {

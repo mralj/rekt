@@ -121,6 +121,28 @@ impl WalletWithNonce {
         TypedTransaction::Legacy(tx)
     }
 
+    pub async fn generate_mev_tx(&mut self, gas_price: U256) -> Result<Bytes, WalletError> {
+        if self.nonce.is_none() {
+            self.update_nonce().await;
+        }
+
+        let tx = TransactionRequest {
+            from: Some(self.address()),
+            to: Some(ethers::types::NameOrAddress::Address(self.address())),
+            gas: Some(U256::from(22_000)),
+            gas_price: Some(gas_price),
+            data: None,
+            nonce: self.nonce,
+            chain_id: Some(ethers::types::U64::from(56)),
+            ..TransactionRequest::default()
+        };
+
+        let tx = TypedTransaction::Legacy(tx);
+        let signature = self.sign_tx(&tx)?;
+
+        Ok(tx.rlp_signed(&signature))
+    }
+
     fn sign_tx(&self, tx: &TypedTransaction) -> Result<Signature, WalletError> {
         self.wallet.sign_transaction_sync(tx)
     }

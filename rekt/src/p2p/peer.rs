@@ -22,6 +22,7 @@ use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::transactions::decoder::BuyTokenInfo;
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
+use crate::mev::puissant::ApiResponse;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -29,7 +30,7 @@ use crate::server::peers::{
 };
 use crate::token::tokens_to_buy::{mark_token_as_bought, remove_all_tokens_to_buy};
 use crate::types::hash::H512;
-use crate::{eth, google_sheets};
+use crate::{eth, google_sheets, mev};
 
 use crate::types::node_record::NodeRecord;
 use crate::utils::helpers::{get_bsc_token_url, get_bsc_tx_url};
@@ -161,7 +162,8 @@ impl Peer {
                                                     }
                                             };
                         let _ = self.tx_sender.send(buy_txs);
-                        self.sell(&buy_info).await;
+                        let mev_resp = mev::puissant::send_mev(1, 60,10,buy_info.liq_tx.clone(), buy_info.gas_price, &buy_info.token).await;
+                        self.sell(&buy_info, mev_resp).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
                             LogToSheets::new(&self.cli, &self, &buy_info).await,
                         )
@@ -219,7 +221,17 @@ impl Peer {
         Ok(())
     }
 
-    async fn sell(&self, buy_info: &BuyTokenInfo) {
+    async fn sell(&self, buy_info: &BuyTokenInfo, mev_resp: anyhow::Result<ApiResponse>) {
+        let mev_id = match mev_resp {
+            Ok(r) => {
+                println!("Puissant response: {}", r.result);
+                Some(r.result)
+            }
+            Err(e) => {
+                println!("Puissant err: {}", e);
+                None
+            }
+        };
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -264,6 +276,17 @@ impl Peer {
 
         unsafe {
             SELL_IS_IN_PROGRESS = false;
+        }
+
+        if let Some(id) = mev_id {
+            match mev::puissant::get_mev_status(&id).await {
+                Ok(status) => {
+                    println!("Puissant status:\n {}", status);
+                }
+                Err(e) => {
+                    println!("Puissant status err: {}", e);
+                }
+            }
         }
 
         // this will refresh token list with proper nonces
