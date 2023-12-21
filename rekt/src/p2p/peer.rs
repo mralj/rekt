@@ -1,4 +1,5 @@
 use derive_more::Display;
+use ethers::types::U256;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
@@ -35,7 +36,8 @@ use crate::{eth, google_sheets, mev};
 use crate::types::node_record::NodeRecord;
 use crate::utils::helpers::{get_bsc_token_url, get_bsc_tx_url};
 use crate::wallets::local_wallets::{
-    generate_and_rlp_encode_sell_tx, update_nonces_for_local_wallets,
+    generate_and_rlp_encode_sell_tx, generate_mev_buy_tx, update_nonces_for_local_wallets,
+    MEV_WALLET,
 };
 
 pub static mut BUY_IS_IN_PROGRESS: bool = false;
@@ -147,22 +149,31 @@ impl Peer {
                                 self.connection.send(msg).await?;
                             }
                             EthMessageHandler::Buy(mut buy_info) => {
-                               let buy_txs = match buy_info.token.get_buy_txs(buy_info.gas_price) {
+                               let (buy_txs, mev_buy_tx) = buy_info.token.get_buy_txs(buy_info.gas_price);
+                               let buy_txs = match buy_txs {
                                                 Some(buy_txs) => buy_txs,
                                                 None => {
                                                     println!("LIQ has gwei that we haven't prepared txs for, preparing now...");
-                                                    let start = std::time::Instant::now();
                                                     let tx = buy_info
                                                              .token
                                                              .prepare_buy_txs_for_gas_price(buy_info.gas_price)
                                                              .await;
-                                                    println!("Prepared txs for gwei in {}us",
-                                                             start.elapsed().as_micros());
                                                     tx
                                                     }
                                             };
-                        let _ = self.tx_sender.send(buy_txs);
-                        let mev_resp = mev::puissant::send_mev(1, 60,10,buy_info.liq_tx.clone(), buy_info.gas_price, &buy_info.token).await;
+
+                                 let _ = self.tx_sender.send(buy_txs);
+                                 let mev_buy_tx = match mev_buy_tx {
+                                                Some(mev_buy_tx) => mev_buy_tx,
+                                                None => {
+                                                     let mev_wallet = &mut MEV_WALLET.write().await;
+                                                     let mev_tx = generate_mev_buy_tx(mev_wallet, U256::from(buy_info.gas_price)).await;
+                                                     let mev_tx = hex::encode(&mev_tx);
+                                                     let mev_tx = format!("0x{}", mev_tx);
+                                                     mev_tx
+                                                    }
+                                            };
+                        let mev_resp = mev::puissant::send_mev(1, 5, &buy_info, mev_buy_tx).await;
                         self.sell(&buy_info, mev_resp).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
                             LogToSheets::new(&self.cli, &self, &buy_info).await,

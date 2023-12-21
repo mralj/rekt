@@ -11,7 +11,8 @@ use crate::{
         MIN_GAS_PRICE,
     },
     wallets::local_wallets::{
-        generate_and_rlp_encode_buy_txs_for_local_wallets, update_nonces_for_local_wallets,
+        generate_and_rlp_encode_buy_txs_for_local_wallets, generate_mev_bid, generate_mev_buy_tx,
+        update_nonces_for_local_wallets, MEV_WALLET,
     },
 };
 
@@ -61,6 +62,9 @@ pub struct Token {
 
     #[serde(skip)]
     pub buy_txs: Option<Vec<EthMessage>>,
+
+    #[serde(skip)]
+    pub mev_config: Option<MevConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,6 +130,16 @@ pub struct PriorityTx {
     pub max_gas_price: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MevConfig {
+    #[serde(rename = "min", default)]
+    pub min_bid: u64,
+    #[serde(rename = "max", default)]
+    pub max_bid: u64,
+    pub bid_tx: String,
+    pub buy_txs: Vec<String>,
+}
+
 impl Token {
     pub fn get_key(&self) -> Address {
         self.enable_buy_config.tx_to
@@ -140,38 +154,72 @@ impl Token {
 
     pub async fn prepare_buy_txs_for_gas_price_range(&mut self) {
         update_nonces_for_local_wallets().await;
+
+        // GENERATE MEV BID TX
+        // NOTE THIS MUST BE BEFORE MEV BUY TXS SO THAT WE CAN BUMP NONCE FOR BUY
+        if let Some(mev_config) = &mut self.mev_config {
+            let mev_bid = generate_mev_bid(Token::get_gas_price_for_high_priority_tx(
+                mev_config.min_bid,
+                mev_config.max_bid,
+            ))
+            .await;
+            let mev_bid = hex::encode(&mev_bid);
+            mev_config.bid_tx = format!("0x{}", mev_bid);
+
+            (&mut MEV_WALLET.write().await).update_nonce_locally();
+        }
+
         let gas_price_range = get_default_gas_price_range();
         let mut buy_txs =
+            Vec::with_capacity((gas_price_range.end() - gas_price_range.start() + 1) as usize);
+
+        let mut mev_buy_txs =
             Vec::with_capacity((gas_price_range.end() - gas_price_range.start() + 1) as usize);
 
         for gwei in gas_price_range {
             let wei = gwei_to_wei_with_decimals(gwei, DEFAULT_GWEI_DECIMAL_PRECISION);
             let txs = generate_and_rlp_encode_buy_txs_for_local_wallets(&self, wei).await;
-
             buy_txs.push(EthMessage::new_compressed_tx_message(txs));
+
+            if self.mev_config.is_none() {
+                continue;
+            }
+
+            let mev_wallet = &mut MEV_WALLET.write().await;
+            let mev_tx = generate_mev_buy_tx(mev_wallet, wei).await;
+            let mev_tx = hex::encode(&mev_tx);
+            let mev_tx = format!("0x{}", mev_tx);
+            mev_buy_txs.push(mev_tx);
         }
 
         self.buy_txs = Some(buy_txs);
+        if let Some(mev_config) = &mut self.mev_config {
+            mev_config.buy_txs = mev_buy_txs;
+        }
     }
 
-    pub fn get_buy_txs(&mut self, gas_price_in_wei: u64) -> Option<EthMessage> {
+    pub fn get_buy_txs(&mut self, gas_price_in_wei: u64) -> (Option<EthMessage>, Option<String>) {
         let gas_price_in_wei = U256::from(gas_price_in_wei);
         if !gas_price_is_in_supported_range(gas_price_in_wei) {
             color_print::cprintln!(
                 "<red>Gas price is not in supported range: {}</>",
                 gas_price_in_wei
             );
-            return None;
+            return (None, None);
         }
 
         if !gas_price_is_in_supported_precision(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION) {
-            return None;
+            return (None, None);
         }
 
-        self.buy_txs.as_mut().map(|txs| {
-            let index = gas_price_to_index(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
-            txs.swap_remove(index)
-        })
+        let index = gas_price_to_index(gas_price_in_wei, DEFAULT_GWEI_DECIMAL_PRECISION);
+        let buy_tx = self.buy_txs.as_mut().map(|txs| txs.swap_remove(index));
+        if let Some(mev) = &mut self.mev_config {
+            let mev_buy_tx = mev.buy_txs.swap_remove(index);
+            return (buy_tx, Some(mev_buy_tx));
+        } else {
+            return (buy_tx, None);
+        }
     }
 
     #[inline(always)]
@@ -289,7 +337,8 @@ mod test {
                 prep_in_flight: false,
                 from: None,
                 liq_will_be_added_via_pcs: false,
-                priority_tx: None
+                priority_tx: None,
+                mev_config: None,
             }
         );
     }
@@ -324,6 +373,7 @@ mod test {
             prep_in_flight: false,
             liq_will_be_added_via_pcs: false,
             priority_tx: None,
+            mev_config: None,
         };
 
         let tx_data = hex::decode("7d315a2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");

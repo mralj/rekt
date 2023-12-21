@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use bytes::{Bytes, BytesMut};
+use ethers::types::U256;
 use futures::{stream::FuturesUnordered, StreamExt};
 use once_cell::sync::Lazy;
 use open_fastrlp::Header;
@@ -194,10 +195,22 @@ pub async fn generate_and_rlp_encode_sell_tx(should_increment_nocne_locally: boo
     rlp_encode_list_of_bytes(&vec![tx])
 }
 
-pub async fn generate_mev_bid(gas_price_in_gwei: u64) -> Bytes {
-    let high_priority_wallet = &mut MEV_WALLET.write().await;
-    let tx = high_priority_wallet
-        .generate_mev_tx(gwei_to_wei(gas_price_in_gwei))
+pub async fn generate_mev_buy_tx(
+    mev_wallet: &mut WalletWithNonce,
+    gas_price_in_wei: U256,
+) -> Bytes {
+    let tx = mev_wallet
+        .generate_and_sign_buy_tx(gas_price_in_wei)
+        .await
+        .expect("Failed to generate and sign mev tx");
+
+    tx.0
+}
+
+pub async fn generate_mev_bid(wei_gas_price: U256) -> Bytes {
+    let mev_wallet = &mut MEV_WALLET.write().await;
+    let tx = mev_wallet
+        .generate_mev_tx(wei_gas_price)
         .await
         .expect("Failed to generate and sign mev tx");
 
