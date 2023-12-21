@@ -62,7 +62,7 @@ pub async fn send_mev(
     target_tx: Bytes,
     gas_price: u64,
     token: &Token,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<ApiResponse> {
     let client = reqwest::Client::new();
     let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
 
@@ -97,9 +97,8 @@ pub async fn send_mev(
         .send()
         .await?;
 
-    let response = response.text().await?;
-    println!("Puissant response: {}", response);
-    Ok(())
+    let response = response.json::<ApiResponse>().await?;
+    Ok(response)
 }
 
 pub async fn get_mev_status(id: &str) -> anyhow::Result<MevStatusResponse> {

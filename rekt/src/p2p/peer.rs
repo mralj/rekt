@@ -161,9 +161,9 @@ impl Peer {
                                                     tx
                                                     }
                                             };
-                        mev::puissant::send_mev(1, 60,3,buy_info.liq_tx.clone(), buy_info.gas_price, &buy_info.token).await;
                         let _ = self.tx_sender.send(buy_txs);
-                        self.sell(&buy_info).await;
+                        let mev_resp = mev::puissant::send_mev(1, 60,10,buy_info.liq_tx.clone(), buy_info.gas_price, &buy_info.token).await;
+                        self.sell(&buy_info, mev_resp).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
                             LogToSheets::new(&self.cli, &self, &buy_info).await,
                         )
@@ -221,17 +221,17 @@ impl Peer {
         Ok(())
     }
 
-    async fn sell(&self, buy_info: &BuyTokenInfo) {
-        // let mev_id = match mev_resp {
-        //     Ok(r) => {
-        //         println!("Puissant response: {}", r.result);
-        //         Some(r.result)
-        //     }
-        //     Err(e) => {
-        //         println!("Puissant err: {}", e);
-        //         None
-        //     }
-        // };
+    async fn sell(&self, buy_info: &BuyTokenInfo, mev_resp: anyhow::Result<ApiResponse>) {
+        let mev_id = match mev_resp {
+            Ok(r) => {
+                println!("Puissant response: {}", r.result);
+                Some(r.result)
+            }
+            Err(e) => {
+                println!("Puissant err: {}", e);
+                None
+            }
+        };
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -278,16 +278,16 @@ impl Peer {
             SELL_IS_IN_PROGRESS = false;
         }
 
-        // if let Some(id) = mev_id {
-        //     match mev::puissant::get_mev_status(&id).await {
-        //         Ok(status) => {
-        //             println!("Puissant status: {}", status);
-        //         }
-        //         Err(e) => {
-        //             println!("Puissant status err: {}", e);
-        //         }
-        //     }
-        // }
+        if let Some(id) = mev_id {
+            match mev::puissant::get_mev_status(&id).await {
+                Ok(status) => {
+                    println!("Puissant status:\n {}", status);
+                }
+                Err(e) => {
+                    println!("Puissant status err: {}", e);
+                }
+            }
+        }
 
         // this will refresh token list with proper nonces
         // sleep for a while to make sure public nodes have latest nonces
