@@ -1,5 +1,6 @@
 use derive_more::Display;
 use ethers::types::U256;
+use futures::stream::SplitSink;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::Duration;
@@ -71,11 +72,12 @@ pub struct Peer {
     pub(crate) peer_type: PeerType,
     pub(crate) td: u64,
 
-    pub(super) connection: P2PWire,
+    pub(super) writer: SplitSink<P2PWire, EthMessage>,
 
     pub(super) protocol_version: ProtocolVersion,
 
     tx_sender: broadcast::Sender<EthMessage>,
+    reader: tokio::sync::mpsc::Receiver<EthMessage>,
 
     cli: Cli,
 }
@@ -86,7 +88,8 @@ impl Peer {
         id: H512,
         protocol: usize,
         info: String,
-        connection: TcpWire,
+        writer: SplitSink<P2PWire, EthMessage>,
+        reader: tokio::sync::mpsc::Receiver<EthMessage>,
         peer_type: PeerType,
         cli: Cli,
         tx_sender: broadcast::Sender<EthMessage>,
@@ -94,7 +97,8 @@ impl Peer {
         Self {
             id,
             cli,
-            connection: P2PWire::new(connection),
+            writer,
+            reader,
             info,
             peer_type,
             tx_sender,
@@ -137,16 +141,16 @@ impl Peer {
                 biased;
                 tx = tx_receiver.recv() => {
                     if let Ok(tx) = tx {
-                        self.connection.send(tx).await?;
+                        self.writer.send(tx).await?;
                     }
                 },
-                msg = self.connection.next(), if !is_buy_in_progress() => {
-                    let msg = msg.ok_or(P2PError::NoMessage)??;
+                msg = self.reader.recv(), if !is_buy_in_progress() => {
+                    let msg = msg.ok_or(P2PError::NoMessage)?;
                     if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
                         match handler_resp {
                             EthMessageHandler::None => {},
                             EthMessageHandler::Response(msg) => {
-                                self.connection.send(msg).await?;
+                                self.writer.send(msg).await?;
                             }
                             EthMessageHandler::Buy(mut buy_info) => {
                                let (buy_txs, mev_buy_tx) = buy_info.token.get_buy_txs(buy_info.gas_price);
@@ -189,7 +193,7 @@ impl Peer {
                 },
                 ping = ping_recv.recv(), if !is_buy_in_progress() => {
                     if ping.is_some() {
-                        self.connection.send(EthMessage::new_devp2p_ping_message()).await?;
+                        self.writer.send(EthMessage::new_devp2p_ping_message()).await?;
                     }
                 }
             }
@@ -197,7 +201,7 @@ impl Peer {
     }
 
     async fn handshake(&mut self) -> Result<(), P2PError> {
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        let msg = self.reader.recv().await.ok_or(P2PError::NoMessage)?;
 
         if msg.id != EthProtocol::StatusMsg {
             error!("Expected status message, got {:?}", msg.id);
@@ -210,7 +214,7 @@ impl Peer {
             return Err(P2PError::CouldNotValidateStatusMessage);
         }
 
-        self.connection
+        self.writer
             .send(StatusMessage::get(&self.protocol_version))
             .await?;
 
@@ -224,8 +228,8 @@ impl Peer {
             return Ok(());
         }
 
-        self.connection.send(UpgradeStatusMessage::get()).await?;
-        let msg = self.connection.next().await.ok_or(P2PError::NoMessage)??;
+        self.writer.send(UpgradeStatusMessage::get()).await?;
+        let msg = self.reader.recv().await.ok_or(P2PError::NoMessage)?;
         if msg.id != EthProtocol::UpgradeStatusMsg {
             return Err(P2PError::ExpectedUpgradeStatusMessage);
         }

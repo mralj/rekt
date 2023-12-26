@@ -2,7 +2,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{SinkExt, TryStreamExt};
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use secp256k1::PublicKey;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::Sender;
@@ -15,7 +15,7 @@ use crate::eth::eth_message::EthMessage;
 use crate::p2p::errors::P2PError;
 use crate::p2p::p2p_wire_message::P2pWireMessage;
 use crate::p2p::peer::{is_buy_or_sell_in_progress, PeerType};
-use crate::p2p::{self, HelloMessage, Peer, Protocol};
+use crate::p2p::{self, p2p_wire, HelloMessage, Peer, Protocol};
 use crate::p2p::{P2PMessage, P2PMessageID};
 use crate::rlpx::codec::{RLPXMsg, RLPXMsgOut};
 use crate::rlpx::errors::{RLPXError, RLPXSessionError};
@@ -98,25 +98,34 @@ pub async fn connect_to_node(
         //conn attempt succeeded, so we can release the permit
         drop(permit);
 
+        let (w, mut r) = p2p_wire::P2PWire::new(TcpWire::new(transport)).split();
+        let (tx, rx) = tokio::sync::mpsc::channel(2);
+        tokio::spawn(async move {
+            loop {
+                let msg = r.next().await;
+                if let Some(Ok(msg)) = msg {
+                    if let Err(_) = tx.send(msg).await {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
+        });
+
         let mut p = Peer::new(
             node.clone(),
             hello_msg.id,
             protocol_v,
             hello_msg.client_version,
-            TcpWire::new(transport),
+            w,
+            rx,
             PeerType::Outbound,
             conn_task.server_info.clone(),
             tx_sender,
         );
 
         let task_result = p.run().await;
-        if is_buy_or_sell_in_progress() {
-            //NOTE: don't disconnect peers immediately to avoid UB (like nil ptr)
-
-            while is_buy_or_sell_in_progress() {
-                tokio::time::sleep(Duration::from_secs(120)).await;
-            }
-        }
         PEERS.remove(&node.id);
 
         // In case we got already connected to same ip error we do not remove the IP from the set
