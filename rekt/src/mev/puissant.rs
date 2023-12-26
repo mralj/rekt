@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
+    eth::transactions::decoder::BuyTokenInfo,
     token::token::Token,
     wallets::local_wallets::{generate_mev_bid, PREPARE_WALLET, PRIORITY_WALLET},
 };
 
+const BLOCK_DURATION: i64 = 3;
 const PUISSANT_API_URL: &str = "https://puissant-bsc.48.club";
 const PUISSANT_EXPLORER_URL: &str = "https://explorer.48.club/api/v1";
 
@@ -57,26 +59,20 @@ pub async fn get_score() {
 
 pub async fn send_mev(
     id: u64,
-    bid_gas_price_in_gwei: u64,
-    ttl: u64,
-    target_tx: Bytes,
-    gas_price: u64,
-    token: &Token,
-) -> anyhow::Result<ApiResponse> {
-    let client = reqwest::Client::new();
-    let bid = generate_mev_bid(bid_gas_price_in_gwei).await;
+    ttl: i64,
+    buy_token_info: &BuyTokenInfo,
+    buy_tx: String,
+) -> anyhow::Result<()> {
+    if buy_token_info.token.mev_config.is_none() {
+        anyhow::bail!("MEV config is None");
+    }
 
-    let priority_wallet = &mut PRIORITY_WALLET.write().await;
-    priority_wallet.update_nonce_locally();
-    let tx = priority_wallet
-        .generate_and_sign_buy_tx(U256::from(gas_price))
-        .await
-        .expect("Failed to generate and sign priority tx");
+    let mev_config = buy_token_info.token.mev_config.as_ref().unwrap();
 
     let txs = [
-        format!("0x{}", hex::encode(bid)),
-        format!("0x{}", hex::encode(&target_tx)),
-        format!("0x{}", hex::encode(&tx)),
+        mev_config.bid_tx.clone(),
+        format!("0x{}", hex::encode(&buy_token_info.liq_tx)),
+        buy_tx,
     ];
 
     let data = json!({
@@ -85,11 +81,12 @@ pub async fn send_mev(
         "method": "eth_sendPuissant",
         "params": [{
             "txs": txs,
-            "maxTimestamp": chrono::Utc::now().timestamp() as u64 + ttl * 3,
+            "maxTimestamp": chrono::Utc::now().timestamp() + ttl * BLOCK_DURATION,
             "acceptReverting": [],
         }]
     });
 
+    let client = reqwest::Client::new();
     let response = client
         .post(PUISSANT_API_URL)
         .header("Content-Type", "application/json")
@@ -97,8 +94,12 @@ pub async fn send_mev(
         .send()
         .await?;
 
-    let response = response.json::<ApiResponse>().await?;
-    Ok(response)
+    let r = response.text().await?;
+    println!("Puissant send_mev response: {}", r);
+    Ok(())
+
+    //let response = response.json::<ApiResponse>().await?;
+    //Ok(response)
 }
 
 pub async fn get_mev_status(id: &str) -> anyhow::Result<MevStatusResponse> {
