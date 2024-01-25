@@ -71,7 +71,7 @@ pub async fn send_mev(
 
     let txs = [
         mev_config.bid_tx.clone(),
-        format!("0x{}", hex::encode(&buy_token_info.liq_tx)),
+        //format!("0x{}", hex::encode(&buy_token_info.liq_tx)),
         buy_tx,
     ];
 
