@@ -173,9 +173,7 @@ impl Peer {
                                                      mev_tx
                                                     }
                                             };
-                        let mev_resp = mev::puissant::send_mev(1, 5, &buy_info, mev_buy_tx).await;
-                        //self.sell(&buy_info, mev_resp).await;
-                        self.sell(&buy_info).await;
+                        self.sell(&buy_info, mev_buy_tx).await;
                         if let Err(e) = google_sheets::write_data_to_sheets(
                             LogToSheets::new(&self.cli, &self, &buy_info).await,
                         )
@@ -233,7 +231,7 @@ impl Peer {
         Ok(())
     }
 
-    async fn sell(&self, buy_info: &BuyTokenInfo) {
+    async fn sell(&self, buy_info: &BuyTokenInfo, mev_buy_tx: String) {
         //async fn sell(&self, buy_info: &BuyTokenInfo, mev_resp: anyhow::Result<ApiResponse>) {
         // let mev_id = match mev_resp {
         //     Ok(r) => {
@@ -251,7 +249,8 @@ impl Peer {
         // };
         //TODO: handle transfer instead of selling scenario
         // sleep so that we don't sell immediately
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let _mev_resp = mev::puissant::send_mev(1, 5, &buy_info, mev_buy_tx).await;
         mark_token_as_bought(buy_info.token.buy_token_address);
         unsafe {
             BUY_IS_IN_PROGRESS = false;
