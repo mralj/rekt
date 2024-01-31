@@ -23,7 +23,6 @@ use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::transactions::decoder::BuyTokenInfo;
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
-use crate::mev::puissant::ApiResponse;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -142,7 +141,7 @@ impl Peer {
                 },
                 msg = self.connection.next(), if !is_buy_in_progress() => {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg, self.protocol_version) {
                         match handler_resp {
                             EthMessageHandler::None => {},
                             EthMessageHandler::Response(msg) => {
