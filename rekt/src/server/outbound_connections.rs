@@ -80,7 +80,11 @@ impl OutboundConnections {
                                     continue;
                                 }
                             }
-                            _ => {}
+                            _ => {
+                                if task.conn_task.attempts > 100 {
+                                    continue;
+                                }
+                            }
                         }
                     }
 
