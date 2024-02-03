@@ -122,7 +122,9 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
     while !payload_view.is_empty() {
         match H256::decode(payload_view) {
             Ok(hash) => {
-                hashes.push(hash);
+                if cache::mark_as_requested(&hash) == cache::TxCacheStatus::NotRequested {
+                    hashes.push(hash);
+                }
             }
             Err(e) => {
                 println!("decode size error: {:?}", e);
@@ -135,7 +137,14 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
         println!("Hashes len {}, sizes len {}", hashes.len(), sizes.len());
     }
 
-    Ok(EthMessageHandler::None)
+    if hashes.is_empty() {
+        return Ok(EthMessageHandler::None);
+    }
+
+    Ok(EthMessageHandler::Response(EthMessage::new(
+        EthProtocol::GetPooledTransactionsMsg,
+        TransactionsRequest::new(hashes).rlp_encode(),
+    )))
 }
 
 fn handle_tx_hashes_before_eth_68(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
