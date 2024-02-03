@@ -118,12 +118,14 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
     }
 
     let mut hashes = Vec::with_capacity(sizes.len());
+    let mut hashes_to_request = Vec::with_capacity(sizes.len());
     let payload_view = &mut &buf[..metadata.payload_length];
     while !payload_view.is_empty() {
         match H256::decode(payload_view) {
             Ok(hash) => {
+                hashes.push(hash);
                 if cache::mark_as_requested(&hash) == cache::TxCacheStatus::NotRequested {
-                    hashes.push(hash);
+                    hashes_to_request.push(hash);
                 }
             }
             Err(e) => {
@@ -137,13 +139,13 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
         println!("Hashes len {}, sizes len {}", hashes.len(), sizes.len());
     }
 
-    if hashes.is_empty() {
+    if hashes_to_request.is_empty() {
         return Ok(EthMessageHandler::None);
     }
 
     Ok(EthMessageHandler::Response(EthMessage::new(
         EthProtocol::GetPooledTransactionsMsg,
-        TransactionsRequest::new(hashes).rlp_encode(),
+        TransactionsRequest::new(hashes_to_request).rlp_encode(),
     )))
 }
 
