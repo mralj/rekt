@@ -23,7 +23,7 @@ pub fn handle_eth_message(
 ) -> Result<EthMessageHandler, ETHError> {
     match msg.id {
         EthProtocol::TransactionsMsg => handle_txs(msg),
-        EthProtocol::PooledTransactionsMsg => handle_txs(msg),
+        //     EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg, proto_v),
         _ => Ok(EthMessageHandler::None),
     }
@@ -151,6 +151,8 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
 
 fn handle_tx_hashes_before_eth_68(msg: EthMessage) -> Result<EthMessageHandler, ETHError> {
     //TODO: optimize with custom rlp decoder
+    return Ok(EthMessageHandler::None);
+
     let hashes: Vec<H256> = Vec::decode(&mut &msg.data[..])?;
     if hashes.len() > 300 {
         return Ok(EthMessageHandler::None);
