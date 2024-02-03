@@ -6,14 +6,14 @@ use thiserror::Error;
 
 const ETH_PROTOCOL: &str = "eth";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive, PartialOrd)]
 pub enum ProtocolVersion {
+    Unknown = 0,
     Eth65 = 65,
     Eth66 = 66,
     #[default]
     Eth67 = 67,
     Eth68 = 68,
-    Unknown = 0,
 }
 
 #[derive(Error, Debug, Copy, Clone)]
@@ -50,31 +50,34 @@ impl Protocol {
 
     pub fn get_our_protocols() -> Vec<Protocol> {
         vec![
-            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
-            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
-            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth65 as usize),
+            Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth68 as usize),
+            // Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth67 as usize),
+            // Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth66 as usize),
+            // Protocol::new(ETH_PROTOCOL.to_string(), ProtocolVersion::Eth65 as usize),
         ]
     }
 
     pub fn match_protocols(peer_protocols: &mut [Protocol]) -> Option<Protocol> {
         peer_protocols.sort_unstable_by(|fst, snd| snd.version.cmp(&fst.version));
-        let mut proto = peer_protocols.first()?;
+        let proto = peer_protocols.first()?;
         if proto.name != ETH_PROTOCOL {
             return None;
         }
 
         //we don't yet support ETH68 so advance to ETH67/66/65
-        if proto.version == 68 {
-            proto = peer_protocols.get(1)?;
+        if proto.version != 68 {
+            return None;
         }
 
-        let p = match proto.version {
-            65 => proto.clone(),
-            66 => proto.clone(),
-            67 => proto.clone(),
-            _ => return None,
-        };
+        Some(proto.clone())
 
-        Some(p)
+        // let p = match proto.version {
+        //     65 => proto.clone(),
+        //     66 => proto.clone(),
+        //     67 => proto.clone(),
+        //     _ => return None,
+        // };
+        //
+        // Some(p)
     }
 }
