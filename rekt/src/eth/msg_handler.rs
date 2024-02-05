@@ -1,7 +1,10 @@
+use std::usize;
+
 use bytes::Buf;
 use open_fastrlp::{Decodable, Header, HeaderInfo};
 
 use crate::p2p::protocol::ProtocolVersion;
+use crate::token::tokens_to_buy::{MAX_SIZE, MIN_SIZE};
 use crate::types::hash::H256;
 
 use super::eth_message::EthMessage;
@@ -99,7 +102,7 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
     let payload_view = &mut &buf[..metadata.payload_length];
     let mut sizes = Vec::with_capacity(4_000);
     while !payload_view.is_empty() {
-        sizes.push(u32::decode(payload_view)?);
+        sizes.push(usize::decode(payload_view)?);
     }
 
     buf.advance(metadata.payload_length);
@@ -113,11 +116,18 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
 
     let mut hashes = Vec::with_capacity(sizes.len());
     let payload_view = &mut &buf[..metadata.payload_length];
+    let mut i = 0;
     while !payload_view.is_empty() {
         let hash = H256::decode(payload_view)?;
+        if !tx_size_is_valid(sizes[i]) {
+            cache::mark_as_fetched(&hash);
+            continue;
+        }
+
         if cache::mark_as_requested(&hash) == cache::TxCacheStatus::NotRequested {
             hashes.push(hash);
         }
+        i += 1;
     }
 
     if hashes.is_empty() {
@@ -132,4 +142,14 @@ fn handle_tx_hashes_after_eth_68(msg: EthMessage) -> Result<EthMessageHandler, E
         EthProtocol::GetPooledTransactionsMsg,
         TransactionsRequest::new(hashes).rlp_encode(),
     )))
+}
+
+fn tx_size_is_valid(size: usize) -> bool {
+    unsafe {
+        if MIN_SIZE == 0 && MAX_SIZE == 0 {
+            return true;
+        }
+
+        size >= MIN_SIZE && size <= MAX_SIZE
+    }
 }
