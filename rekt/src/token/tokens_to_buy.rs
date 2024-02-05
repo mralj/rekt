@@ -179,8 +179,8 @@ fn update_global_liq_setting() {
             }
 
             if token.enable_buy_config.expected_tx_size != 0 {
-                MIN_SIZE = token.enable_buy_config.expected_tx_size - 100;
-                MAX_SIZE = token.enable_buy_config.expected_tx_size + 100;
+                MIN_SIZE = token.enable_buy_config.expected_tx_size - 15;
+                MAX_SIZE = token.enable_buy_config.expected_tx_size + 15;
             }
         }
     }
