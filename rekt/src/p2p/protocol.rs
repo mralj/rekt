@@ -6,7 +6,7 @@ use thiserror::Error;
 
 const ETH_PROTOCOL: &str = "eth";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Display, ToPrimitive, PartialOrd)]
 pub enum ProtocolVersion {
     Eth65 = 65,
     Eth66 = 66,
