@@ -22,8 +22,8 @@ pub fn handle_eth_message(
     proto_v: ProtocolVersion,
 ) -> Result<EthMessageHandler, ETHError> {
     match msg.id {
-        EthProtocol::TransactionsMsg => handle_txs(msg),
-        //     EthProtocol::PooledTransactionsMsg => handle_txs(msg),
+        //EthProtocol::TransactionsMsg => handle_txs(msg),
+        EthProtocol::PooledTransactionsMsg => handle_txs(msg),
         EthProtocol::NewPooledTransactionHashesMsg => handle_tx_hashes(msg, proto_v),
         _ => Ok(EthMessageHandler::None),
     }
