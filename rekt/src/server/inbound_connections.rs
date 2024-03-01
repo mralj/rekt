@@ -38,7 +38,6 @@ pub struct InboundConnections {
     our_private_key: secp256k1::SecretKey,
 
     is_paused: AtomicBool,
-    concurrent_conn_attempts: Arc<tokio::sync::Semaphore>,
 
     cli: crate::cli::Cli,
     tx_sender: tokio::sync::broadcast::Sender<crate::eth::eth_message::EthMessage>,
@@ -49,7 +48,6 @@ impl InboundConnections {
         Self {
             our_private_key: local_node.private_key,
             is_paused: AtomicBool::new(false),
-            concurrent_conn_attempts: Arc::new(tokio::sync::Semaphore::new(256)),
             cli,
             tx_sender,
         }
@@ -71,8 +69,10 @@ impl InboundConnections {
 
     pub async fn run(&self) -> Result<(), io::Error> {
         let socket = TcpSocket::new_v4()?;
-        socket.set_reuseport(true)?;
-        socket.set_reuseaddr(true)?;
+        if let Err(e) = socket.set_nodelay(true) {
+            println!("Set no delay err: {}", e);
+        }
+
         socket.bind(SocketAddr::V4(SocketAddrV4::new(
             Ipv4Addr::UNSPECIFIED,
             DEFAULT_PORT,
@@ -82,15 +82,7 @@ impl InboundConnections {
         let our_secret_key = self.our_private_key;
         let listener = socket.listen(1024)?;
         loop {
-            let semaphore = self
-                .concurrent_conn_attempts
-                .clone()
-                .acquire_owned()
-                .await
-                .unwrap();
-
             let (stream, src) = listener.accept().await?;
-            //let _ = stream.set_nodelay(true);
 
             if self.is_paused() {
                 tokio::time::sleep(Duration::from_secs(120)).await;
@@ -106,15 +98,8 @@ impl InboundConnections {
             tokio::spawn(async move {
                 let rlpx_connection = Connection::new_in(our_secret_key);
                 let transport = rlpx_connection.framed(stream);
-                let _ = new_connection_handler(
-                    src,
-                    transport,
-                    our_secret_key,
-                    cli,
-                    semaphore,
-                    tx_sender,
-                )
-                .await;
+                let _ =
+                    new_connection_handler(src, transport, our_secret_key, cli, tx_sender).await;
             });
         }
     }
@@ -125,7 +110,6 @@ async fn new_connection_handler(
     mut transport: Framed<TcpStream, Connection>,
     secret_key: secp256k1::SecretKey,
     cli: Cli,
-    semaphore: tokio::sync::OwnedSemaphorePermit,
     tx_sender: broadcast::Sender<EthMessage>,
 ) -> Result<(), RLPXSessionError> {
     let external_node_pub_key = handle_auth(&mut transport).await?;
@@ -150,7 +134,6 @@ async fn new_connection_handler(
         }
     };
 
-    drop(semaphore);
     let mut p = Peer::new(
         node.clone(),
         hello_msg.id,
