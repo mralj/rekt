@@ -28,7 +28,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _cpus = num_cpus::get(); // cache this
 
     let mut args = Cli::parse();
-    println!("{}", args);
 
     mev::puissant::ping().await;
     mev::puissant::get_score().await;
@@ -54,6 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_local_wallets(&mut args).await;
 
     import_tokens_to_buy();
+
+    println!("{}", args);
 
     let (conn_tx, conn_rx) = tokio::sync::mpsc::unbounded_channel();
     let (tx_sender, _) = tokio::sync::broadcast::channel(2);
