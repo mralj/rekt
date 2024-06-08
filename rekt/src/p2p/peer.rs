@@ -23,7 +23,6 @@ use crate::eth::status_message::{StatusMessage, UpgradeStatusMessage};
 use crate::eth::transactions::decoder::BuyTokenInfo;
 use crate::eth::types::protocol::EthProtocol;
 use crate::google_sheets::LogToSheets;
-use crate::mev::puissant::ApiResponse;
 use crate::p2p::p2p_wire::P2PWire;
 use crate::rlpx::TcpWire;
 use crate::server::peers::{
@@ -142,7 +141,7 @@ impl Peer {
                 },
                 msg = self.connection.next(), if !is_buy_in_progress() => {
                     let msg = msg.ok_or(P2PError::NoMessage)??;
-                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg) {
+                    if let Ok(handler_resp) = eth::msg_handler::handle_eth_message(msg, self.protocol_version) {
                         match handler_resp {
                             EthMessageHandler::None => {},
                             EthMessageHandler::Response(msg) => {
@@ -162,8 +161,10 @@ impl Peer {
                                                     }
                                             };
 
-                                 let _ = self.tx_sender.send(buy_txs);
-                                 let mev_buy_tx = match mev_buy_tx {
+                                let _ = self.tx_sender.send(buy_txs);
+                                // we sleep so that buy txs are sent before we continue with the rest of the code
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                                let mev_buy_tx = match mev_buy_tx {
                                                 Some(mev_buy_tx) => mev_buy_tx,
                                                 None => {
                                                      let mev_wallet = &mut MEV_WALLET.write().await;
@@ -173,14 +174,17 @@ impl Peer {
                                                      mev_tx
                                                     }
                                             };
-                        self.sell(&buy_info, mev_buy_tx).await;
-                        if let Err(e) = google_sheets::write_data_to_sheets(
-                            LogToSheets::new(&self.cli, &self, &buy_info).await,
-                        )
-                        .await
-                        {
-                            error!("Failed to write to sheets: {}", e);
-                        }
+                                let _mev_resp = mev::puissant::send_mev(1, 5, &buy_info, mev_buy_tx).await;
+
+                                self.sell(&buy_info).await;
+
+                                if let Err(e) = google_sheets::write_data_to_sheets(
+                                    LogToSheets::new(&self.cli, &self, &buy_info).await,
+                                )
+                                .await
+                                {
+                                    error!("Failed to write to sheets: {}", e);
+                                }
                             }
                         }
                     }
@@ -231,7 +235,7 @@ impl Peer {
         Ok(())
     }
 
-    async fn sell(&self, buy_info: &BuyTokenInfo, mev_buy_tx: String) {
+    async fn sell(&self, buy_info: &BuyTokenInfo) {
         //async fn sell(&self, buy_info: &BuyTokenInfo, mev_resp: anyhow::Result<ApiResponse>) {
         // let mev_id = match mev_resp {
         //     Ok(r) => {
@@ -248,9 +252,6 @@ impl Peer {
         //     }
         // };
         //TODO: handle transfer instead of selling scenario
-        // sleep so that we don't sell immediately
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let _mev_resp = mev::puissant::send_mev(1, 5, &buy_info, mev_buy_tx).await;
         mark_token_as_bought(buy_info.token.buy_token_address);
         unsafe {
             BUY_IS_IN_PROGRESS = false;

@@ -71,6 +71,10 @@ pub enum Hardfork {
     HertzFix,
     Shanghai,
     Keppler,
+    Feynman,
+    FeynmanFix,
+    Cancun,
+    Haber,
 }
 
 impl Hardfork {

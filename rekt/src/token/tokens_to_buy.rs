@@ -13,6 +13,8 @@ const REFRESH_TOKENS_INTERVAL: u64 = 10;
 pub static mut TOKENS_TO_BUY: Vec<Token> = Vec::new();
 pub static mut MIN_NONCE: u64 = 0;
 pub static mut MAX_NONCE: u64 = 0;
+pub static mut MIN_SIZE: usize = 0;
+pub static mut MAX_SIZE: usize = 0;
 pub static mut PCS_LIQ: bool = false;
 
 pub static BOUGHT_TOKENS: Lazy<DashSet<TokenAddress>> = Lazy::new(|| DashSet::new());
@@ -161,6 +163,8 @@ fn update_global_liq_setting() {
         MIN_NONCE = 0;
         MAX_NONCE = 0;
         PCS_LIQ = false;
+        MIN_SIZE = 0;
+        MAX_SIZE = 0;
         for token in TOKENS_TO_BUY.iter() {
             if token.liq_will_be_added_via_pcs {
                 PCS_LIQ = true;
@@ -172,6 +176,11 @@ fn update_global_liq_setting() {
                 if MAX_NONCE < from.max_nonce {
                     MAX_NONCE = from.max_nonce;
                 }
+            }
+
+            if token.enable_buy_config.expected_tx_size != 0 {
+                MIN_SIZE = token.enable_buy_config.expected_tx_size - 15;
+                MAX_SIZE = token.enable_buy_config.expected_tx_size + 15;
             }
         }
     }

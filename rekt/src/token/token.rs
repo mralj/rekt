@@ -98,6 +98,9 @@ pub struct EnableBuyConfig {
     /// we have array length, so we can check if array length is > 0
     #[serde(rename = "tradeStatusArgValueNoZero", default)]
     pub trade_status_arg_value_any_bigger_than_0: bool,
+
+    #[serde(rename = "size", default)]
+    pub expected_tx_size: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -328,6 +331,7 @@ mod test {
                     trade_status_arg_position: 0,
                     trade_status_arg_value: 1,
                     trade_status_arg_value_any_bigger_than_0: false,
+                    expected_tx_size: 0,
                 },
                 sell_config: SellConfig {
                     sell_count: 2,
@@ -363,6 +367,7 @@ mod test {
                 trade_status_arg_position: 2,
                 trade_status_arg_value: 1,
                 trade_status_arg_value_any_bigger_than_0: false,
+                expected_tx_size: 0,
             },
             sell_config: SellConfig {
                 sell_count: 2,
@@ -392,6 +397,7 @@ mod test {
                 trade_status_arg_position: 1,
                 trade_status_arg_value: 1,
                 trade_status_arg_value_any_bigger_than_0: false,
+                expected_tx_size: 0,
             },
             ..token
         };
@@ -405,6 +411,7 @@ mod test {
                 trade_status_arg_position: 2,
                 trade_status_arg_value: 4,
                 trade_status_arg_value_any_bigger_than_0: false,
+                expected_tx_size: 0,
             },
             ..token
         };
@@ -418,6 +425,7 @@ mod test {
                 trade_status_arg_position: 2,
                 trade_status_arg_value: 4,
                 trade_status_arg_value_any_bigger_than_0: true,
+                expected_tx_size: 0,
             },
             ..token
         };
