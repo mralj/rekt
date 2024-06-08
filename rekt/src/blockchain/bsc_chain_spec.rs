@@ -54,6 +54,10 @@ pub static BSC_MAINNET: Lazy<ChainSpec> = Lazy::new(|| {
             (Hardfork::HertzFix, ForkCondition::Block(34140700)),
             (Hardfork::Shanghai, ForkCondition::Timestamp(1705996800)),
             (Hardfork::Keppler, ForkCondition::Timestamp(1705996800)),
+            (Hardfork::Feynman, ForkCondition::Timestamp(1713419340)),
+            (Hardfork::FeynmanFix, ForkCondition::Timestamp(1713419340)),
+            (Hardfork::Cancun, ForkCondition::Timestamp(1718863500)),
+            (Hardfork::Haber, ForkCondition::Timestamp(1718863500)),
         ]),
     }
 });
