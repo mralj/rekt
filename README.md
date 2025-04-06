@@ -33,7 +33,7 @@ I was working on this alone and was rushing to get it working ASAP. I haven't ha
 Additionally, my blockchain knowledge at the time of writing this was 0. 
 
 ### Acknowledgements
-Small part (especially around RPLX and ECIES) was isnpired by [reth](https://github.com/paradigmxyz/reth). 
-open-fast RLP is [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimziations and additions I needed.
+1. Small part (especially around RPLX and ECIES) was isnpired by [reth](https://github.com/paradigmxyz/reth). 
+2. open-fast RLP is copied from [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimziations and additions I needed.
 
  
