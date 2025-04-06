@@ -21,7 +21,7 @@ The bot is like a super-light BSC/ETH node. It has fully implemented the DEVP2P 
 The idea is that when sniping like this, you don't don't need access to the blockchain state. You need to catch the tx you are targeting with the lowest latency possible and send your _buy txs_ with the lowest latency possible. The time scale is microseconds, e.g., if you are ~100 microseconds too slow, you are late, other bots will beat you, and chances for profit are much lower. 
 
 
-I usually ran ~ about 20 servers on AWS, at least one server per region subnet. This is because you don't know (or at least I didn't) where TX will originate or where the next validator will be. 
+I usually ran ~ 20 servers on AWS, at least one server per region subnet. This is because you don't know (or at least I didn't) where TX will originate or where the next validator will be, so you must physically be as close as possible to most of your peers. From IP addresses, I reversed locations/server providers, and servers were spawned in the most popular locations and on the most popular server providers (at the time, it was AWS and Hetzner)
 
 Since there was no need to sync blockchain or anything like that, I needed to run the servers only for sniping, vastly decreasing the cost of this whole operation. Also, this enabled me to run the thing on smaller instances, usually `c7g.2xlarge` (I could've used the much cheaper instances to operate this, but I was having latency issues given that I was typically connected to ~500-1k peers, and you need to broadcast txs to all of them as quickly as possible).
 
@@ -33,8 +33,8 @@ I was working on this alone and was rushing to get it working ASAP. I haven't ha
 Additionally, my blockchain knowledge at the time of writing this was 0. 
 
 ### Acknowledgements
-1. Small part (especially around RPLX, ECIES and handling forks) was isnpired by [reth](https://github.com/paradigmxyz/reth). 
-2. open-fast RLP is copied from [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimziations and additions I needed.
-3. Ofc, some parts were inspired by OG [geth](https://github.com/ethereum/go-ethereum)
+1. A small part (especially around RPLX, ECIES, and handling forks) was inspired by [reth](https://github.com/paradigmxyz/reth). 
+2. open-fast RLP is copied from [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimizations and additions I needed.
+3. Of, some parts were inspired by OG [geth](https://github.com/ethereum/go-ethereum)
 
  
