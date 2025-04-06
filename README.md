@@ -35,5 +35,6 @@ Additionally, my blockchain knowledge at the time of writing this was 0.
 ### Acknowledgements
 1. Small part (especially around RPLX, ECIES and handling forks) was isnpired by [reth](https://github.com/paradigmxyz/reth). 
 2. open-fast RLP is copied from [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimziations and additions I needed.
+3. Ofc, some parts were inspired by OG [geth](https://github.com/ethereum/go-ethereum)
 
  
