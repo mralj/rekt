@@ -16,8 +16,10 @@ Note: the easiest way to spot the bots here is a bunch of failed txs.
 
 ## General architecture overview
 
-The bot is like a super-light BSC/ETH node. It has fully implemented the DEVP2P layer and some parts of the ETH layer, but it doesn't store any blockchain state or has most of the features you would expect from a regular node. 
-The idea is that when sniping like this, you don't don't need access to the blockchain state. You need to catch the tx you are targeting with the lowest latency possible and send your _buy txs_ with the lowest latency possible. The time scale is microseconds, e.g., if you are ~100 microseconds too slow, you are late, other bots will beat you, and chances for profit are much lower.
+The bot is like a super-light BSC/ETH node. It has fully implemented the DEVP2P layer and some parts of the ETH layer, but it doesn't store any blockchain state or has most of the features you would expect from a regular node.
+
+The idea is that when sniping like this, you don't don't need access to the blockchain state. You need to catch the tx you are targeting with the lowest latency possible and send your _buy txs_ with the lowest latency possible. The time scale is microseconds, e.g., if you are ~100 microseconds too slow, you are late, other bots will beat you, and chances for profit are much lower. 
+
 
 I usually ran ~ about 20 servers on AWS, at least one server per region subnet. This is because you don't know (or at least I didn't) where TX will originate or where the next validator will be. 
 
@@ -29,5 +31,9 @@ Since there was no need to sync blockchain or anything like that, I needed to ru
 The code quality is mostly _meh_; some parts are great, and some are bad, but importantly, it is really fast. 
 I was working on this alone and was rushing to get it working ASAP. I haven't had time to pay attention to code quality/best practices, etc. 
 Additionally, my blockchain knowledge at the time of writing this was 0. 
+
+### Acknowledgements
+Small part (especially around RPLX and ECIES) was isnpired by [reth](https://github.com/paradigmxyz/reth). 
+open-fast RLP is [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimziations and additions I needed.
 
  
