@@ -37,4 +37,7 @@ Additionally, my blockchain knowledge at the time of writing this was 0.
 2. open-fast RLP is copied from [gakonst/open-fastrlp](https://github.com/gakonst/open-fastrlp) + optimizations and additions I needed.
 3. Of, some parts were inspired by OG [geth](https://github.com/ethereum/go-ethereum)
 
- 
+ #### Note
+
+Note on "leaked" private keys, and auth stuff. All wallets are useless and all services disabled. I think 😅
+This is what one gets when one is too lazy to use `.env` 🤦‍♂️
